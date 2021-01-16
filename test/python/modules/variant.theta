@@ -1,0 +1,7 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+type Either = I { a : Int }
+            | J { a : Int }
+            | S { a : String, b : Int }

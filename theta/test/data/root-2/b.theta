@@ -1,0 +1,7 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+import a
+
+type Bar = a.Foo

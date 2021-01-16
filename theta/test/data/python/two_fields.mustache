@@ -1,0 +1,32 @@
+@dataclass
+class TwoFields:
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"doc":"Generated with Theta {{version}}\\nType hash: 24395e1c611e39dc7b5aa9f87ec2292c","aliases":[],"name":"test.TwoFields","type":"record","fields":[{"aliases":[],"name":"foo","type":"int"},{"aliases":[],"name":"bar","type":"string"}]}''')
+
+    foo: 'int'
+    bar: 'str'
+
+    def encode_avro(self, encoder: avro.Encoder):
+        (encoder.integral)(self.foo)
+        (encoder.string)(self.bar)
+
+    def to_avro(self, out):
+        self.encode_avro(avro.Encoder(out))
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        return TwoFields(decoder.integral(), decoder.string())
+
+    @staticmethod
+    def from_avro(in_):
+        return TwoFields.decode_avro(avro.Decoder(in_))
+
+    @staticmethod
+    def write_container(objects: List['TwoFields'], out,
+                        codec: str="deflate", sync_marker: Optional[bytes]=None):
+        encoder = avro.Encoder(out)
+        container.encode_container(encoder, objects, codec, sync_marker, TwoFields)
+
+    @staticmethod
+    def read_container(in_) -> Iterator['TwoFields']:
+        decoder = avro.Decoder(in_)
+        return container.decode_container(decoder, TwoFields)

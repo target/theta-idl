@@ -1,0 +1,17 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// A module containing a record, a variant and a newtype (that uses a
+// reference).
+
+type Record = { foo : Int }
+
+type Variant = Foo { foo : Int }
+             | Bar { bar : String }
+
+type Newtype = Record
+
+type Newtype2 = Record
+
+alias Alias1 = Record

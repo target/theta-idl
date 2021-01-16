@@ -1,0 +1,15 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+type NewtypeRecord = { foo : Newtype }
+
+type Newtype = Int
+
+// A newtype that forward-references a type:
+type Ref = Referred
+
+// Same check but with aliases
+alias RefAlias = Referred
+
+type Referred = Int

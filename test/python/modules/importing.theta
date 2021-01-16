@@ -1,0 +1,11 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// A module importing and using a type defined in primitives.theta.
+
+import primitives
+
+type Foo = {
+  bar: [primitives.Primitives]
+}

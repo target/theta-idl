@@ -1,0 +1,30 @@
+@dataclass
+class Bar:
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"doc":"Generated with Theta {{version}}\\nType hash: f1f8d49e53501056214b7d466b09e73c","aliases":[],"name":"test.Bar","type":"record","fields":[{"aliases":[],"name":"foo","type":{"aliases":[],"name":"Foo","type":"record","fields":[{"aliases":[],"name":"foo","type":"Foo"}]}}]}''')
+
+    foo: 'Foo'
+
+    def encode_avro(self, encoder: avro.Encoder):
+        (lambda record: record.encode_avro(encoder))(self.foo)
+
+    def to_avro(self, out):
+        self.encode_avro(avro.Encoder(out))
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        return Bar(Foo.decode_avro(decoder))
+
+    @staticmethod
+    def from_avro(in_):
+        return Bar.decode_avro(avro.Decoder(in_))
+
+    @staticmethod
+    def write_container(objects: List['Bar'], out,
+                        codec: str="deflate", sync_marker: Optional[bytes]=None):
+        encoder = avro.Encoder(out)
+        container.encode_container(encoder, objects, codec, sync_marker, Bar)
+
+    @staticmethod
+    def read_container(in_) -> Iterator['Bar']:
+        decoder = avro.Decoder(in_)
+        return container.decode_container(decoder, Bar)

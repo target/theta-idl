@@ -1,0 +1,21 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// A module with a recursive type and two mutually recursive types,
+// for testing whether targets handle recusrive types correctly.
+
+type Recursive = Nil {}
+               | Recurse { contents: Int
+                         , boxed: Recursive
+                         , unboxed: {[Recursive]}
+                         }
+
+
+type MutualA = { mutual: MutualB }
+
+type MutualB = { mutual: Wrapper }
+
+type AMutual = MutualA
+
+alias Wrapper = AMutual?

@@ -1,0 +1,149 @@
+cabal-version:  2.2
+name:           theta
+version:        1.0.0.0
+license:        Apache-2.0
+build-type:     Simple
+extra-source-files:
+  test/data/containers/*.avro
+  test/data/modules/*.theta
+  test/data/transitive/*.theta
+  test/data/theta-root-1/*.theta
+  test/data/theta-root-2/*.theta
+
+  test/data/kotlin/*.kt
+  test/data/python/*.mustache
+  test/data/python/*.py
+  test/data/rust/*.rs
+
+common shared
+  default-language: Haskell2010
+  ghc-options: -Wall
+               -Wincomplete-uni-patterns
+               -Wincomplete-record-updates
+
+               -Wno-name-shadowing
+               -Wno-type-defaults
+               -Wno-unused-do-bind
+
+               -- turn off warning from C preprocess on macOS
+               -optP-Wno-nonportable-include-path
+  build-depends: base
+
+               , aeson
+               , aeson-pretty
+               , aeson-qq
+               , avro >=0.4.2.0 && <0.4.7
+               , binary
+               , bytestring
+               , containers
+               , deepseq
+               , filepath
+               , hashable
+               , language-rust
+               , megaparsec
+               , mtl
+               , prettyprinter
+               , pureMD5
+               , QuickCheck
+               , string-interpolate >= 0.2.1
+               , template-haskell
+               , text
+               , tagged
+               , time
+               , unordered-containers
+               , vector
+               , versions
+
+flag isStatic
+  manual: True
+  default: False
+
+library
+  import:             shared
+  hs-source-dirs:     src/
+
+  exposed-modules:    Theta.Error
+                    , Theta.Import
+                    , Theta.Metadata
+                    , Theta.Name
+                    , Theta.Parser
+                    , Theta.Pretty
+                    , Theta.Types
+                    , Theta.Value
+                    , Theta.Versions
+
+                    , Theta.Target.Avro.Error
+                    , Theta.Target.Avro.Types
+                    , Theta.Target.Avro.Values
+
+                    , Theta.Target.Haskell
+                    , Theta.Target.Haskell.Conversion
+                    , Theta.Target.Haskell.HasTheta
+
+                    , Theta.Target.Kotlin
+                    , Theta.Target.Kotlin.QuasiQuoter
+
+                    , Theta.Target.LanguageQuoter
+
+                    , Theta.Target.Python
+                    , Theta.Target.Python.QuasiQuoter
+
+                    , Theta.Target.Rust
+  other-modules:      Paths_theta
+
+test-suite tests
+  import:             shared
+  type:               exitcode-stdio-1.0
+  main-is:            Test.hs
+  hs-source-dirs:     test
+  other-modules:      Test.Theta.Import
+                    , Test.Theta.Name
+                    , Test.Theta.Parser
+                    , Test.Theta.Types
+                    , Test.Theta.Versions
+
+                    , Test.Theta.Target.Avro.Types
+                    , Test.Theta.Target.Avro.Values
+
+                    , Test.Theta.Target.Haskell
+                    , Test.Theta.Target.Haskell.Conversion
+
+                    , Test.Theta.Target.Kotlin
+
+                    , Test.Theta.Target.Python
+                    , Test.Theta.Target.Python.QuasiQuoter
+
+                    , Test.Theta.Target.Rust
+
+                    , Paths_theta
+
+  build-depends:      theta
+
+                    , directory
+                    , stache
+
+                    , tasty
+                    , tasty-golden
+                    , tasty-hunit
+                    , tasty-quickcheck
+
+executable theta
+  import:             shared
+  hs-source-dirs:     apps/
+  build-depends:      theta
+
+                    , directory
+                    , optparse-applicative
+
+  main-is:            Theta.hs
+  other-modules:      Paths_theta
+
+                    , Apps.Avro
+                    , Apps.Hash
+                    , Apps.Kotlin
+                    , Apps.Python
+                    , Apps.Rust
+                    , Apps.Subcommand
+  if flag(isStatic)
+    ghc-options: -optl=-static -optl=-pthread -static
+    ld-options: -static

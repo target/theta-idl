@@ -1,0 +1,51 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+/** User metadata. */
+type User = {
+    /// An opaque identifier to distinguish users with identical
+    /// usernames.
+    user_id : Long,
+
+    /// Base username. Used for display.
+    ///
+    /// Only username + user_id have to be unique.
+    username : String,
+
+    /** The last time the user logged into our system. This date is
+     *  only the *start* of a session—we ignore the session duration.
+     */
+    last_login : Datetime,
+
+    permissions : [Permission]
+}
+
+/// Some kind of opaque resource identifier.
+type ResourceId = Long
+
+/// Security capabilities user accounts can have.
+type Permission =
+    /** Read access to the given resource.
+
+      */
+    Read {
+        /** Any resource may have this permission.
+                   */
+        resource : ResourceId
+    }
+  | /** Write access to the given resource.
+      *
+      * Implies read access as well.
+      */
+    Write {
+        /// Only writable resources should have this permission.
+        resource : ResourceId
+    }
+  | /// Is the user allowed to log in at all?
+    Login
+
+/// Check that we can add documentation to variants with a single
+/// case.
+type SingleCase = /// This is an edge case in our parser...
+                  OneCase {}

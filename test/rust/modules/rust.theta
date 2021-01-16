@@ -1,0 +1,21 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// A module with a few Rust-specific edge-cases
+
+type Foo = {
+  input: Int,
+  nested: [A]
+}
+
+alias A = [Long]
+
+
+// A recursive type, which means the recursive field needs to be boxed
+// in Rust:
+type Recursive = { recurse: Recursive? }
+
+// Same thing but with a variant rather than a struct:
+type RecursiveVariant = A { recurse: RecursiveVariant? }
+                      | B { recurse: RecursiveVariant? }

@@ -1,0 +1,15 @@
+[package]
+name = "theta"
+version = "0.1.1"
+edition = "2018"
+
+[lib]
+
+[dependencies]
+chrono = "0.4.0"
+nom = "5.0.0"
+integer-encoding = "1.0.7"
+libflate = "0.1.24"
+quickcheck = "0.8.5"
+rand = "0.6.5"
+time = "0.1.42"

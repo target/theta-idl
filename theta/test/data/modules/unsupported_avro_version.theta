@@ -1,0 +1,6 @@
+language-version: 1.0.0
+avro-version: 999.0.0
+---
+
+// this invalid definition should not even be parsed
+type Blarg =

@@ -1,0 +1,30 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+import ids
+
+/** We keep track of people and bands separately because
+  * people are usually sorted by part of their name (ie
+  * last name) while bands are always sorted by their
+  * whole name.
+  */
+type ArtistName = Band { name : String }
+                | Person {
+                    sorting_name   : String,
+                    name_remainder : String?
+                  }
+
+type Track = {
+  title     : String,
+  length    : Int,
+  artists   : [ArtistName]
+}
+
+type Album = {
+  id        : ids.AlbumId,
+  title     : String,
+  published : Date,
+  artists   : [ArtistName],
+  tracks    : [Track]
+}

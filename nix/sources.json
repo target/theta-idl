@@ -1,0 +1,74 @@
+{
+    "all-cabal-hashes": {
+        "branch": "hackage",
+        "description": "A repository containing all cabal files, with added metadata for package hashes",
+        "homepage": null,
+        "owner": "commercialhaskell",
+        "repo": "all-cabal-hashes",
+        "rev": "14c3f5996b58d08ea9730085efbc81d45810b17b",
+        "sha256": "0sq376yfhwjq0dhg8g4nmkvdhnwycy2y61va0j81fg7lfdygmjlv",
+        "type": "file",
+        "url": "https://github.com/commercialhaskell/all-cabal-hashes/archive/14c3f5996b58d08ea9730085efbc81d45810b17b.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "language-rust": {
+        "branch": "master",
+        "description": "Parser and pretty-printer for the Rust language",
+        "homepage": "https://hackage.haskell.org/package/language-rust",
+        "owner": "harpocrates",
+        "repo": "language-rust",
+        "rev": "9d509c450d009cc99f1180b3f2f30247dfb1cfce",
+        "sha256": "1lpgs2fw6jhdkf8219c7jzw5mbiqm3w3hwhkz2yb57pzgdra3ds3",
+        "type": "tarball",
+        "url": "https://github.com/harpocrates/language-rust/archive/9d509c450d009cc99f1180b3f2f30247dfb1cfce.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "naersk": {
+        "branch": "master",
+        "description": "Build rust crates in Nix. No configuration, no code generation, no IFD. Sandbox friendly.",
+        "homepage": "",
+        "owner": "nmattia",
+        "repo": "naersk",
+        "rev": "d7bfbad3304fd768c0f93a4c3b50976275e6d4be",
+        "sha256": "1pvp7v648fm434mvii9ckpg154pchk2jnn049aw96qdq5zkna0fz",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/naersk/archive/d7bfbad3304fd768c0f93a4c3b50976275e6d4be.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "niv": {
+        "branch": "master",
+        "description": "Easy dependency management for Nix projects",
+        "homepage": "https://github.com/nmattia/niv",
+        "owner": "nmattia",
+        "repo": "niv",
+        "rev": "3cd7914b2c4cff48927e11c216dadfab7d903fe5",
+        "sha256": "1agq4nvbhrylf2s77kb4xhh9k7xcwdwggq764k4jgsbs70py8cw3",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/niv/archive/3cd7914b2c4cff48927e11c216dadfab7d903fe5.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "nixpkgs-20.09-darwin",
+        "description": "Nix Packages collection",
+        "homepage": "",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "97a13fb97fcda79f9ab3ee73b5dca65eb891c11a",
+        "sha256": "19h94r5sq2q4b1ijxm6a24d8aiib4ps8yxf87figjzd82mvx4xzm",
+        "type": "tarball",
+        "url": "https://github.com/NixOS/nixpkgs/archive/97a13fb97fcda79f9ab3ee73b5dca65eb891c11a.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs-mozilla": {
+        "branch": "master",
+        "description": "mozilla related nixpkgs (extends nixos/nixpkgs repo)",
+        "homepage": "",
+        "owner": "mozilla",
+        "repo": "nixpkgs-mozilla",
+        "rev": "8c007b60731c07dd7a052cce508de3bb1ae849b4",
+        "sha256": "1zybp62zz0h077zm2zmqs2wcg3whg6jqaah9hcl1gv4x8af4zhs6",
+        "type": "tarball",
+        "url": "https://github.com/mozilla/nixpkgs-mozilla/archive/8c007b60731c07dd7a052cce508de3bb1ae849b4.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Regenerate the two container files I use for testing.
+#
+# You'll need avro-tools to run this. If you're using Nix, you can get
+# avro-tools in a Nix shell:
+#
+# nix-shell -p avro-tools
+
+avro-tools fromjson --schema-file primitives.avsc primitives-container-python.json > primitives-container-python.avro
+avro-tools fromjson --schema-file primitives.avsc --codec deflate primitives-container-python.json > primitives-container-python-deflate.avro 

@@ -1,0 +1,66 @@
+class Variant(ABC):
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"doc":"Generated with Theta {{version}}\\nType hash: f9f5fa87870bc4fe62b567186a1c485d","aliases":[],"name":"test.Variant","type":"record","fields":[{"aliases":[],"name":"constructor","type":[{"aliases":[],"name":"One","type":"record","fields":[{"aliases":[],"name":"foo","type":"int"}]},{"aliases":[],"name":"Two","type":"record","fields":[{"aliases":[],"name":"foo","type":"int"},{"aliases":[],"name":"bar","type":"string"}]}]}]}''')
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        tag = decoder.integral()
+
+        if tag == 0:
+            return One.decode_avro(decoder)
+        elif tag == 1:
+            return Two.decode_avro(decoder)
+        else:
+            raise Exception(f"Invalid tag for variant: {tag}.")
+
+    @staticmethod
+    def from_avro(in_):
+        return Variant.decode_avro(avro.Decoder(in_))
+
+    @staticmethod
+    def write_container(objects: List['Variant'], out,
+                        codec: str="deflate", sync_marker: Optional[bytes]=None):
+        encoder = avro.Encoder(out)
+        container.encode_container(encoder, objects, codec, sync_marker, Variant)
+
+    @staticmethod
+    def read_container(in_) -> Iterator['Variant']:
+        decoder = avro.Decoder(in_)
+        return container.decode_container(decoder, Variant)
+
+@dataclass
+class One(Variant):
+    foo: 'int'
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        return One(decoder.integral())
+
+    def encode_avro(self, encoder: avro.Encoder):
+        # Tag
+        encoder.integral(0)
+
+        # Record
+        (encoder.integral)(self.foo)
+
+    def to_avro(self, out):
+        self.encode_avro(avro.Encoder(out))
+
+@dataclass
+class Two(Variant):
+    foo: 'int'
+    bar: 'str'
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        return Two(decoder.integral(), decoder.string())
+
+    def encode_avro(self, encoder: avro.Encoder):
+        # Tag
+        encoder.integral(1)
+
+        # Record
+        (encoder.integral)(self.foo)
+        (encoder.string)(self.bar)
+
+    def to_avro(self, out):
+        self.encode_avro(avro.Encoder(out))

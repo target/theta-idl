@@ -1,0 +1,7 @@
+* 1.0.0.0
+
+Theta 1.0! A fresh start.
+
+This version has a bunch of breaking changes with the internal version
+of Theta—housekeeping and improvements based on experience using Theta
+across multiple production-grade projects in Haskell, Python and Rust.

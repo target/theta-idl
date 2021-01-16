@@ -1,0 +1,11 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// A module with nested references, newtypes and aliases.
+
+type Newtype_0 = Int
+
+type Newtype_1 = Newtype_0
+
+alias Alias = Newtype_1

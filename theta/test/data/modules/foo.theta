@@ -1,0 +1,9 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// This is a minimal module for constructing small test cases.
+
+type Bar = {
+  a : Int
+}

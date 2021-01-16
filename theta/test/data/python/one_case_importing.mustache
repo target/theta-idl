@@ -1,0 +1,44 @@
+class Variant(ABC):
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"doc":"Generated with Theta {{version}}\\nType hash: 0f3c222bbed476de54b4617234f058b5","aliases":[],"name":"test.Variant","type":"record","fields":[{"aliases":[],"name":"constructor","type":[{"aliases":[],"name":"Case","type":"record","fields":[{"aliases":[],"name":"importing","type":{"aliases":[],"name":"imported.Foo","type":"record","fields":[]}}]}]}]}''')
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        tag = decoder.integral()
+
+        if tag == 0:
+            return Case.decode_avro(decoder)
+        else:
+            raise Exception(f"Invalid tag for variant: {tag}.")
+
+    @staticmethod
+    def from_avro(in_):
+        return Variant.decode_avro(avro.Decoder(in_))
+
+    @staticmethod
+    def write_container(objects: List['Variant'], out,
+                        codec: str="deflate", sync_marker: Optional[bytes]=None):
+        encoder = avro.Encoder(out)
+        container.encode_container(encoder, objects, codec, sync_marker, Variant)
+
+    @staticmethod
+    def read_container(in_) -> Iterator['Variant']:
+        decoder = avro.Decoder(in_)
+        return container.decode_container(decoder, Variant)
+
+@dataclass
+class Case(Variant):
+    importing: 'imported.Foo'
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        return Case(imported.Foo.decode_avro(decoder))
+
+    def encode_avro(self, encoder: avro.Encoder):
+        # Tag
+        encoder.integral(0)
+
+        # Record
+        (lambda record: record.encode_avro(encoder))(self.importing)
+
+    def to_avro(self, out):
+        self.encode_avro(avro.Encoder(out))

@@ -1,0 +1,24 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// A record that has a field for every primitive type supported in
+// Theta.
+type Primitives = {
+  bool     : Bool,
+  bytes    : Bytes,
+  int      : Int,
+  long     : Long,
+  float    : Float,
+  double   : Double,
+  string   : String,
+  date     : Date,    // since 1.2.0
+  datetime : Datetime // since 1.2.0
+}
+
+type Containers = {
+    array    : [Bool],
+    map      : {Bool},
+    optional : Bool?,
+    nested   : {[Bool?]}
+}

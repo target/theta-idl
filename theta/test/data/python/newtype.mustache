@@ -1,0 +1,42 @@
+from abc import ABC
+from dataclasses import dataclass
+from datetime import date, datetime
+import json
+from typing import Any, ClassVar, Dict, Iterator, List, Mapping, Optional
+
+from theta import avro, container
+
+
+
+Newtype = 'int'
+
+@dataclass
+class NewtypeRecord:
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"doc":"Generated with Theta {{version}}\\nType hash: 38cea8f7c32e301f5430960b45092ebf","aliases":[],"name":"newtype.NewtypeRecord","type":"record","fields":[{"aliases":[],"name":"foo","type":"int"}]}''')
+
+    foo: 'Newtype'
+
+    def encode_avro(self, encoder: avro.Encoder):
+        (encoder.integral)(self.foo)
+
+    def to_avro(self, out):
+        self.encode_avro(avro.Encoder(out))
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        return NewtypeRecord(decoder.integral())
+
+    @staticmethod
+    def from_avro(in_):
+        return NewtypeRecord.decode_avro(avro.Decoder(in_))
+
+    @staticmethod
+    def write_container(objects: List['NewtypeRecord'], out,
+                        codec: str="deflate", sync_marker: Optional[bytes]=None):
+        encoder = avro.Encoder(out)
+        container.encode_container(encoder, objects, codec, sync_marker, NewtypeRecord)
+
+    @staticmethod
+    def read_container(in_) -> Iterator['NewtypeRecord']:
+        decoder = avro.Decoder(in_)
+        return container.decode_container(decoder, NewtypeRecord)
