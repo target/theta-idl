@@ -36,6 +36,9 @@ let
     then pkgs.haskell.lib.appendConfigureFlag p "--ghc-option=-Werror"
     else p;
 
+  expose-cabal = p:
+    pkgs.haskell.lib.addBuildTool p compiler.cabal-install;
+
 in
 compiler.developPackage {
   name = "theta";
@@ -54,10 +57,11 @@ compiler.developPackage {
       (new.callCabal2nix "language-rust" sources.language-rust {});
   };
 
-  # Donca't try to build static executables on Darwin systems
-  modifier = if pkgs.stdenv.isDarwin
-             then p: enable-werror p
-             else p: enable-static (enable-werror p);
+  # Don't try to build static executables on Darwin systems
+  modifier = let
+    base = p: enable-werror (expose-cabal p);
+  in
+    if pkgs.stdenv.isDarwin then base else p: enable-static (base p);
 
   # explicitly disable "smart" detection of nix-shell status
   #
