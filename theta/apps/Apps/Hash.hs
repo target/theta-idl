@@ -10,7 +10,6 @@ module Apps.Hash where
 import           Control.Monad           (forM_, when)
 import           Control.Monad.IO.Class  (liftIO)
 
-import           Data.Semigroup          ((<>))
 import           Data.String.Interpolate (i)
 
 import           Options.Applicative

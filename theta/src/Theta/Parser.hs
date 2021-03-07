@@ -11,7 +11,6 @@ import qualified Control.Monad.Reader       as Reader
 import           Control.Monad.Trans        (lift)
 
 import           Data.List.NonEmpty         (NonEmpty (..))
-import           Data.Monoid                ((<>))
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 import           Data.Versions              (semver')

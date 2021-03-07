@@ -22,7 +22,6 @@ import           Data.Hashable            (Hashable)
 import           Data.HashSet             (HashSet)
 import qualified Data.HashSet             as HashSet
 import           Data.List.NonEmpty       (NonEmpty)
-import           Data.Semigroup           ((<>))
 import           Data.Text                (Text)
 import qualified Data.Text                as Text
 import qualified Data.Text.Encoding       as Text

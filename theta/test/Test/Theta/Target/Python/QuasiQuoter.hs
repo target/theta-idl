@@ -1,7 +1,8 @@
 -- NOTE: This file *intentionally* doesn't use OverloadedStrings to
 -- ensure the quasiquoter works without the extension enabled (which
 -- was a problem with an initial version of the code)
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE QuasiQuotes      #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Tests to check that the Python quasiquoter works as
 -- advertised. See the documentation in the

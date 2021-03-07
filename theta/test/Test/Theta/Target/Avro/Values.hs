@@ -14,7 +14,6 @@ import           Control.Monad.Except            (runExceptT)
 import qualified Data.Avro.Schema                as Schema
 import qualified Data.Avro.Types                 as Avro
 import qualified Data.HashMap.Strict             as HashMap
-import           Data.Semigroup                  ((<>))
 import qualified Data.Text                       as Text
 import qualified Data.Time.Calendar              as Time
 import qualified Data.Time.Clock                 as Time
