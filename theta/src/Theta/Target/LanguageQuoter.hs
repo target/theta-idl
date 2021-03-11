@@ -50,7 +50,6 @@
 module Theta.Target.LanguageQuoter where
 
 import           Data.Char                 (isSpace)
-import           Data.Semigroup            ((<>))
 import           Data.Text                 (Text)
 import qualified Data.Text                 as Text
 import           Data.Void                 (Void)

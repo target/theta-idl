@@ -20,7 +20,6 @@ module Test.Theta.Import where
 
 import           Control.Monad.Except          (runExceptT)
 
-import           Data.Semigroup                ((<>))
 import           Data.String.Interpolate       (__i)
 import qualified Data.Text                     as Text
 import qualified Data.Text.IO                  as Text

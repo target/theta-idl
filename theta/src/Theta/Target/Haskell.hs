@@ -68,7 +68,6 @@ import           Data.List                       (foldl')
 import           Data.List.NonEmpty              (NonEmpty)
 import qualified Data.List.NonEmpty              as NonEmpty
 import qualified Data.Map                        as Map
-import           Data.Semigroup                  ((<>))
 import qualified Data.Set                        as Set
 import           Data.Tagged                     (Tagged (..))
 import           Data.Text                       (Text)

@@ -35,7 +35,6 @@ import           Data.Map                (Map)
 import qualified Data.Map                as Map
 import           Data.Maybe              (catMaybes, listToMaybe)
 import           Data.Ord                (comparing)
-import           Data.Semigroup          ((<>))
 import           Data.Sequence           (Seq ((:<|)), (|>))
 import qualified Data.Sequence           as Seq
 import           Data.Set                (Set)

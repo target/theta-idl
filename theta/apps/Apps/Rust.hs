@@ -6,7 +6,6 @@ module Apps.Rust where
 
 import           Control.Monad.Except
 
-import           Data.Semigroup                 ((<>))
 import           Data.String.Interpolate        (__i)
 import           Data.Text.Prettyprint.Doc.Util (putDocW)
 

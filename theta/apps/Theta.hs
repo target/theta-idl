@@ -2,7 +2,6 @@
 {-# LANGUAGE QuasiQuotes    #-}
 module Main where
 
-import           Data.Semigroup          ((<>))
 import           Data.String.Interpolate (__i, i)
 
 import           GHC.Exts                (fromString)

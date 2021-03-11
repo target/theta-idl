@@ -30,7 +30,6 @@ import qualified Data.Foldable          as Foldable
 import qualified Data.List              as List
 import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map               as Map
-import           Data.Semigroup         ((<>))
 import           Data.Text              (Text)
 import qualified Data.Text              as Text
 import qualified Data.Text.IO           as Text

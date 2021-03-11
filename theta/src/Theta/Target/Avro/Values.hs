@@ -45,7 +45,6 @@ import qualified Data.HashSet               as HashSet
 import           Data.Int                   (Int32, Int64)
 import           Data.List.NonEmpty         (NonEmpty)
 import qualified Data.List.NonEmpty         as NonEmpty
-import           Data.Semigroup             ((<>))
 import qualified Data.Set                   as Set
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text

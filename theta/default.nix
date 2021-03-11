@@ -1,4 +1,4 @@
-{ compiler-version ? "ghc865"
+{ compiler-version ? "ghc884"
 , sources ? import ../nix/sources.nix
 , pkgs ? import ../nix/nixpkgs.nix { inherit sources;}
 , compiler ? pkgs.haskell.packages."${compiler-version}"

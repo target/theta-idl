@@ -12,7 +12,6 @@ import           Control.Monad.IO.Class  (liftIO)
 
 import qualified Data.Aeson              as Aeson
 import qualified Data.ByteString.Lazy    as LBS
-import           Data.Semigroup          ((<>))
 import           Data.String.Interpolate (__i)
 import qualified Data.Text               as Text
 

@@ -19,8 +19,6 @@ import           Data.Text              (Text)
 import qualified Data.Text              as Text
 import           Data.Void              (Void)
 
-import           System.IO.Error        (IOError)
-
 import qualified Text.Megaparsec        as Megaparsec
 
 import           Theta.Metadata         (Version)
