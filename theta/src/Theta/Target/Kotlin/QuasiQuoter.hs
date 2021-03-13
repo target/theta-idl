@@ -50,8 +50,8 @@ newtype Kotlin = Kotlin { fromKotlin :: Text }
   deriving newtype (IsString, Semigroup, Monoid)
 
 instance Interpolable Kotlin where
-  toText       = fromKotlin
-  fromText     = Kotlin
+  toText   = fromKotlin
+  fromText = Kotlin
 
 -- | The 'kotlin' quasiquoter generates 'Kotlin' snippets, allowing
 -- you to interpolate other Kotlin snippets from Haskell variables:

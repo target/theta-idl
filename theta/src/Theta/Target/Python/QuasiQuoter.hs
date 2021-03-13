@@ -77,8 +77,8 @@ newtype Python = Python { fromPython :: Text }
   deriving newtype (IsString, Semigroup, Monoid)
 
 instance Interpolable Python where
-  toText       = fromPython
-  fromText     = Python
+  toText   = fromPython
+  fromText = Python
 
 -- | The 'python' quasiquoter generates 'Python' snippets, allowing
 -- you to interpolate other Python snippets from Haskell variables:
