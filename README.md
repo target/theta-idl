@@ -1,6 +1,6 @@
 # Theta
 
-Theta lets you define communication protocols between applications using algebraic data types. You can write your schema once, use it to generate user-friend Haskell, Rust and Python bindings and then share data between programs using [Avro][avro].
+Theta lets you define communication protocols between applications using algebraic data types. You can write your schema once, use it to generate user-friendly Haskell, Rust and Python bindings and then share data between programs using [Avro][avro].
 
 Already use Avro in your system? You can introduce Theta incrementally. All Theta types compile to Avro schemas so you can use Theta to define interfaces for your component, work with external project that understand Avro but not Theta and integrate with services like [Schema Registry][schema-registry].
 
