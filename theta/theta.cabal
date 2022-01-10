@@ -32,14 +32,13 @@ common shared
                , aeson
                , aeson-pretty
                , aeson-qq
-               , avro >=0.4.2.0 && <0.4.7
+               , avro >=0.5.2.0
                , binary
                , bytestring
                , containers
                , deepseq
                , filepath
                , hashable
-               , language-rust
                , megaparsec
                , mtl
                , prettyprinter
