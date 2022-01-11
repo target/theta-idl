@@ -3,7 +3,7 @@
 , pkgs ? import ../nix/nixpkgs.nix { inherit sources;}
 , compiler ? pkgs.haskell.packages."${compiler-version}"
 , source-overrides ? {
-  avro = "0.4.6.0";
+  avro = "0.5.2.0";
   string-interpolate = "0.2.1.0";
 }
 , werror ? true

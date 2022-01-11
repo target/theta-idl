@@ -2,8 +2,9 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ParallelListComp      #-}
 {-# LANGUAGE QuasiQuotes           #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 -- | Errors specific to working with Avro:
 --
@@ -11,24 +12,34 @@
 --    * converting to and from 'Theta.Value' and 'Avro.Value'
 module Theta.Target.Avro.Error where
 
-import           Control.Monad.Except     (MonadError)
+import           Control.Monad.Except        (MonadError)
 
-import qualified Data.Aeson.Encode.Pretty as Aeson
-import qualified Data.Avro.Schema         as Schema
-import qualified Data.Avro.Types          as Avro
-import qualified Data.ByteString.Lazy     as LBS
-import           Data.Foldable            (toList)
-import           Data.Hashable            (Hashable)
-import           Data.HashSet             (HashSet)
-import qualified Data.HashSet             as HashSet
-import           Data.List.NonEmpty       (NonEmpty)
-import           Data.Text                (Text)
-import qualified Data.Text                as Text
-import qualified Data.Text.Encoding       as Text
+import           Data.Aeson                  (ToJSON)
+import qualified Data.Aeson                  as Aeson
+import qualified Data.Aeson.Encode.Pretty    as Aeson
+import qualified Data.Avro.Encoding.FromAvro as Avro
+import qualified Data.Avro.Schema.ReadSchema as ReadSchema
+import qualified Data.Avro.Schema.Schema     as Schema
+import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Lazy        as LBS
+import           Data.Foldable               (toList)
+import           Data.Hashable               (Hashable)
+import qualified Data.HashMap.Strict         as HashMap
+import           Data.HashSet                (HashSet)
+import qualified Data.HashSet                as HashSet
+import           Data.List.NonEmpty          (NonEmpty)
+import           Data.Text                   (Text)
+import qualified Data.Text                   as Text
+import qualified Data.Text.Encoding          as Text
+import qualified Data.Vector                 as Vector
 
-import qualified Theta.Error              as Theta
-import           Theta.Name               (Name (..))
-import           Theta.Pretty             (Pretty (pretty), p)
+import           GHC.Generics                (Generic)
+
+import           Text.Printf                 (printf)
+
+import qualified Theta.Error                 as Theta
+import           Theta.Name                  (Name (..))
+import           Theta.Pretty                (Pretty (pretty), p)
 import           Theta.Types
 
 -- | Throw an Avro-specific error, annotating it as coming from the
@@ -75,7 +86,7 @@ data AvroError = InvalidExport Type
                | InvalidVariant Reason Name
                  -- ^ The Avro encoding of the variant with the given
                  -- name was not valid for the specified reason.
-               | TypeMismatch Type (Avro.Value Schema.Schema)
+               | TypeMismatch Type Avro.Value
                  -- ^ Mismatch between the expected Theta.Type and the
                  -- Avro object being converted.
                | FieldNameMismatch Name (HashSet FieldName) (HashSet FieldName)
@@ -84,10 +95,10 @@ data AvroError = InvalidExport Type
                deriving (Show)
 
 -- | The reason why a variant encoding is invalid.
-data Reason = ConstructorField (Avro.Value Schema.Schema)
+data Reason = ConstructorField Avro.Value
               -- ^ Expected the "constructor" field to be a union but
               -- got something else.
-            | InvalidRecord (Avro.Value Schema.Schema)
+            | InvalidRecord Avro.Value
               -- ^ Expected a record with a single "constructor" field
               -- but got something else.
             | ExtraCase (NonEmpty (Case Type)) Schema.TypeName
@@ -96,7 +107,7 @@ data Reason = ConstructorField (Avro.Value Schema.Schema)
             | DifferentFields (HashSet FieldName) (HashSet FieldName)
               -- ^ The Avro object encoding a case has a different set
               -- of keys than expected by the Theta type.
-            | InvalidBranch (Avro.Value Schema.Schema)
+            | InvalidBranch Avro.Value
               -- ^ The Avro object encoding a case of a variant was
               -- not a record.
             deriving (Show)
@@ -198,6 +209,52 @@ prettyDifference header a b = case HashSet.toList (HashSet.difference a b) of
         #{Text.intercalate "\n" $ map prettyList difference}
         |]
 
+-- | A version of 'Avro.Value' with a ToJSON instance.
+--
+-- This is meant for human-readability only—the JSON format does not
+-- necessarily conform to the Avro standard and may change in the
+-- future.
+--
+-- Binary values (bytes or fixed) will be converted to a JSON string
+-- with each byte encoded in hexadecimal.
+--
+-- If the underlying 'Avro.Value' is malformed in a way that cannot be
+-- converted to JSON (eg a record with a non-record schema—no way to
+-- get field names), it will be converted to a JSON string with an
+-- error message. Converting an 'AvroValue'' to JSON should never
+-- raise an exception.
+newtype AvroValue' = AvroValue' Avro.Value
+
+instance ToJSON AvroValue' where
+  toJSON (AvroValue' v) = case v of
+    Avro.Null       -> Aeson.Null
+    Avro.Boolean b  -> Aeson.toJSON b
+    Avro.Int _ i    -> Aeson.toJSON i
+    Avro.Long _ l   -> Aeson.toJSON l
+    Avro.Float _ f  -> Aeson.toJSON f
+    Avro.Double _ d -> Aeson.toJSON d
+    Avro.Bytes _ b  -> Aeson.toJSON (hex b)
+    Avro.String _ s -> Aeson.toJSON s
+
+    Avro.Array v    -> Aeson.toJSON (AvroValue' <$> v)
+    Avro.Map kv     -> Aeson.toJSON (AvroValue' <$> kv)
+
+    Avro.Record schema values -> case schema of
+      ReadSchema.Record { .. } ->
+        Aeson.toJSON $ HashMap.fromList
+          [ (ReadSchema.fldName field, AvroValue' value)
+          | field <- fields
+          | value <- Vector.toList values
+          ]
+      schema                   ->
+        Aeson.toJSON $ "Invalid schema for record: " <> show schema
+
+    Avro.Union _ _ value -> Aeson.toJSON (AvroValue' value)
+    Avro.Fixed _ bytes   -> Aeson.toJSON (hex bytes)
+    Avro.Enum _ _ symbol -> Aeson.toJSON symbol
+    where hex :: BS.ByteString -> String
+          hex bytes = printf "%x" =<< BS.unpack bytes
+
 -- | Render an Avro value as formatted, human-readable JSON.
-prettyAvro :: Avro.Value Schema.Schema -> Text
-prettyAvro avro = Text.decodeUtf8 $ LBS.toStrict $ Aeson.encodePretty avro
+prettyAvro :: Avro.Value -> Text
+prettyAvro avro = Text.decodeUtf8 $ LBS.toStrict $ Aeson.encodePretty (AvroValue' avro)
