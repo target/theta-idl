@@ -5,18 +5,24 @@
 {-# LANGUAGE NumDecimals           #-}
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ParallelListComp      #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 module Test.Theta.Target.Avro.Values where
 
 import           Control.Monad.Except            (runExceptT)
 
-import qualified Data.Avro.Schema                as Schema
-import qualified Data.Avro.Types                 as Avro
+import qualified Data.Avro.Encoding.FromAvro     as Avro
+import qualified Data.Avro.Schema.ReadSchema     as ReadSchema
+import qualified Data.ByteString                 as BS
 import qualified Data.HashMap.Strict             as HashMap
+import           Data.Int                        (Int32, Int64)
+import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
 import qualified Data.Time.Calendar              as Time
 import qualified Data.Time.Clock                 as Time
+import           Data.Vector                     (Vector)
+import qualified Data.Vector                     as Vector
 
 import           Theta.Metadata                  (Metadata (..))
 import qualified Theta.Pretty                    as Theta
@@ -127,89 +133,89 @@ test_fromAvro = testGroup "fromAvro"
 
 -- Theta and Avro values that should translate into each other
 
-primitives :: [(Theta.Value, Theta.Type, Avro.Value Schema.Schema)]
+primitives :: [(Theta.Value, Theta.Type, Avro.Value)]
 primitives =
   [ (Theta.boolean True,  Theta.bool', Avro.Boolean True)
   , (Theta.boolean False, Theta.bool', Avro.Boolean False)
 
-  , (Theta.bytes "",      Theta.bytes', Avro.Bytes "")
-  , (Theta.bytes "blarg", Theta.bytes', Avro.Bytes "blarg")
+  , (Theta.bytes "",      Theta.bytes', avroBytes "")
+  , (Theta.bytes "blarg", Theta.bytes', avroBytes "blarg")
 
-  , (Theta.int (-1),     Theta.int', Avro.Int (-1))
-  , (Theta.int 0,        Theta.int', Avro.Int 0)
-  , (Theta.int 42,       Theta.int', Avro.Int 42)
-  , (Theta.int minBound, Theta.int', Avro.Int minBound)
-  , (Theta.int maxBound, Theta.int', Avro.Int maxBound)
+  , (Theta.int (-1),     Theta.int', avroInt (-1))
+  , (Theta.int 0,        Theta.int', avroInt 0)
+  , (Theta.int 42,       Theta.int', avroInt 42)
+  , (Theta.int minBound, Theta.int', avroInt minBound)
+  , (Theta.int maxBound, Theta.int', avroInt maxBound)
 
-  , (Theta.long (-1),     Theta.long', Avro.Long (-1))
-  , (Theta.long 0,        Theta.long', Avro.Long 0)
-  , (Theta.long 42,       Theta.long', Avro.Long 42)
-  , (Theta.long minBound, Theta.long', Avro.Long minBound)
-  , (Theta.long maxBound, Theta.long', Avro.Long maxBound)
+  , (Theta.long (-1),     Theta.long', avroLong (-1))
+  , (Theta.long 0,        Theta.long', avroLong 0)
+  , (Theta.long 42,       Theta.long', avroLong 42)
+  , (Theta.long minBound, Theta.long', avroLong minBound)
+  , (Theta.long maxBound, Theta.long', avroLong maxBound)
 
-  , (Theta.float (-1),  Theta.float', Avro.Float (-1))
-  , (Theta.float 0,     Theta.float', Avro.Float 0)
-  , (Theta.float 42,    Theta.float', Avro.Float 42)
-  , (Theta.float pi,    Theta.float', Avro.Float pi)
-  , (Theta.float (1/0), Theta.float',  Avro.Float (1/0))
+  , (Theta.float (-1),  Theta.float', avroFloat (-1))
+  , (Theta.float 0,     Theta.float', avroFloat 0)
+  , (Theta.float 42,    Theta.float', avroFloat 42)
+  , (Theta.float pi,    Theta.float', avroFloat pi)
+  , (Theta.float (1/0), Theta.float',  avroFloat (1/0))
 
-  , (Theta.double (-1),  Theta.double', Avro.Double (-1))
-  , (Theta.double 0,     Theta.double', Avro.Double 0)
-  , (Theta.double 42,    Theta.double', Avro.Double 42)
-  , (Theta.double pi,    Theta.double', Avro.Double pi)
-  , (Theta.double (1/0), Theta.double', Avro.Double (1/0))
+  , (Theta.double (-1),  Theta.double', avroDouble (-1))
+  , (Theta.double 0,     Theta.double', avroDouble 0)
+  , (Theta.double 42,    Theta.double', avroDouble 42)
+  , (Theta.double pi,    Theta.double', avroDouble pi)
+  , (Theta.double (1/0), Theta.double', avroDouble (1/0))
 
-  , (Theta.string "",      Theta.string', Avro.String "")
-  , (Theta.string "blarg", Theta.string', Avro.String "blarg")
+  , (Theta.string "",      Theta.string', avroString "")
+  , (Theta.string "blarg", Theta.string', avroString "blarg")
 
-  , (Theta.date $ read "2019-02-11", Theta.date', Avro.Int 17938 )
+  , (Theta.date $ read "2019-02-11", Theta.date', avroDate 17938 )
 
-  , (Theta.datetime datetime, Theta.datetime', Avro.Long 1549894992000000)
+  , (Theta.datetime datetime, Theta.datetime', avroDatetime 1549894992000000)
   ]
   where datetime = read "2019-02-11 14:23:12 UTC"
 
-containers :: [(Theta.Value, Theta.Type, Avro.Value Schema.Schema)]
+containers :: [(Theta.Value, Theta.Type, Avro.Value)]
 containers =
   [ -- arrays
     (thetaArray Theta.int' [], Theta.array' Theta.int', Avro.Array [])
   , (thetaArray Theta.int' $ Theta.int <$> [0..10], Theta.array' Theta.int',
-     Avro.Array $ Avro.Int <$> [0..10])
+     Avro.Array $ avroInt <$> [0..10])
 
     -- maps
   , (thetaMap Theta.int' [], Theta.map' Theta.int', Avro.Map [])
   , (thetaMap Theta.int' [("abc", Theta.int 10), ("def", Theta.int 20)], Theta.map' Theta.int',
-     Avro.Map [("abc", Avro.Int 10), ("def", Avro.Int 20)])
+     Avro.Map [("abc", avroInt 10), ("def", avroInt 20)])
 
     -- normal optional types
   , (optional Theta.int' Nothing, Theta.optional' Theta.int',
-     Avro.Union [Schema.Null, Schema.Int] Schema.Null Avro.Null)
+     avroUnion [ReadSchema.Null, schemaInt] 0 Avro.Null)
   , (optional Theta.int' $ Just $ Theta.int 37, Theta.optional' Theta.int',
-     Avro.Union [Schema.Null, Schema.Int] Schema.Int $ Avro.Int 37)
+     avroUnion [ReadSchema.Null, schemaInt] 1 $ avroInt 37)
 
     -- nested optionals (this one is a bit subtle!)
   , (optional (Theta.optional' Theta.int') Nothing, Theta.optional' $ Theta.optional' Theta.int',
-     Avro.Union [Schema.Null, nestedUnion] Schema.Null Avro.Null)
+     avroUnion [ReadSchema.Null, nestedUnion] 0 Avro.Null)
   , (optional (Theta.optional' Theta.int') nothing, Theta.optional' $ Theta.optional' Theta.int',
-     Avro.Union [Schema.Null, nestedUnion] nestedUnion nullUnion)
+     avroUnion [ReadSchema.Null, nestedUnion] 1 nullUnion)
   , (optional (Theta.optional' Theta.int') (Just nestedOptional), Theta.optional' $ Theta.optional' Theta.int',
-     Avro.Union [Schema.Null, nestedUnion] nestedUnion $
-       wrapNested Schema.Int $ Avro.Int 37)
+     avroUnion [ReadSchema.Null, nestedUnion] 1 $
+       wrapNested 1 $ avroInt 37)
   ]
   where nothing   = Just $ optional Theta.int' Nothing
-        nullUnion = wrapNested Schema.Null Avro.Null
+        nullUnion = wrapNested 0 Avro.Null
 
         thetaArray t = Theta.Value (Theta.array' t) . Theta.Array
         thetaMap t   = Theta.Value (Theta.map' t) . Theta.Map
         optional t   = Theta.Value (Theta.optional' t) . Theta.Optional
 
         nestedOptional = optional Theta.int' $ Just $ Theta.int 37
-        nestedUnion    = Schema.mkUnion [Schema.Null, Schema.Int]
-        wrapNested     = Avro.Union [Schema.Null, Schema.Int]
+        nestedUnion    = schemaUnion [ReadSchema.Null, schemaInt]
+        wrapNested     = avroUnion [ReadSchema.Null, schemaInt]
 
-records :: [(Theta.Value, Theta.Type, Avro.Value Schema.Schema)]
+records :: [(Theta.Value, Theta.Type, Avro.Value)]
 records = [ (emptyValue, emptyType, Avro.Record emptySchema [])
-          , (value, type_, Avro.Record schema [ ("foo", Avro.Record emptySchema [])
-                                              , ("bar", Avro.Int 42)
+          , (value, type_, Avro.Record schema [ (Avro.Record emptySchema [])
+                                              , (avroInt 42)
                                               ])
           ]
   where wrap = Theta.withModule' $ Theta.Module
@@ -224,7 +230,7 @@ records = [ (emptyValue, emptyType, Avro.Record emptySchema [])
           { Theta.type_   = emptyType
           , Theta.value   = Theta.Record []
           }
-        emptySchema = Schema.Record "foo.Empty" [] Nothing Nothing []
+        emptySchema = ReadSchema.Record "foo.Empty" [] Nothing []
 
         type_ = wrap $ Theta.Record' "foo.Foo"
                   [ Theta.Field "foo" Nothing emptyType
@@ -234,31 +240,32 @@ records = [ (emptyValue, emptyType, Avro.Record emptySchema [])
           { Theta.type_   = type_
           , Theta.value   = Theta.Record [emptyValue , Theta.int 42]
           }
-        schema = Schema.Record "foo.Foo" [] Nothing Nothing
-          [avroField "foo" emptySchema, avroField "bar" Schema.Int]
+        schema = ReadSchema.Record "foo.Foo" [] Nothing
+          [avroField "foo" emptySchema 0, avroField "bar" schemaInt 1]
 
-        avroField name schema = Schema.Field name [] Nothing Nothing schema Nothing
+        avroField name schema i =
+          ReadSchema.ReadField name [] Nothing Nothing (ReadSchema.AsIs i) schema Nothing
 
 
-variants :: [(Theta.Value, Theta.Type, Avro.Value Schema.Schema)]
+variants :: [(Theta.Value, Theta.Type, Avro.Value)]
 variants =
   [ (intValue, variantType,
-     wrapper "foo.Bar" (Schema.mkUnion [intSchema, stringSchema]) $
-       Avro.Union [intSchema, stringSchema] intSchema intRecord)
+     wrapper "foo.Bar" (schemaUnion [intSchema, stringSchema]) $
+       avroUnion [intSchema, stringSchema] 0 intRecord)
   , (stringValue, variantType,
-     wrapper "foo.Bar" (Schema.mkUnion [intSchema, stringSchema]) $
-       Avro.Union [intSchema, stringSchema] stringSchema stringRecord)
+     wrapper "foo.Bar" (schemaUnion [intSchema, stringSchema]) $
+       avroUnion [intSchema, stringSchema] 1 stringRecord)
 
     -- nested variant
   , (variantValue, nestedType,
-     wrapper "foo.Baz" (Schema.mkUnion [variantSchema, longSchema, floatSchema]) $
-      Avro.Union [variantSchema, longSchema, floatSchema] variantSchema variantRecord)
+     wrapper "foo.Baz" (schemaUnion [variantSchema, longSchema, floatSchema]) $
+      avroUnion [variantSchema, longSchema, floatSchema] 0 variantRecord)
   , (longValue, nestedType,
-     wrapper "foo.Baz" (Schema.mkUnion [variantSchema, longSchema, floatSchema]) $
-      Avro.Union [variantSchema, longSchema, floatSchema] longSchema longRecord)
+     wrapper "foo.Baz" (schemaUnion [variantSchema, longSchema, floatSchema]) $
+      avroUnion [variantSchema, longSchema, floatSchema] 1 longRecord)
   , (floatValue, nestedType,
-     wrapper "foo.Baz" (Schema.mkUnion [variantSchema, longSchema, floatSchema]) $
-      Avro.Union [variantSchema, longSchema, floatSchema] floatSchema floatRecord)
+     wrapper "foo.Baz" (schemaUnion [variantSchema, longSchema, floatSchema]) $
+      avroUnion [variantSchema, longSchema, floatSchema] 2 floatRecord)
   ]
   where wrap = Theta.withModule' $ Theta.Module
                  { moduleName = "foo"
@@ -286,22 +293,21 @@ variants =
         stringValue = value $ Theta.Variant "foo.String_"
           [Theta.string "a", Theta.string "b"]
 
-        avroRecord name       = Schema.Record name [] Nothing Nothing
-        avroField name schema = Schema.Field name [] Nothing Nothing schema Nothing
+        avroRecord name fields =
+          ReadSchema.Record name [] Nothing [ field i | i <- [0..] | field <- fields ]
+        avroField name schema i =
+          ReadSchema.ReadField name [] Nothing Nothing (ReadSchema.AsIs i) schema Nothing
 
         intSchema     = avroRecord "foo.Int_"
-          [avroField "a" Schema.Int, avroField "b" Schema.Int]
+          [avroField "a" schemaInt, avroField "b" schemaInt]
         stringSchema  = avroRecord "foo.String_"
-          [avroField "a" Schema.String, avroField "b" Schema.String]
+          [avroField "a" schemaString, avroField "b" schemaString]
 
-        intRecord    = Avro.Record intSchema [ ("a", Avro.Int 1)
-                                             , ("b", Avro.Int 2)]
-        stringRecord = Avro.Record stringSchema [ ("a", Avro.String "a")
-                                                , ("b", Avro.String "b")
-                                                ]
+        intRecord    = Avro.Record intSchema [ avroInt 1, avroInt 2 ]
+        stringRecord = Avro.Record stringSchema [ avroString "a" , avroString "b" ]
 
         wrapper name schema branch = Avro.Record
-          (avroRecord name [avroField "constructor" schema]) [("constructor", branch)]
+          (avroRecord name [avroField "constructor" schema]) [branch]
 
         -- nested variant
         nestedType  = wrap $ Theta.Variant' "foo.Baz" [variantCase, longCase, floatCase]
@@ -320,18 +326,63 @@ variants =
         floatValue    =
           nestedValue $ Theta.Variant "foo.Float_" [Theta.float 2]
 
-        variantUnion  = Schema.mkUnion [intSchema, stringSchema]
+        variantUnion  = schemaUnion [intSchema, stringSchema]
         variantSchema = avroRecord "foo.Variant_"
           [avroField "bar" $ avroRecord "foo.Bar" [avroField "constructor" variantUnion]]
-        longSchema    = avroRecord "foo.Long_" [avroField "long" Schema.Long]
-        floatSchema   = avroRecord "foo.Float_" [avroField "float" Schema.Float]
+        longSchema    = avroRecord "foo.Long_" [avroField "long" schemaLong]
+        floatSchema   = avroRecord "foo.Float_" [avroField "float" schemaFloat]
 
-        wrappedRecord = wrapper "foo.Bar" (Schema.mkUnion [intSchema, stringSchema])
-          (Avro.Union [intSchema, stringSchema] intSchema intRecord)
-        variantRecord = Avro.Record variantSchema [("bar", wrappedRecord)]
-        longRecord    = Avro.Record longSchema [("long", Avro.Long 1)]
-        floatRecord   = Avro.Record floatSchema [("float", Avro.Float 2)]
+        wrappedRecord = wrapper "foo.Bar" (schemaUnion [intSchema, stringSchema])
+          (avroUnion [intSchema, stringSchema] 0 intRecord)
+        variantRecord = Avro.Record variantSchema [wrappedRecord]
+        longRecord    = Avro.Record longSchema [avroLong 1]
+        floatRecord   = Avro.Record floatSchema [avroFloat 2]
 
 -- | Basic metadata for the modules used in this test.
 baseMetadata :: Metadata
 baseMetadata = Metadata { languageVersion = "1.0.0", avroVersion = "1.0.0", moduleName = "foo" }
+
+-- ** Helpers for building Avro values and schemas
+
+avroBytes :: BS.ByteString -> Avro.Value
+avroBytes = Avro.Bytes (ReadSchema.Bytes Nothing)
+
+avroInt :: Int32 -> Avro.Value
+avroInt = Avro.Int schemaInt
+
+avroDate :: Int32 -> Avro.Value
+avroDate = Avro.Int (ReadSchema.Int (Just ReadSchema.Date))
+
+avroLong :: Int64 -> Avro.Value
+avroLong = Avro.Long (ReadSchema.Long ReadSchema.ReadLong Nothing)
+
+avroDatetime :: Int64 -> Avro.Value
+avroDatetime =
+  Avro.Long (ReadSchema.Long ReadSchema.ReadLong (Just ReadSchema.TimestampMicros))
+
+avroFloat :: Float -> Avro.Value
+avroFloat = Avro.Float (ReadSchema.Float ReadSchema.ReadFloat)
+
+avroDouble :: Double -> Avro.Value
+avroDouble = Avro.Double (ReadSchema.Double ReadSchema.ReadDouble)
+
+avroString :: Text -> Avro.Value
+avroString = Avro.String schemaString
+
+avroUnion :: Vector ReadSchema.ReadSchema -> Int -> Avro.Value -> Avro.Value
+avroUnion options i v = Avro.Union (schemaUnion options) i v
+
+schemaUnion :: Vector ReadSchema.ReadSchema -> ReadSchema.ReadSchema
+schemaUnion = ReadSchema.Union . Vector.indexed
+
+schemaInt :: ReadSchema.ReadSchema
+schemaInt = ReadSchema.Int Nothing
+
+schemaLong :: ReadSchema.ReadSchema
+schemaLong = ReadSchema.Long ReadSchema.ReadLong Nothing
+
+schemaFloat :: ReadSchema.ReadSchema
+schemaFloat = ReadSchema.Float ReadSchema.ReadFloat
+
+schemaString :: ReadSchema.ReadSchema
+schemaString = ReadSchema.String Nothing

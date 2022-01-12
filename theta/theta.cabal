@@ -88,6 +88,7 @@ library
                     , Theta.Target.Python.QuasiQuoter
 
                     , Theta.Target.Rust
+                    , Theta.Target.Rust.QuasiQuoter
   other-modules:      Paths_theta
 
 test-suite tests
@@ -112,7 +113,7 @@ test-suite tests
                     , Test.Theta.Target.Python
                     , Test.Theta.Target.Python.QuasiQuoter
 
-                    , Test.Theta.Target.Rust
+                    -- , Test.Theta.Target.Rust
 
                     , Paths_theta
 

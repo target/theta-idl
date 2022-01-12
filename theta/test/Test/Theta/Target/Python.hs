@@ -57,14 +57,15 @@ test_decodeContainer = testGroup "decode container"
       dataDir <- Paths.getDataDir
       let path = "test/data/containers/primitives-container-python.avro"
       container <- LBS.readFile $ dataDir </> path
-      Avro.decodeContainer container @?= [expectedPrimitives]
+      Avro.decodeContainer container @?= (Right <$> expectedPrimitives)
   , testCase "deflate" $ do
       dataDir <- Paths.getDataDir
       let path = "test/data/containers/primitives-container-python.avro"
       container <- LBS.readFile $ dataDir </> path
-      Avro.decodeContainer container @?= [expectedPrimitives]
+      Avro.decodeContainer container @?= (Right <$> expectedPrimitives)
   ]
-  where expectedPrimitives =
+  where expectedPrimitives :: [Primitives]
+        expectedPrimitives =
           [ Primitives True "foo" 1 42 1.0 2.3 "blarg" date time
           , Primitives True "foo" 2 42 1.0 2.3 "blarg" date time
           , Primitives True "foo" 3 42 1.0 2.3 "blarg" date time

@@ -4,6 +4,7 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ViewPatterns          #-}
@@ -12,29 +13,25 @@
 -- schemas, including tests for the ToThtea/FromTheta instances.
 module Test.Theta.Target.Haskell where
 
-import qualified Data.Avro                                              as Avro
-import qualified Data.Avro.Encode                                       as Avro
-import qualified Data.ByteString.Builder                                as ByteString
-import qualified Data.ByteString.Lazy                                   as LBS
-import           Data.HashMap.Strict                                    (HashMap)
-import qualified Data.HashMap.Strict                                    as HashMap
-import           Data.Int                                               (Int32,
-                                                                         Int64)
-import           Data.Text                                              (Text)
-import qualified Data.Text                                              as Text
-import qualified Data.Vector                                            as Vector
+import qualified Data.Avro                       as Avro
+import qualified Data.ByteString.Builder         as ByteString
+import qualified Data.ByteString.Lazy            as LBS
+import           Data.HashMap.Strict             (HashMap)
+import qualified Data.HashMap.Strict             as HashMap
+import           Data.Int                        (Int32, Int64)
+import           Data.Text                       (Text)
+import qualified Data.Text                       as Text
+import qualified Data.Vector                     as Vector
 
-import           Theta.Metadata                                         (Metadata (..))
-import           Theta.Pretty                                           (pretty)
+import           Theta.Metadata                  (Metadata (..))
+import           Theta.Pretty                    (pretty)
 import           Theta.Types
 
-import qualified Theta.Value                                            as Theta
+import qualified Theta.Value                     as Theta
 
-import           Theta.Target.Avro.Values                               (toAvro)
-
-import           Theta.Target.Haskell                                   (loadModule)
+import           Theta.Target.Haskell            (loadModule)
 import           Theta.Target.Haskell.Conversion
-import qualified Theta.Target.Haskell.HasTheta                          as HasTheta
+import qualified Theta.Target.Haskell.HasTheta   as HasTheta
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -65,7 +62,7 @@ test_primitives = testGroup "primitives"
         Right got -> got @?= primitives
         Left err  -> assertFailure $ Text.unpack $ pretty err
   , testCase "fromAvro ∘ toAvro = id" $ do
-      Avro.fromAvro (Avro.toAvro primitives) @?= Avro.Success primitives
+      Avro.decodeValue (Avro.encodeValue primitives) @?= Right primitives
   ]
   where primitives = Primitives True "blarg" 37 42 1.2 7.4 "foo" today now
         expected = Theta.Record
@@ -97,7 +94,7 @@ test_containers = testGroup "containers"
         Right got -> got @?= containers
         Left err  -> assertFailure $ Text.unpack $ pretty err
   , testCase "fromAvro ∘ toAvro = id" $ do
-      Avro.fromAvro (Avro.toAvro containers) @?= Avro.Success containers
+      Avro.decodeValue (Avro.encodeValue containers) @?= Right containers
   ]
   where containers = Containers [True] [("foo", True)] (Just True) [("foo", [Nothing])]
 
@@ -125,75 +122,73 @@ test_avroEncoding :: TestTree
 test_avroEncoding = testGroup "avroEncoding"
   [ testGroup "primitive types"
     [ testCase "Bool" $ do
-        encodeAvro True @?= encode (Theta.boolean True)
-        encodeAvro False @?= encode (Theta.boolean False)
+        encodeAvro True @?= encode True
+        encodeAvro False @?= encode False
 
     , testCase "Int" $ do
-        encodeAvro (1        :: Int32) @?= encode (Theta.int 1)
-        encodeAvro (0        :: Int32) @?= encode (Theta.int 0)
-        encodeAvro (-1       :: Int32) @?= encode (Theta.int (-1))
-        encodeAvro (minBound :: Int32) @?= encode (Theta.int minBound)
-        encodeAvro (maxBound :: Int32) @?= encode (Theta.int maxBound)
+        encodeAvro (1        :: Int32) @?= encode @Int32 1
+        encodeAvro (0        :: Int32) @?= encode @Int32 0
+        encodeAvro (-1       :: Int32) @?= encode @Int32 (-1)
+        encodeAvro (minBound :: Int32) @?= encode @Int32 minBound
+        encodeAvro (maxBound :: Int32) @?= encode @Int32 maxBound
 
     , testCase "Long" $ do
-        encodeAvro (1        :: Int64) @?= encode (Theta.long 1)
-        encodeAvro (0        :: Int64) @?= encode (Theta.long 0)
-        encodeAvro (-1       :: Int64) @?= encode (Theta.long (-1))
-        encodeAvro (minBound :: Int64) @?= encode (Theta.long minBound)
-        encodeAvro (maxBound :: Int64) @?= encode (Theta.long maxBound)
+        encodeAvro (1        :: Int64) @?= encode @Int64 1
+        encodeAvro (0        :: Int64) @?= encode @Int64 0
+        encodeAvro (-1       :: Int64) @?= encode @Int64 (-1)
+        encodeAvro (minBound :: Int64) @?= encode @Int64 minBound
+        encodeAvro (maxBound :: Int64) @?= encode @Int64 maxBound
 
     , testCase "Float" $ do
-        encodeAvro (1     :: Float) @?= encode (Theta.float 1)
-        encodeAvro (0     :: Float) @?= encode (Theta.float 0)
-        encodeAvro (-1    :: Float) @?= encode (Theta.float (-1))
-        encodeAvro (1.2   :: Float) @?= encode (Theta.float 1.2)
-        encodeAvro (1e-10 :: Float) @?= encode (Theta.float 1e-10)
+        encodeAvro (1     :: Float) @?= encode @Float 1
+        encodeAvro (0     :: Float) @?= encode @Float 0
+        encodeAvro (-1    :: Float) @?= encode @Float (-1)
+        encodeAvro (1.2   :: Float) @?= encode @Float 1.2
+        encodeAvro (1e-10 :: Float) @?= encode @Float 1e-10
 
     , testCase "Double" $ do
-        encodeAvro (1     :: Double) @?= encode (Theta.double 1)
-        encodeAvro (0     :: Double) @?= encode (Theta.double 0)
-        encodeAvro (-1    :: Double) @?= encode (Theta.double (-1))
-        encodeAvro (1.2   :: Double) @?= encode (Theta.double 1.2)
-        encodeAvro (1e-10 :: Double) @?= encode (Theta.double 1e-10)
+        encodeAvro (1     :: Double) @?= encode @Double 1
+        encodeAvro (0     :: Double) @?= encode @Double 0
+        encodeAvro (-1    :: Double) @?= encode @Double (-1)
+        encodeAvro (1.2   :: Double) @?= encode @Double 1.2
+        encodeAvro (1e-10 :: Double) @?= encode @Double 1e-10
 
     , testCase "Bytes" $ do
-        encodeAvro (""         :: LBS.ByteString) @?= encode (Theta.bytes "")
-        encodeAvro ("abc"      :: LBS.ByteString) @?= encode (Theta.bytes "abc")
-        encodeAvro ("\tλä̃∘̈çs " :: LBS.ByteString) @?= encode (Theta.bytes "\tλä̃∘̈çs ")
+        encodeAvro (""         :: LBS.ByteString) @?= encode @LBS.ByteString ""
+        encodeAvro ("abc"      :: LBS.ByteString) @?= encode @LBS.ByteString "abc"
+        encodeAvro ("\tλä̃∘̈çs " :: LBS.ByteString) @?= encode @LBS.ByteString "\tλä̃∘̈çs "
 
     , testCase "String" $ do
-        encodeAvro (""         :: Text) @?= encode (Theta.string "")
-        encodeAvro ("abc"      :: Text) @?= encode (Theta.string "abc")
-        encodeAvro ("\tλä̃∘̈çs " :: Text) @?= encode (Theta.string "\tλä̃∘̈çs ")
+        encodeAvro (""         :: Text) @?= encode @Text ""
+        encodeAvro ("abc"      :: Text) @?= encode @Text "abc"
+        encodeAvro ("\tλä̃∘̈çs " :: Text) @?= encode @Text "\tλä̃∘̈çs "
     ]
 
   , testGroup "containers"
     [ testCase "Array" $ do
-        encodeAvro ([]      :: [Int32]) @?= encode (wrapArray int' [])
-        encodeAvro ([1]     :: [Int32]) @?= encode (wrapArray int' [Theta.int 1])
-        encodeAvro ([1..10] :: [Int32]) @?=
-          encode (wrapArray int' $ Theta.int <$> [1..10])
+        encodeAvro ([]      :: [Int32]) @?= encode @[Int32] []
+        encodeAvro ([1]     :: [Int32]) @?= encode @[Int32] [1]
+        encodeAvro ([1..10] :: [Int32]) @?= encode @[Int32] [1..10]
 
     , testCase "Map" $ do
         encodeAvro ([]      :: HashMap Text Int32) @?=
-          encode (wrapMap int' [])
+          encode @(HashMap Text Int) []
         encodeAvro ([("a", 1)] :: HashMap Text Int32) @?=
-          encode (wrapMap int' [("a", Theta.int 1)])
+          encode @(HashMap Text Int) [("a", 1)]
 
         let keys = Text.singleton <$> ['a'..]
         encodeAvro (HashMap.fromList $ zip keys [1 :: Int32 ..10]) @?=
-          encode (wrapMap int' $ HashMap.fromList $ zip keys $ Theta.int <$> [1..10])
+          encode (HashMap.fromList @Text @Int $ zip keys [1..10])
 
     , testCase "Optional" $ do
-        encodeAvro (Nothing :: Maybe Int32) @?= encode (wrapNothing int')
+        encodeAvro (Nothing :: Maybe Int32) @?= encode (Nothing :: Maybe Int32)
 
         let encoded = ByteString.toLazyByteString $ encodeInt 1 <> encodeInt 42
         encodeAvro (Just 42 :: Maybe Int32) @?= encoded
     ]
   ]
-  where encode x = case toAvro x of
-          Left err  -> error $ Text.unpack $ pretty err
-          Right res -> Avro.encodeAvro res
+  where encode :: (Avro.HasAvroSchema a, Avro.ToAvro a) => a -> LBS.ByteString
+        encode = Avro.encodeValue
 
 test_avroDecoding :: TestTree
 test_avroDecoding = testGroup "avroDecoding"

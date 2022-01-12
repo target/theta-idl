@@ -11,7 +11,8 @@ module Test.Theta.Target.Avro.Types where
 import           Control.Monad                 (forM_)
 import           Control.Monad.State           (StateT, evalStateT)
 
-import qualified Data.Avro.Schema              as Avro
+import qualified Data.Avro                     as Avro
+import qualified Data.Avro.Schema.Schema       as Avro
 import           Data.Foldable                 (toList)
 import           Data.Set                      (Set)
 import qualified Data.Set                      as Set
@@ -76,10 +77,10 @@ test_bytes :: TestTree
 test_bytes = testCase "Bytes" $ check (typeToAvro bool') Avro.Boolean
 
 test_int :: TestTree
-test_int = testCase "Int" $ check (typeToAvro int') Avro.Int
+test_int = testCase "Int" $ check (typeToAvro int') (Avro.Int Nothing)
 
 test_long :: TestTree
-test_long = testCase "Long" $ check (typeToAvro long') Avro.Long
+test_long = testCase "Long" $ check (typeToAvro long') (Avro.Long Nothing)
 
 test_float :: TestTree
 test_float = testCase "Float" $ check (typeToAvro float') Avro.Float
@@ -88,34 +89,35 @@ test_double :: TestTree
 test_double = testCase "Double" $ check (typeToAvro double') Avro.Double
 
 test_string :: TestTree
-test_string = testCase "String" $ check (typeToAvro string') Avro.String
+test_string = testCase "String" $ check (typeToAvro string') (Avro.String Nothing)
 
 test_date :: TestTree
-test_date = testCase "Date" $ check (typeToAvro date') Avro.Int
+test_date = testCase "Date" $ check (typeToAvro date') (Avro.Int (Just Avro.Date))
 
 test_datetime :: TestTree
-test_datetime = testCase "Datetime" $ check (typeToAvro datetime') Avro.Long
+test_datetime = testCase "Datetime" $
+  check (typeToAvro datetime') (Avro.Long (Just Avro.TimestampMicros))
 
 -- * Containers
 
 test_array :: TestTree
 test_array = testCase "Array" $ do
-  check (typeToAvro (array' string'))          $ Avro.Array Avro.String
-  check (typeToAvro (array' (array' string'))) $ Avro.Array $ Avro.Array Avro.String
-  check (typeToAvro (array' (map' string')))   $ Avro.Array $ Avro.Map Avro.String
+  check (typeToAvro (array' string'))          $ Avro.Array (Avro.String Nothing)
+  check (typeToAvro (array' (array' string'))) $ Avro.Array $ Avro.Array (Avro.String Nothing)
+  check (typeToAvro (array' (map' string')))   $ Avro.Array $ Avro.Map (Avro.String Nothing)
 
 test_map :: TestTree
 test_map = testCase "Map" $ do
-  check (typeToAvro (map' string'))          $ Avro.Map Avro.String
-  check (typeToAvro (map' (map' string')))   $ Avro.Map $ Avro.Map Avro.String
-  check (typeToAvro (map' (array' string'))) $ Avro.Map $ Avro.Array Avro.String
+  check (typeToAvro (map' string'))          $ Avro.Map (Avro.String Nothing)
+  check (typeToAvro (map' (map' string')))   $ Avro.Map $ Avro.Map (Avro.String Nothing)
+  check (typeToAvro (map' (array' string'))) $ Avro.Map $ Avro.Array (Avro.String Nothing)
 
 test_optional :: TestTree
 test_optional = testCase "Optional" $ do
   let wrap type_ = Avro.mkUnion [Avro.Null, type_]
-  check (typeToAvro (optional' string'))          $ wrap Avro.String
-  check (typeToAvro (optional' (array' string'))) $ wrap (Avro.Array Avro.String)
-  check (typeToAvro (map' (optional' string')))   $ Avro.Map (wrap Avro.String)
+  check (typeToAvro (optional' string'))          $ wrap (Avro.String Nothing)
+  check (typeToAvro (optional' (array' string'))) $ wrap (Avro.Array (Avro.String Nothing))
+  check (typeToAvro (map' (optional' string')))   $ Avro.Map (wrap (Avro.String Nothing))
 
 -- * Named Types
 
@@ -123,24 +125,24 @@ test_record :: TestTree
 test_record = testGroup "record"
   [ testCase "empty" $ do
       check (typeToAvro $ get "test.EmptyRecord") $
-        Avro.Record "test.EmptyRecord" [] Nothing Nothing []
+        Avro.Record "test.EmptyRecord" [] Nothing []
 
   , testCase "one field" $ do
-      let foo = Avro.Field "foo" [] Nothing Nothing Avro.String Nothing
+      let foo = Avro.Field "foo" [] Nothing Nothing (Avro.String Nothing) Nothing
       check (typeToAvro $ get "test.OneField") $
-        Avro.Record "test.OneField" [] Nothing Nothing [foo]
+        Avro.Record "test.OneField" [] Nothing [foo]
 
   , testCase "two fields" $ do
-      let foo = Avro.Field "foo" [] Nothing Nothing Avro.String Nothing
-          bar = Avro.Field "bar" [] Nothing Nothing (Avro.Array Avro.String) Nothing
+      let foo = Avro.Field "foo" [] Nothing Nothing (Avro.String Nothing) Nothing
+          bar = Avro.Field "bar" [] Nothing Nothing (Avro.Array (Avro.String Nothing)) Nothing
       check (typeToAvro $ get "test.TwoFields") $
-        Avro.Record "test.TwoFields" [] Nothing Nothing [foo, bar]
+        Avro.Record "test.TwoFields" [] Nothing [foo, bar]
 
   , testCase "recursive" $ do
       let recursive = Avro.NamedType "test.Recursive"
           foo       = Avro.Field "foo" [] Nothing Nothing recursive Nothing
       check (typeToAvro $ get "test.Recursive") $
-        Avro.Record "test.Recursive" [] Nothing Nothing [foo]
+        Avro.Record "test.Recursive" [] Nothing [foo]
 
   , testCase "nested" $ do
       -- note how the first use of the inner type (Foo) in the Avro
@@ -148,44 +150,44 @@ test_record = testGroup "record"
       -- a named reference
       let foo           = Avro.Field "foo" [] Nothing Nothing fooDefinition Nothing
           bar           = Avro.Field "bar" [] Nothing Nothing reference Nothing
-          fooDefinition = Avro.Record "test.Foo" [] Nothing Nothing []
+          fooDefinition = Avro.Record "test.Foo" [] Nothing []
           reference     = Avro.NamedType "test.Foo"
       check (typeToAvro $ get "test.Nested") $
-        Avro.Record "test.Nested" [] Nothing Nothing [foo, bar]
+        Avro.Record "test.Nested" [] Nothing [foo, bar]
   ]
 
 test_variant :: TestTree
 test_variant = testGroup "variant"
   [ testCase "one case, no fields" $ do
-      let case_ = Avro.Record "test.Enum1_A" [] Nothing Nothing []
+      let case_ = Avro.Record "test.Enum1_A" [] Nothing []
       check (typeToAvro $ get "test.Enum1") $
-        Avro.Record "test.Enum1" [] Nothing Nothing [constructor [case_]]
+        Avro.Record "test.Enum1" [] Nothing [constructor [case_]]
 
   , testCase "two cases, no fields" $ do
-      let caseA = Avro.Record "test.Enum2_A" [] Nothing Nothing []
-          caseB = Avro.Record "test.Enum2_B" [] Nothing Nothing []
+      let caseA = Avro.Record "test.Enum2_A" [] Nothing []
+          caseB = Avro.Record "test.Enum2_B" [] Nothing []
       check (typeToAvro $ get "test.Enum2") $
-        Avro.Record "test.Enum2" [] Nothing Nothing [constructor [caseA, caseB]]
+        Avro.Record "test.Enum2" [] Nothing [constructor [caseA, caseB]]
 
   , testCase "one case" $ do
-      let one           = Avro.Record "test.One" [] Nothing Nothing [foo, bar]
+      let one           = Avro.Record "test.One" [] Nothing [foo, bar]
           foo           = Avro.Field "foo" [] Nothing Nothing fooDefinition Nothing
           bar           = Avro.Field "bar" [] Nothing Nothing optional Nothing
-          fooDefinition = Avro.Record "test.Foo" [] Nothing Nothing []
+          fooDefinition = Avro.Record "test.Foo" [] Nothing []
           optional      = Avro.mkUnion [Avro.Null, Avro.NamedType "test.Foo"]
       check (typeToAvro $ get "test.OneCase") $
-        Avro.Record "test.OneCase" [] Nothing Nothing [constructor [one]]
+        Avro.Record "test.OneCase" [] Nothing [constructor [one]]
 
   , testCase "two cases" $ do
-      let one           = Avro.Record "test.One" [] Nothing Nothing [foo, bar]
+      let one           = Avro.Record "test.One" [] Nothing [foo, bar]
           foo           = Avro.Field "foo" [] Nothing Nothing fooDefinition Nothing
           bar           = Avro.Field "bar" [] Nothing Nothing optional Nothing
-          fooDefinition = Avro.Record "test.Foo" [] Nothing Nothing []
+          fooDefinition = Avro.Record "test.Foo" [] Nothing []
           optional      = Avro.mkUnion [Avro.Null, Avro.NamedType "test.Foo"]
 
-          two           = Avro.Record "test.Two" [] Nothing Nothing []
+          two           = Avro.Record "test.Two" [] Nothing []
       check (typeToAvro $ get "test.TwoCases") $
-        Avro.Record "test.TwoCases" [] Nothing Nothing [constructor [one, two]]
+        Avro.Record "test.TwoCases" [] Nothing [constructor [one, two]]
   ]
   where constructor cases = Avro.Field "constructor" [] Nothing Nothing union Nothing
           where union = Avro.mkUnion cases
@@ -237,8 +239,8 @@ test_documentation = testGroup "documentation"
 
 test_toSchema :: TestTree
 test_toSchema = testCase "toSchema" $ do
-  let expected = Avro.Record "test.OneField" [] docs Nothing [foo]
-      foo      = Avro.Field "foo" [] Nothing Nothing Avro.String Nothing
+  let expected = Avro.Record "test.OneField" [] docs [foo]
+      foo      = Avro.Field "foo" [] Nothing Nothing (Avro.String Nothing) Nothing
       docs     = Just
         [__i|
           Generated with Theta #{Theta.packageVersion'}

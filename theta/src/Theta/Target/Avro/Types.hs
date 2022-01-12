@@ -41,8 +41,9 @@ import           Control.DeepSeq            (liftRnf)
 import           Control.Monad.Except
 import           Control.Monad.State.Strict
 
-import           Data.Avro.Schema           (Schema, TypeName (..))
-import qualified Data.Avro.Schema           as Avro
+import           Data.Avro                  (Schema, TypeName (..))
+import qualified Data.Avro                  as Avro
+import qualified Data.Avro.Schema.Schema    as Avro
 import           Data.List                  (sort)
 import           Data.List.NonEmpty         (NonEmpty (..))
 import           Data.Set                   (Set)
@@ -120,7 +121,6 @@ toSchema Definition { definitionType, definitionDoc } =
         { Avro.name    = name
         , Avro.aliases = aliases
         , Avro.doc     = annotation doc
-        , Avro.order   = order
         , Avro.fields  = fields
         }
       _ -> error "Top-level Avro schema has to be a record.\n\
@@ -214,7 +214,6 @@ variant variantName doc variantCases = do
       { Avro.name      = nameToAvro variantName
       , Avro.aliases   = []
       , Avro.doc       = getText <$> doc
-      , Avro.order     = Nothing
       , Avro.fields    = [field]
       }
   where force xs = liftRnf (`seq` ()) xs `seq` xs
@@ -250,7 +249,6 @@ record recordName doc Fields { fields } = do
         { Avro.name      = nameToAvro recordName
         , Avro.aliases   = []
         , Avro.doc       = getText <$> doc
-        , Avro.order     = Nothing
         , Avro.fields    = fields
         }
 
@@ -290,15 +288,20 @@ typeToAvro :: (MonadError Theta.Error m, MonadState (Set Name) m)
            -> m Schema
 typeToAvro Type { baseType, module_ } = case baseType of
   Bool'               -> pure $! Avro.Boolean
-  Bytes'              -> pure $! Avro.Bytes
-  Int'                -> pure $! Avro.Int
-  Long'               -> pure $! Avro.Long
+  Bytes'              -> pure $! Avro.Bytes Nothing
+  Int'                -> pure $! Avro.Int Nothing
+  Long'               -> pure $! Avro.Long Nothing
   Float'              -> pure $! Avro.Float
   Double'             -> pure $! Avro.Double
-  String'             -> pure $! Avro.String
+  String'             -> pure $! Avro.String Nothing
 
-  Date'               -> pure $! Avro.Int
-  Datetime'           -> pure $! Avro.Long
+  -- TODO: Switch to Avro's logical types for dates and timestamps?
+  --
+  -- Logical types were added to the Haskell library after
+  -- avro-0.5.0.0. Using them would make sense but might be a breaking
+  -- change to the Avro encoding—will need further investigation.
+  Date'               -> pure $! Avro.Int (Just Avro.Date)
+  Datetime'           -> pure $! Avro.Long (Just Avro.TimestampMicros)
 
   Array' item         -> Avro.Array <$!> typeToAvro item
   Map' value          -> Avro.Map   <$!> typeToAvro value

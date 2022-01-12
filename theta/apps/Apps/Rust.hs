@@ -7,9 +7,9 @@ module Apps.Rust where
 import           Control.Monad.Except
 
 import           Data.String.Interpolate        (__i)
-import           Data.Text.Prettyprint.Doc.Util (putDocW)
+import qualified Data.Text.IO as Text
 
-import qualified Language.Rust.Pretty           as Rust
+
 import           Options.Applicative
 
 import qualified Theta.Import                   as Theta
@@ -17,6 +17,7 @@ import qualified Theta.Name                     as Theta
 import qualified Theta.Types                    as Theta
 
 import           Theta.Target.Rust              (toFile)
+import           Theta.Target.Rust.QuasiQuoter  (Rust (..))
 
 import           Apps.Subcommand
 
@@ -55,5 +56,5 @@ rustOpts = Opts <$> modules
 runRust :: Opts -> Subcommand
 runRust Opts { moduleNames } path = do
   modules <- traverse (Theta.getModule path) moduleNames
-  let rust = Rust.pretty' $ toFile $ Theta.transitiveImports modules
-  liftIO $ putDocW 80 rust
+  let Rust rust = toFile $ Theta.transitiveImports modules
+  liftIO $ Text.putStrLn rust

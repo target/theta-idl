@@ -11,7 +11,6 @@
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE ViewPatterns          #-}
 
 -- | This module defines classes for converting between Haskell types
 -- and Theta values.
@@ -26,9 +25,12 @@ import           Control.Monad.Except          (MonadError)
 import           Control.Monad.State           (MonadState, evalStateT, get,
                                                 modify)
 
-import qualified Data.Avro.Decode.Get          as Avro
-import qualified Data.Avro.Encode              as Encode
-import qualified Data.Avro.EncodeRaw           as EncodeRaw
+import qualified Data.Avro                     as Avro
+import qualified Data.Avro.Encoding.ToAvro     as ToAvro
+import           Data.Avro.Internal.DecodeRaw  (DecodeRaw)
+import qualified Data.Avro.Internal.DecodeRaw  as DecodeRaw
+import qualified Data.Avro.Internal.EncodeRaw  as EncodeRaw
+import qualified Data.Avro.Internal.Get        as Avro
 
 import           Data.Binary.Get               (Get, runGetOrFail)
 import qualified Data.ByteString.Builder       as ByteString
@@ -102,8 +104,8 @@ class HasTheta a => FromTheta a where
   -- avroDecoding = fromTheta ∘ fromAvro ∘ decodeAvro
   -- @
   avroDecoding :: Get a
-  default avroDecoding :: Avro.GetAvro a => Get a
-  avroDecoding = Avro.getAvro
+  default avroDecoding :: DecodeRaw a => Get a
+  avroDecoding = DecodeRaw.decodeRaw
 
 -- | Converts a 'Theta.Value' to a Haskell type.
 --
@@ -138,27 +140,31 @@ decodeAvro input = case runGetOrFail avroDecoding input of
 instance ToTheta Bool where
   toTheta = Theta.boolean
 
-  avroEncoding = Encode.putAvro
+  avroEncoding = ToAvro.toAvro Avro.Boolean
 
 instance FromTheta Bool where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.Boolean b -> pure b
     _               -> mismatch Theta.bool' type_
 
+  avroDecoding = Avro.getBoolean
+
 instance ToTheta ByteString where
   toTheta = Theta.bytes
 
-  avroEncoding = Encode.putAvro
+  avroEncoding = ToAvro.toAvro (Avro.Bytes Nothing)
 
 instance FromTheta ByteString where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.Bytes b -> pure b
     _             -> mismatch Theta.bytes' type_
 
+  avroDecoding = Avro.getBytesLazy
+
 instance ToTheta Int32 where
   toTheta = Theta.int
 
-  avroEncoding = Encode.putAvro
+  avroEncoding = EncodeRaw.encodeRaw
 
 instance FromTheta Int32 where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
@@ -168,7 +174,7 @@ instance FromTheta Int32 where
 instance ToTheta Int64 where
   toTheta = Theta.long
 
-  avroEncoding = Encode.putAvro
+  avroEncoding = EncodeRaw.encodeRaw
 
 instance FromTheta Int64 where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
@@ -178,56 +184,62 @@ instance FromTheta Int64 where
 instance ToTheta Float where
   toTheta = Theta.float
 
-  avroEncoding = Encode.putAvro
+  avroEncoding = ToAvro.toAvro Avro.Float
 
 instance FromTheta Float where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.Float f -> pure f
     _             -> mismatch Theta.float' type_
 
+  avroDecoding = Avro.getFloat
+
 instance ToTheta Double where
   toTheta = Theta.double
 
-  avroEncoding = Encode.putAvro
+  avroEncoding = ToAvro.toAvro Avro.Double
 
 instance FromTheta Double where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.Double d -> pure d
     _              -> mismatch Theta.double' type_
 
+  avroDecoding = Avro.getDouble
+
 instance ToTheta Text where
   toTheta = Theta.string
 
-  avroEncoding = Encode.putAvro
+  avroEncoding = ToAvro.toAvro (Avro.String Nothing)
 
 instance FromTheta Text where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.String s -> pure s
     _              -> mismatch Theta.string' type_
 
+  avroDecoding = Avro.getString
+
 instance ToTheta Day where
   toTheta = Theta.date
 
-  avroEncoding = Encode.putAvro @Int32 . Values.fromDay
+  avroEncoding = EncodeRaw.encodeRaw @Int32 . Values.fromDay
 
 instance FromTheta Day where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.Date day -> pure day
     _              -> mismatch Theta.date' type_
 
-  avroDecoding = Values.toDay <$> Avro.getAvro @Int32
+  avroDecoding = Values.toDay <$> DecodeRaw.decodeRaw @Int32
 
 instance ToTheta UTCTime where
   toTheta = Theta.datetime
 
-  avroEncoding = Encode.putAvro @Int64 . Values.fromUTCTime
+  avroEncoding = EncodeRaw.encodeRaw @Int64 . Values.fromUTCTime
 
 instance FromTheta UTCTime where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.Datetime time -> pure time
     _                   -> mismatch Theta.datetime' type_
 
-  avroDecoding = Values.toUTCTime <$> Avro.getAvro @Int64
+  avroDecoding = Values.toUTCTime <$> DecodeRaw.decodeRaw @Int64
 
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value
@@ -256,7 +268,7 @@ instance ToTheta a => ToTheta (HashMap Text a) where
   avroEncoding map
     | HashMap.null map = encode0
     | otherwise        = size <> foldMap encodeKV (HashMap.toList map) <> encode0
-    where encodeKV (k, v) = Encode.putAvro k <> avroEncoding v
+    where encodeKV (k, v) = avroEncoding k <> avroEncoding v
           size            = encodeInt $ length map
 
 instance FromTheta a => FromTheta (HashMap Text a) where

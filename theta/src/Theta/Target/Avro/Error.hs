@@ -33,8 +33,6 @@ import qualified Data.Text                   as Text
 import qualified Data.Text.Encoding          as Text
 import qualified Data.Vector                 as Vector
 
-import           GHC.Generics                (Generic)
-
 import           Text.Printf                 (printf)
 
 import qualified Theta.Error                 as Theta

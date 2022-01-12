@@ -55,11 +55,11 @@ module Theta.Target.Haskell where
 import           Control.Monad.Except
 import           Control.Monad.State             (evalStateT)
 
-import qualified Data.Avro.Decode.Get            as Avro
-import qualified Data.Avro.FromAvro              as Avro
+import qualified Data.Avro                       as Avro
+import qualified Data.Avro.Encoding.ToAvro       as Avro
+import qualified Data.Avro.Encoding.FromAvro     as Avro
+import qualified Data.Avro.Internal.Get          as Avro
 import           Data.Avro.HasAvroSchema         (HasAvroSchema (..))
-import qualified Data.Avro.ToAvro                as Avro
-import qualified Data.Avro.Schema                as Avro
 import           Data.ByteString.Lazy            (ByteString)
 import           Data.Foldable                   (toList, traverse_)
 import           Data.HashMap.Strict             (HashMap)
@@ -539,9 +539,7 @@ hasAvroInstance (toName -> type_) =
 toAvroInstance :: Name.Name -> Q [Dec]
 toAvroInstance (toName -> type_) =
   [d| instance Avro.ToAvro $(conT type_) where
-        toAvro value = case Theta.toAvro $ Conversion.toTheta value of
-          Right res -> res
-          Left err  -> error $ Text.unpack $ Theta.pretty err
+        toAvro _ value = Conversion.avroEncoding value
     |]
 
 -- | Generate a 'Avro.FromAvro' instance for the type.
@@ -559,8 +557,8 @@ fromAvroInstance (toName -> type_) =
   [d| instance Avro.FromAvro $(conT type_) where
         fromAvro avro =
           case Conversion.fromTheta =<< Theta.fromAvro schema avro of
-            Left err  -> Avro.Error $ Text.unpack $ Theta.pretty err
-            Right res -> Avro.Success res
+            Left err  -> Left $ Text.unpack $ Theta.pretty err
+            Right res -> Right res
           where schema = theta @ $(conT type_)
     |]
 

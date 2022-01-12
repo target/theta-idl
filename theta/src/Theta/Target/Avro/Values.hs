@@ -31,133 +31,140 @@
 -- converted with /any/ Theta schema.
 module Theta.Target.Avro.Values where
 
-import           Control.Monad              (when)
-import           Control.Monad.Except       (MonadError)
-import           Control.Monad.Identity     (Identity (..))
-import           Control.Monad.State.Strict (evalStateT)
+import           Control.Monad               (when)
+import           Control.Monad.Except        (MonadError)
+import           Control.Monad.Identity      (Identity (..))
+import           Control.Monad.State.Strict  (evalStateT)
 
-import qualified Data.Avro.Schema           as Schema
-import qualified Data.Avro.Types            as Avro
-import qualified Data.ByteString.Lazy       as LBS
-import           Data.HashMap.Strict        (HashMap, (!))
-import qualified Data.HashMap.Strict        as HashMap
-import qualified Data.HashSet               as HashSet
-import           Data.Int                   (Int32, Int64)
-import           Data.List.NonEmpty         (NonEmpty)
-import qualified Data.List.NonEmpty         as NonEmpty
-import qualified Data.Set                   as Set
-import           Data.Text                  (Text)
-import qualified Data.Text                  as Text
-import qualified Data.Time                  as Time
-import           Data.Time.Clock.POSIX      as Time
-import           Data.Vector                (Vector)
-import qualified Data.Vector                as Vector
+import qualified Data.Avro.Encoding.FromAvro as Avro
+import qualified Data.Avro.Schema.ReadSchema as ReadSchema
+import qualified Data.Avro.Schema.Schema     as Schema
+import qualified Data.ByteString.Lazy        as LBS
+import           Data.HashMap.Strict         (HashMap, (!))
+import qualified Data.HashMap.Strict         as HashMap
+import qualified Data.HashSet                as HashSet
+import           Data.Int                    (Int32, Int64)
+import           Data.List.NonEmpty          (NonEmpty)
+import qualified Data.List.NonEmpty          as NonEmpty
+import qualified Data.Set                    as Set
+import           Data.Text                   (Text)
+import qualified Data.Text                   as Text
+import qualified Data.Time                   as Time
+import           Data.Time.Clock.POSIX       as Time
+import           Data.Vector                 (Vector)
+import qualified Data.Vector                 as Vector
 
-import           GHC.Exts                   (fromList)
+import           GHC.Exts                    (fromList)
 
-import           Theta.Error                (Error)
-import qualified Theta.Error                as Error
-import           Theta.Name                 (Name)
-import qualified Theta.Name                 as Name
+import           Theta.Error                 (Error)
+import qualified Theta.Error                 as Error
+import           Theta.Name                  (Name)
+import qualified Theta.Name                  as Name
 import           Theta.Target.Avro.Error
 import           Theta.Target.Avro.Types
-import qualified Theta.Types                as Theta
+import qualified Theta.Types                 as Theta
 import           Theta.Value
+
+import Debug.Trace
+
+trace' :: Show a => String -> a -> a
+trace' label a = trace (label <> ":\n" <> show a <> "\n") a
 
 -- | Convert a Theta 'Value' to an Avro object which can be directly
 -- serialized to JSON or the Avro binary format.
 --
 -- The resulting Avro object will have a schema that corresponds to
 -- the Theta type of the value, as compiled by 'toSchema'.
-toAvro :: MonadError Error m => Value -> m (Avro.Value Schema.Schema)
+toAvro :: MonadError Error m => Value -> m Avro.Value
 toAvro value@Value { type_ } = do
   !schema <- evalStateT (typeToAvro type_) Set.empty
 
   let env      = runIdentity . Schema.buildTypeEnvironment die schema
       die name = error $ show name <> " not defined in generated Avro schema."
 
-  pure $! go env schema value
+  pure $! go (ReadSchema.fromSchema . env) (ReadSchema.fromSchema schema) value
   where go env !schema v@(!Value { value }) = case (schema, value) of
           -- named types
-          (Schema.NamedType name, _)  -> go env (env name) v
+          (ReadSchema.NamedType name, _)  -> go env (env name) v
 
           -- primitive types
-          (Schema.Boolean, Boolean b) -> Avro.Boolean b
-          (Schema.Bytes, Bytes bs)    -> Avro.Bytes $ LBS.toStrict bs
-          (Schema.Int, Int i)         -> Avro.Int i
-          (Schema.Long, Long l)       -> Avro.Long l
-          (Schema.Float, Float f)     -> Avro.Float f
-          (Schema.Double, Double d)   -> Avro.Double d
-          (Schema.String, String t)   -> Avro.String t
-          (Schema.Int, Date d)        -> Avro.Int $ fromDay d
-          (Schema.Long, Datetime t)   -> Avro.Long $ fromUTCTime t
+          (ReadSchema.Boolean, Boolean b)   -> Avro.Boolean b
+          (ReadSchema.Bytes _, Bytes bs)    -> Avro.Bytes schema (LBS.toStrict bs)
+          (ReadSchema.Int _, Int i)         -> Avro.Int schema i
+          (ReadSchema.Long _ _, Long l)     -> Avro.Long schema l
+          (ReadSchema.Float _, Float f)     -> Avro.Float schema f
+          (ReadSchema.Double _, Double d)   -> Avro.Double schema d
+          (ReadSchema.String _, String t)   -> Avro.String schema t
+          (ReadSchema.Int _, Date d)        -> Avro.Int schema $ fromDay d
+          (ReadSchema.Long _ _, Datetime t) -> Avro.Long schema $ fromUTCTime t
 
           -- containers
-          (Schema.Array t, Array vs)                    ->
+          (ReadSchema.Array t, Array vs)                    ->
             Avro.Array . forceVector $ Vector.map (go env t) vs
-          (Schema.Map t, Map vs)                        ->
+          (ReadSchema.Map t, Map vs)                        ->
             Avro.Map $ go env t <$> vs
-          (Schema.Union options@(Vector.toList -> [Schema.Null, t]), Optional a) ->
-            let union = Avro.Union options in
+          (ReadSchema.Union [(0, ReadSchema.Null), (1, t)], Optional a) ->
+            let union = Avro.Union schema in
             case a of
-              Just a  -> union t $! go env t a
-              Nothing -> union Schema.Null Avro.Null
+              Just a  -> union 1 $! go env t a
+              Nothing -> union 0 Avro.Null
 
           -- records
-          (t@Schema.Record{}, Record values) ->
-            Avro.Record t $! toHashMap values
-              where toHashMap values = HashMap.fromList
-                      [ convert name value
-                      | name  <- Schema.fldName <$> Schema.fields t
-                      | value <- Vector.toList values
-                      ]
+          (t@ReadSchema.Record{}, Record values) ->
+            Avro.Record t $! Vector.fromList
+              [ convert name value
+              | name  <- ReadSchema.fldName <$> ReadSchema.fields t
+              | value <- Vector.toList values
+              ]
+            where convert name value =
+                    case HashMap.lookup name fieldTypes of
+                      Just type_ -> go env type_ value
+                      Nothing    -> error $ "No field named "
+                                         <> Text.unpack name
+                                         <> " in Avro record schema."
 
-                    convert name value =
-                      case HashMap.lookup name fieldTypes of
-                        Just type_ -> (name, go env type_ value)
-                        Nothing    -> error $ "No field named "
-                                           <> Text.unpack name
-                                           <> " in Avro record schema."
-
-                    fieldTypes = HashMap.fromList [ (fldName, fldType)
-                                                  | Schema.Field {..} <- Schema.fields t ]
+                  fieldTypes = HashMap.fromList [ (fldName, fldType)
+                                                | ReadSchema.ReadField {..} <- ReadSchema.fields t ]
 
           -- variants
-          (wrapper@Schema.Record{}, Variant branch values) ->
-            Avro.Record wrapper [("constructor", union)]
+          (wrapper@ReadSchema.Record{}, Variant branch values) ->
+            Avro.Record wrapper [union]
             where
-              unionSchema = case Schema.fields wrapper of
-                [Schema.Field { Schema.fldName = "constructor", Schema.fldType }] ->
+              unionSchema = case ReadSchema.fields wrapper of
+                [ReadSchema.ReadField { ReadSchema.fldName = "constructor", ReadSchema.fldType }] ->
                   fldType
                 _ -> error "Invalid encoding of variant object in Avro schema."
 
-              chosenRecord = case HashMap.lookup branch caseMap of
-                Just case_ -> case_
-                Nothing    -> error $ "Invalid type_ in a Value for a variant.\n"
-                                     <> "Missing branch " <> show branch
+              (chosenRecord_i, chosenRecord) = case HashMap.lookup branch caseMap of
+                Just (i, case_) -> (i, case_)
+                Nothing         ->
+                  error $ "Invalid type_ in a Value for a variant.\n"
+                       <> "Missing branch " <> show branch
 
-              caseMap =
-                HashMap.fromList [ (Error.unsafe $ nameFromAvro $ Schema.name c, c)
-                                 | c <- Vector.toList $ Schema.options unionSchema ]
+              caseMap = HashMap.fromList
+                [ (Error.unsafe $ nameFromAvro $ ReadSchema.name c, (i, c))
+                | (i, c) <- Vector.toList $ ReadSchema.options unionSchema
+                ]
 
-              record = Avro.Record chosenRecord $! HashMap.fromList
+              record = Avro.Record chosenRecord $! Vector.fromList
                 [ convert name value
-                | name <- Schema.fldName <$> Schema.fields chosenRecord
+                | name <- ReadSchema.fldName <$> ReadSchema.fields chosenRecord
                 | value <- Vector.toList values
                 ]
 
-              union = Avro.Union (Schema.options unionSchema) chosenRecord record
+              union = Avro.Union unionSchema chosenRecord_i record
 
               convert name value =
                 case HashMap.lookup name fieldTypes of
-                  Just type_ -> (name, go env type_ value)
+                  Just type_ -> go env type_ value
                   Nothing    -> error $ "No field named "
                                      <> Text.unpack name
                                      <> " in Avro record schema for variant."
 
-              fieldTypes =
-                HashMap.fromList [ (fldName, fldType)
-                                 | Schema.Field {..} <- Schema.fields chosenRecord ]
+              fieldTypes = HashMap.fromList
+                [ (fldName, fldType)
+                | ReadSchema.ReadField {..} <- ReadSchema.fields chosenRecord
+                ]
 
           -- fallback—hitting this means there was a bug in parsing or
           -- processing the Theta Type or Value
@@ -169,7 +176,7 @@ toAvro value@Value { type_ } = do
         forceVector v = Vector.foldl' (const (`seq` ())) () `seq` v
         -- TODO: get rid of forceVector once we upgrade to a version
         -- of vector that has an NFData1 instance (> 0.12.1, I expect)
-{-# SPECIALIZE toAvro :: Value -> Either Error (Avro.Value Schema.Schema) #-}
+{-# SPECIALIZE toAvro :: Value -> Either Error Avro.Value #-}
 
 -- | Convert from an Avro object to a Theta 'Value', verifying against
 -- the given Theta type.
@@ -183,7 +190,7 @@ toAvro value@Value { type_ } = do
 fromAvro :: forall m. MonadError Error m
          => Theta.Type
          -- ^ The expected type that the Avro value has to match.
-         -> Avro.Value Schema.Schema
+         -> Avro.Value
          -- ^ The Avro object to verify against the schema and
          -- convert.
          -> m Value
@@ -197,16 +204,16 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
             Right t -> recurse t avro
 
           -- primitive types
-          (Theta.Bool', Avro.Boolean b)     -> pure $ Boolean b
-          (Theta.Int', Avro.Int i)          -> pure $ Int i
-          (Theta.Long', Avro.Long l)        -> pure $ Long l
-          (Theta.Float', Avro.Float f)      -> pure $ Float f
-          (Theta.Double', Avro.Double d)    -> pure $ Double d
-          (Theta.Bytes', Avro.Bytes bs)     -> pure $ Bytes $ LBS.fromStrict bs
-          (Theta.String', Avro.String t)    -> pure $ String t
+          (Theta.Bool', Avro.Boolean b)    -> pure $ Boolean b
+          (Theta.Int', Avro.Int _ i)       -> pure $ Int i
+          (Theta.Long', Avro.Long _ l)     -> pure $ Long l
+          (Theta.Float', Avro.Float _ f)   -> pure $ Float f
+          (Theta.Double', Avro.Double _ d) -> pure $ Double d
+          (Theta.Bytes', Avro.Bytes _ bs)  -> pure $ Bytes $ LBS.fromStrict bs
+          (Theta.String', Avro.String _ t) -> pure $ String t
 
-          (Theta.Date', Avro.Int i)         -> pure $ Date $ toDay i
-          (Theta.Datetime', Avro.Long i)    -> pure $ Datetime $ toUTCTime i
+          (Theta.Date', Avro.Int _ i)      -> pure $ Date $ toDay i
+          (Theta.Datetime', Avro.Long _ i) -> pure $ Datetime $ toUTCTime i
 
           -- containers
           (Theta.Array' t, Avro.Array xs)   ->
@@ -215,14 +222,15 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
 
           -- optional types
           (Theta.Optional' t,
-           Avro.Union [Schema.Null, _] _ v) -> case v of
-            Avro.Null -> pure $ Optional Nothing
-            _         -> Optional . Just <$> fromAvro t v
+           Avro.Union (ReadSchema.Union [(0, ReadSchema.Null), _]) _ v) ->
+            case v of
+              Avro.Null -> pure $ Optional Nothing
+              _         -> Optional . Just <$> fromAvro t v
 
           -- constructed types
           (Theta.Record' name fields,
-           Avro.Record _ avroFields)        ->
-            Record <$> convertFields name fields avroFields
+           Avro.Record recordSchema@ReadSchema.Record{} recordValues) ->
+            Record <$> convertFields name fields (fieldSchemas recordSchema recordValues)
 
                 -- TODO: add a check that the alternatives in the Avro
                 -- union match the cases of the Theta variant
@@ -232,9 +240,25 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
 
           (_, got)                          -> throw $ TypeMismatch type_ got
 
+        fieldSchemas :: ReadSchema.ReadSchema
+                     -> Vector Avro.Value
+                     -> HashMap Text Avro.Value
+        fieldSchemas (ReadSchema.Record { ReadSchema.fields }) values = HashMap.fromList
+          [ (ReadSchema.fldName field, value)
+          | field <- fields
+          | value <- Vector.toList values
+          ]
+
+        -- This error case should be disallowed by the pattern where
+        -- fieldSchemas is called in the code above.
+        fieldSchemas readSchema _ =
+          error $ "Invalid ReadSchema passed to fieldSchemas.\n"
+               <> "This is a bug in Theta.Target.Avro.Values\n"
+               <> "Schema: " <> show readSchema
+
         convertFields :: Name
                       -> Theta.Fields Theta.Type
-                      -> HashMap Text (Avro.Value Schema.Schema)
+                      -> HashMap Text Avro.Value
                       -> m (Vector Value)
         convertFields recordName thetaFields avroFields
           | thetaNames /= avroNames =
@@ -258,10 +282,10 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
         -- field called "constructor"
         convertVariant :: Name
                        -> NonEmpty (Theta.Case Theta.Type)
-                       -> Avro.Value Schema.Schema
+                       -> Avro.Value
                        -> m BaseValue
-        convertVariant variantName cases avro@(Avro.Record _ avroFields) =
-          case HashMap.toList avroFields of
+        convertVariant variantName cases avro@(Avro.Record recordSchema recordFields) =
+          case fieldSchemas recordSchema recordFields of
             [("constructor", branch)] -> case branch of
               Avro.Union _ _ record -> convertBranch variantName cases record
               invalid               ->
@@ -277,10 +301,10 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
         -- be a record, so we error out if it isn't
         convertBranch :: Name
                       -> NonEmpty (Theta.Case Theta.Type)
-                      -> Avro.Value Schema.Schema
+                      -> Avro.Value
                       -> m BaseValue
-        convertBranch variantName cases (Avro.Record schema avroFields) = do
-          caseName <- nameFromAvro $ Schema.name schema
+        convertBranch variantName cases (Avro.Record recordSchema recordValues) = do
+          caseName <- nameFromAvro $ ReadSchema.name recordSchema
           case HashMap.lookup caseName $ caseMap cases of
             Just case_ -> do
               let parameters = Theta.caseParameters case_
@@ -295,14 +319,14 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
               when (thetaKeys /= avroKeys) $
                 throw $ InvalidVariant (DifferentFields thetaKeys avroKeys) variantName
               Variant caseName . Vector.fromList <$> traverse (uncurry go) values
-            Nothing    ->
-              throw $ InvalidVariant (ExtraCase cases (Schema.name schema)) variantName
+            Nothing    -> throw $
+              InvalidVariant (ExtraCase cases (ReadSchema.name recordSchema)) variantName
           where go field avro = fromAvro (Theta.fieldType field) avro
 
                                 -- TODO: is there a better way to do this
                                 -- map transformation?
-                avroValues :: HashMap Theta.FieldName (Avro.Value Schema.Schema)
-                avroValues = HashMap.fromList $ toValue <$> HashMap.toList avroFields
+                avroValues :: HashMap Theta.FieldName Avro.Value
+                avroValues = HashMap.fromList $ toValue <$> HashMap.toList (fieldSchemas recordSchema recordValues)
                 toValue (text, avro) = (Theta.FieldName text, avro)
 
         convertBranch variantName _ invalidValue =
@@ -319,7 +343,7 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
 
         recurse t avro = do Value { value } <- fromAvro t avro
                             pure value
-{-# SPECIALIZE fromAvro :: Theta.Type -> Avro.Value Schema.Schema -> Either Error Value #-}
+{-# SPECIALIZE fromAvro :: Theta.Type -> Avro.Value -> Either Error Value #-}
 
 -- | Convert from an Avro-style date to a Haskell 'Day'.
 --
