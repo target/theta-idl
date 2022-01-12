@@ -67,7 +67,7 @@ theta = Range { name = "theta-version", lower = "1.0.0", upper = "1.1.0" }
 --
 -- Specified as @avro-version@ in the header of every Theta module.
 avro :: Range
-avro = Range { name = "avro-version", lower = "1.0.0", upper = "1.1.0" }
+avro = Range { name = "avro-version", lower = "1.0.0", upper = "1.2.0" }
 
 -- * Package Version
 
