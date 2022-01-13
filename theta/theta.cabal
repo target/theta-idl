@@ -113,7 +113,7 @@ test-suite tests
                     , Test.Theta.Target.Python
                     , Test.Theta.Target.Python.QuasiQuoter
 
-                    -- , Test.Theta.Target.Rust
+                    , Test.Theta.Target.Rust
 
                     , Paths_theta
 

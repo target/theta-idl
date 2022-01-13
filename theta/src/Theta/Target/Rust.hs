@@ -7,7 +7,19 @@
 {-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-module Theta.Target.Rust where
+module Theta.Target.Rust
+  ( Rust(..)
+  , rust
+
+  , toFile
+  , toModule
+  , toDefinition
+  , toReference
+  , toRecord
+  , toVariant
+  , toNewtype
+  )
+where
 
 import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.List.NonEmpty            as NonEmpty
@@ -337,7 +349,7 @@ toVariant name (NonEmpty.toList -> cases) = [rust|
   $implToAvro
 
   $implFromAvro
-  |] 
+  |]
   where typeName = ident name
 
         variantCases = commaLines $ toCase <$> cases
@@ -603,7 +615,7 @@ toField :: Name
         -> Theta.Field Theta.Type
         -> Rust
 toField containing visibility Theta.Field { Theta.fieldName, Theta.fieldType } =
-  case visibility of
+   case visibility of
     Pub       -> [rust|pub $name: $rustType|]
     Inherited -> [rust|$name: $rustType|]
   where name = fieldIdent fieldName
@@ -808,8 +820,9 @@ refersTo Theta.Type { Theta.baseType, Theta.module_ } name = case baseType of
     | name' == name -> True
     | otherwise     -> fieldsReference fields
   Theta.Variant' name' cases
-    | name' == name -> True
-    | otherwise     -> any fieldsReference $ Theta.caseParameters <$> cases
+    | name' == name           -> True
+    | name `elem` names cases -> True
+    | otherwise               -> any fieldsReference $ Theta.caseParameters <$> cases
 
   -- primitive types
   -- (listed explicitly to raise a warning if we add new kinds of
@@ -824,5 +837,7 @@ refersTo Theta.Type { Theta.baseType, Theta.module_ } name = case baseType of
   Theta.Date'     -> False
   Theta.Datetime' -> False
 
-  where fieldsReference Theta.Fields { Theta.fields } =
+  where names cases = Theta.caseName <$> cases
+        
+        fieldsReference Theta.Fields { Theta.fields } =
           any (`refersTo` name) $ Theta.fieldType <$> fields

@@ -19,7 +19,7 @@ import qualified Test.Theta.Target.Kotlin             as Kotlin
 import qualified Test.Theta.Target.Python             as Python
 import qualified Test.Theta.Target.Python.QuasiQuoter as Python.QuasiQuoter
 
--- import qualified Test.Theta.Target.Rust               as Rust
+import qualified Test.Theta.Target.Rust               as Rust
 
 tests :: TestTree
 tests = testGroup "Theta"
@@ -43,7 +43,7 @@ tests = testGroup "Theta"
     , Python.tests
     , Python.QuasiQuoter.tests
 
-    -- , Rust.tests
+    , Rust.tests
     ]
   ]
 
