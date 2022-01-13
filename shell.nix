@@ -32,5 +32,11 @@ let
 in
 # upstream developPackage does not pull in cabal-install
 pkgs.lib.overrideDerivation theta.env (old: {
-    nativeBuildInputs = old.nativeBuildInputs ++ buildInputs;
+  nativeBuildInputs = old.nativeBuildInputs ++ buildInputs;
+
+  # Workaround for Lorri; see:
+  # https://github.com/target/lorri/issues/383
+  shellHook = ''
+    unset SOURCE_DATE_EPOCH
+  '';
 })
