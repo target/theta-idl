@@ -70,14 +70,18 @@
 module Theta.Target.Rust.QuasiQuoter
   ( Rust (..)
   , rust
+  , normalize
   )
 where
 
 import           Data.Text                   (Text)
+import qualified Data.Text                   as Text
 
 import           GHC.Exts                    (IsString)
 
 import           Language.Haskell.TH.Quote   (QuasiQuoter (..))
+
+import           Text.Printf                 (PrintfArg)
 
 import           Theta.Target.LanguageQuoter (Interpolable (..), quoter)
 
@@ -86,7 +90,20 @@ import           Theta.Target.LanguageQuoter (Interpolable (..), quoter)
 -- This could either be standalone code or a fragment.
 newtype Rust = Rust { fromRust :: Text }
   deriving stock (Show, Eq)
-  deriving newtype (IsString, Semigroup, Monoid)
+  deriving newtype (IsString, Semigroup, Monoid, PrintfArg)
+
+-- | Heuristics to "normalize" Rust code for comparison. This doesn't
+-- use a Rust parser so it makes no guarantees; the goal is to be
+-- robust for testing as long as the test code follows roughly the
+-- same code formatting as the generation code.
+--
+-- Current approach:
+--
+--   1. Trim leading/trailing whitespace on each line
+--   2. Drop resulting empty lines
+normalize :: Rust -> Rust
+normalize = Rust . Text.unlines . normalizeLines . Text.lines . fromRust
+  where normalizeLines = filter (not . Text.null) . map Text.strip
 
 instance Interpolable Rust where
   toText   = fromRust

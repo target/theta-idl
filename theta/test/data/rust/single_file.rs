@@ -43,7 +43,7 @@ pub mod newtype {
         fn from_avro(input: &[u8]) -> IResult<&[u8], Self> {
             context("newtype.NewtypeRecord", |input| {
                 let (input, foo) = newtype::Newtype::from_avro(input)?;
-                Ok((input, NewtypeRecord { foo }))
+                Ok((input, NewtypeRecord { foo: foo }))
             })(input)
         }
     }
@@ -118,7 +118,8 @@ pub mod recursive {
 
     #[derive(Clone, Debug, PartialEq)]
     pub enum Recursive {
-        Nil {},
+        Nil {
+        },
         Recurse {
             contents: i32,
             boxed: Box<recursive::Recursive>,
@@ -129,7 +130,7 @@ pub mod recursive {
     impl ToAvro for Recursive {
         fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
             match self {
-                Recursive::Nil {} => {
+                Recursive::Nil {  } => {
                     0i64.to_avro_buffer(buffer);
                 },
                 Recursive::Recurse { contents, boxed, unboxed } => {
@@ -148,13 +149,13 @@ pub mod recursive {
                 let (input, tag) = i64::from_avro(input)?;
                 match tag {
                     0 => {
-                        Ok((input, Recursive::Nil{}))
+                        Ok((input, Recursive::Nil {  }))
                     },
                     1 => {
                         let (input, contents) = i32::from_avro(input)?;
                         let (input, boxed) = recursive::Recursive::from_avro(input)?;
                         let (input, unboxed) = HashMap::from_avro(input)?;
-                        Ok((input, Recursive::Recurse { contents, boxed: Box::new(boxed), unboxed }))
+                        Ok((input, Recursive::Recurse { contents: contents, boxed: Box::new(boxed), unboxed: unboxed }))
                     },
                     _ => Err(Err::Error((input, ErrorKind::Tag))),
                 }

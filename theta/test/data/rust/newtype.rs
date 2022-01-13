@@ -36,7 +36,7 @@ impl FromAvro for NewtypeRecord {
     fn from_avro(input: &[u8]) -> IResult<&[u8], Self> {
         context("newtype.NewtypeRecord", |input| {
             let (input, foo) = newtype::Newtype::from_avro(input)?;
-            Ok((input, NewtypeRecord { foo }))
+            Ok((input, NewtypeRecord { foo: foo }))
         })(input)
     }
 }

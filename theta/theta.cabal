@@ -120,6 +120,7 @@ test-suite tests
   build-depends:      theta
 
                     , directory
+                    , Diff
                     , stache
 
                     , tasty

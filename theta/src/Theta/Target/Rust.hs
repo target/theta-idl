@@ -51,21 +51,22 @@ toFile modules = definitionLines $ attrs : (go [] <$> hierarchy)
         -- all the modules we are working with
         go soFar (Node part children) = [rust|
           pub mod $baseName {
+              $supers
               $definitions
           }
           |]
-          where definitions = definitionLines $ supers <> content <> subModules
+          where definitions = content <> "\n\n" <> definitionLines subModules
 
                 subModules = go (soFar <> [part]) <$> children
 
                 -- Ensure all of our top-level modules are in scope
-                supers = [ [rust|use super::$root|] | root <- moduleRoots]
+                supers = statements [ [rust|use super::$root|] | root <- moduleRoots]
                 moduleRoots = map Rust $ Set.toList $ Set.fromList
                   [ Name.moduleRoot $ Theta.moduleName m | m <- modules ]
 
                 content = case Map.lookup name moduleMap of
                   Just module_ -> toModule module_
-                  Nothing      -> []
+                  Nothing      -> ""
 
                 name     = Name.fromModuleParts $ soFar <> [part]
                 baseName = Rust $ Name.baseName name
@@ -76,8 +77,8 @@ toFile modules = definitionLines $ attrs : (go [] <$> hierarchy)
 -- | Compile an entire Theta module to a Rust module. This generates
 -- definitions for every type in a Theta module as well as all the
 -- needed imports.
-toModule :: Theta.Module -> [Rust]
-toModule Theta.Module { Theta.types } = imports : typeDefinitions
+toModule :: Theta.Module -> Rust
+toModule Theta.Module { Theta.types } = definitionLines $ imports : typeDefinitions
   where typeDefinitions = toDefinition <$> Map.elems types
 
         imports = [rust|
@@ -112,7 +113,7 @@ toDefinition Theta.Definition {..} = case Theta.baseType definitionType of
   -- everything else (aliases)
   _ -> let name = ident definitionName
            reference = toReference definitionType
-       in [rust|pub type alias $name = $reference|]
+       in [rust|pub type $name = $reference;|]
 
 -- | Return a Rust snippet that /refers/ to the given Theta type.
 --
@@ -251,9 +252,9 @@ toRecord name Theta.Fields { Theta.fields } = [rust|
         fieldAccess (fieldIdent -> fieldName) = [rust|self.$fieldName|]
 
         implFromAvro = fromAvro typeName $ wrapContext name $
-          [ callFromAvro (fieldIdent fieldName) fieldType |
+          statements [ callFromAvro (fieldIdent fieldName) fieldType |
             Theta.Field { Theta.fieldName, Theta.fieldType } <- fields ]
-          <> [[rust|Ok((input, $struct))|]]
+          <> "\n" <> [rust|Ok((input, $struct))|]
         struct = structExpr name [typeName] fields
 
 -- | Compile a Theta variant to a Rust enum.
@@ -366,8 +367,8 @@ toVariant name (NonEmpty.toList -> cases) = [rust|
           where match = toAvroMatch name cases
 
         implFromAvro = fromAvro typeName $ wrapContext name $
-          [parseTag, fromAvroMatch name cases]
-          where parseTag = [rust|let (input, tag) = i64::from_avro(input)?;|]
+          parseTag <> fromAvroMatch name cases
+          where parseTag = "let (input, tag) = i64::from_avro(input)?;\n"
 
 -- | The default set of derives we use for every generated public type
 -- definition.
@@ -401,7 +402,7 @@ toAvroMatch name cases = [rust|
   where branches = commaLines $ branch <$> zip [0..] cases
         branch (i, Theta.Case { Theta.caseName, Theta.caseParameters }) = [rust|
           $constructor { $fields } => {
-              $caseBlock;
+              $caseBlock
           }
           |]
           where constructor = path [ident name, ident caseName]
@@ -410,7 +411,7 @@ toAvroMatch name cases = [rust|
 
                 caseBlock = [rust|
                   $tag.to_avro_buffer(buffer);
-                  $fieldsToAvro;
+                  $fieldsToAvro
                   |]
                 tag = Rust $ Text.pack (show i) <> "i64"
                 fieldsToAvro = statements $ toAvro <$> Theta.fields caseParameters
@@ -438,13 +439,13 @@ fromAvroMatch :: Name -> [Theta.Case Theta.Type] -> Rust
 fromAvroMatch name cases = [rust|
   match tag {
     $branches
-    _ => Err(Err:Error((input, ErrorKind::Tag))),
+    _ => Err(Err::Error((input, ErrorKind::Tag))),
   }
   |]
   where branches = commaLines $ branch <$> zip [0..] cases
         branch (i, Theta.Case { Theta.caseName, Theta.caseParameters }) = [rust|
           $tag => {
-              $fromAvros;
+              $fromAvros
               $output
           }
         |]
@@ -476,7 +477,7 @@ fromAvroMatch name cases = [rust|
 toNewtype :: Name -> Theta.Type -> Rust
 toNewtype name type_ = [rust|
   #[derive($derives)]
-  pub struct $typeName($typeReference)
+  pub struct $typeName(pub $typeReference);
 
   $implToAvro
 
@@ -496,7 +497,7 @@ toNewtype name type_ = [rust|
 
         implToAvro = toAvro typeName [rust|self.0.to_avro_buffer(buffer);|]
 
-        implFromAvro = fromAvro typeName $ wrapContext name [parse, output]
+        implFromAvro = fromAvro typeName $ wrapContext name $ parse <> ";\n" <> output
         parse  = callFromAvro "value" type_
         output = [rust|Ok((input, $typeName(value)))|]
 
@@ -511,8 +512,8 @@ toNewtype name type_ = [rust|
 --   <parser body>
 -- })(input)
 -- @
-wrapContext :: Name -> [Rust] -> Rust
-wrapContext (Rust . Name.render -> name) (statements -> body) = [rust|
+wrapContext :: Name -> Rust -> Rust
+wrapContext (Rust . Name.render -> name) body = [rust|
   context("$name", |input| {
       $body
   })(input)
@@ -560,14 +561,14 @@ fromAvro typeName body = [rust|
 -- type.
 --
 -- @
--- let (input, foo) = i32::from_avro(input)?;
+-- let (input, foo) = i32::from_avro(input)?
 -- @
 --
 -- To handle name conflicts, a field called @input@ will be turned
 -- into @__input__@:
 --
 -- @
--- let (input, __input__) = i32::from_avro(input)?;
+-- let (input, __input__) = i32::from_avro(input)?
 -- @
 --
 -- This same convention is used in @fieldExpr@, so the final
@@ -578,7 +579,7 @@ fromAvro typeName body = [rust|
 -- @
 callFromAvro :: Rust -> Theta.Type -> Rust
 callFromAvro name fieldType = [rust|
-  let (input, $result) = $fromAvro(input)?;
+  let (input, $result) = $fromAvro(input)?
   |]
   where result   = disambiguate name
         fromAvro = path $ typeIdentifier fieldType <> ["from_avro"]
@@ -620,7 +621,7 @@ toField containing visibility Theta.Field { Theta.fieldName, Theta.fieldType } =
     Inherited -> [rust|$name: $rustType|]
   where name = fieldIdent fieldName
         rustType
-          | fieldType `refersTo` containing = [rust|Box::new($reference)|]
+          | fieldType `refersTo` containing = [rust|Box<$reference>|]
           | otherwise                       = reference
         reference = toReference fieldType
 
@@ -722,13 +723,14 @@ structExpr containing names fields = [rust|$fullName { $rustFields }|]
 -- a, b
 -- @
 commaList :: [Rust] -> Rust
-commaList = Rust . Text.intercalate "," . map fromRust
+commaList = Rust . Text.intercalate ", " . map fromRust
 
--- | Given a list of 'Rust' statements, produces a block where each
--- statement except the last is followed by a semi-colon.
+-- | Given a list of 'Rust' statements, produces a single Rust
+-- fragement with each statement on a line, followed by a
+-- semicolon. Note that there is no trailing newline added.
 --
--- If you explicitly want to not return the result of the last
--- statement, include a semicolon in its 'Rust' value.
+-- Produces an empty code fragment (no trailing semicolon) if the list
+-- is empty.
 --
 -- @
 -- statements ["let x = 10", "x"]
@@ -738,15 +740,19 @@ commaList = Rust . Text.intercalate "," . map fromRust
 --
 -- @
 -- let x = 10;
--- x
+-- x;
 -- @
 --
 -- Note that this does not wrap the block in { and }!
 statements :: [Rust] -> Rust
-statements = Rust . Text.intercalate ";\n" . map fromRust
+statements []    = ""
+statements lines = Rust $
+  Text.intercalate ";\n" (fromRust <$> lines) <> ";"
 
 -- | A list of lines, each of which ends with a comma—like field
--- declarations in a struct definition.
+-- declarations in a struct definition. Matching common Rust
+-- conventions, this includes a trailing comma (but no newline) unless
+-- the list is empty.
 --
 -- @
 -- commaLines [[rust|x: i32|], [rust|y: i32|]]
@@ -759,7 +765,9 @@ statements = Rust . Text.intercalate ";\n" . map fromRust
 -- y: i32,
 -- @
 commaLines :: [Rust] -> Rust
-commaLines = Rust . Text.intercalate ",\n" . map fromRust
+commaLines []    = ""
+commaLines lines = Rust $
+  Text.intercalate ",\n" (fromRust <$> lines) <> ","
 
 -- | Join together definitions on separate lines, with one line of
 -- whitespace between each.
@@ -838,6 +846,6 @@ refersTo Theta.Type { Theta.baseType, Theta.module_ } name = case baseType of
   Theta.Datetime' -> False
 
   where names cases = Theta.caseName <$> cases
-        
+
         fieldsReference Theta.Fields { Theta.fields } =
           any (`refersTo` name) $ Theta.fieldType <$> fields
