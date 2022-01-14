@@ -21,7 +21,9 @@ import qualified Data.Set                        as Set
 import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
 
+import qualified Theta.Metadata                  as Metadata
 import qualified Theta.Pretty                    as Theta
+import qualified Theta.Types                     as Theta
 
 import qualified Theta.Target.Avro.Types         as Avro.Types
 import           Theta.Target.Avro.Values        (fromDay, fromUTCTime, toDay,
@@ -64,8 +66,20 @@ tests = testGroup "Haskell.Conversion"
       , testProperty "Float"    $ checkAvroDecoding   @Float
       , testProperty "Double"   $ checkAvroDecoding   @Double
       , testProperty "String"   $ checkAvroDecoding . Text.pack
-      , testProperty "Date"     $ checkAvroDecoding . toDay
-      , testProperty "Datetime" $ checkAvroDecoding . toUTCTime
+
+      , testProperty "Date"     $ \ (toDay -> day) ->
+          let encoded = Builder.toLazyByteString $ avroEncoding (fromDay day)
+              decoded = Get.runGetOrFail avroDecoding encoded
+          in case decoded of
+            Left (_, _, err)  -> error err
+            Right (_, _, res) -> res == day
+
+      , testProperty "Datetime" $ \ (toUTCTime -> datetime) ->
+          let encoded = Builder.toLazyByteString $ avroEncoding (fromUTCTime datetime)
+              decoded = Get.runGetOrFail avroDecoding encoded
+          in case decoded of
+            Left (_, _, err)  -> error err
+            Right (_, _, res) -> res == datetime
       ]
 
     , testGroup "containers"
@@ -73,25 +87,6 @@ tests = testGroup "Haskell.Conversion"
       , testProperty "Map"      $ checkAvroDecoding @(HashMap Text Int32) . toMap
       , testProperty "Optional" $ checkAvroDecoding @(Maybe Int32)
       ]
-    ]
-
-  , testGroup "backwards compatibility"
-    [ -- Parse dates from ints *without* Avro's date logical type
-      testProperty "Date as raw int" $ \ (toDay -> day) ->
-        let encoded = Builder.toLazyByteString $ avroEncoding (fromDay day)
-            decoded = Get.runGetOrFail avroDecoding encoded
-        in case decoded of
-          Left (_, _, err)  -> error err
-          Right (_, _, res) -> res == day
-
-      -- Parse datetimes from longs *without* Avro's time-micros
-      -- logical type
-    , testProperty "Datetime as raw long" $ \ (toUTCTime -> datetime) ->
-        let encoded = Builder.toLazyByteString $ avroEncoding (fromUTCTime datetime)
-            decoded = Get.runGetOrFail avroDecoding encoded
-        in case decoded of
-          Left (_, _, err)  -> error err
-          Right (_, _, res) -> res == datetime
     ]
   ]
   where toMap = HashMap.fromList . map (\ (k, v) -> (Text.pack k, v))
@@ -116,4 +111,5 @@ checkAvroDecoding a = decodedAvro == decoded
           Left err  -> error $ Text.unpack $ Theta.pretty err
           Right res -> Avro.readSchemaFromSchema res
 
-        toSchema type_ = evalStateT (Avro.Types.typeToAvro type_) Set.empty
+        toSchema type_ = evalStateT (Avro.Types.typeToAvro avroVersion type_) Set.empty
+          where avroVersion = Metadata.avroVersion $ Theta.metadata $ Theta.module_ type_

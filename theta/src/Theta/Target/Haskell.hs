@@ -524,9 +524,12 @@ hasThetaInstance moduleName definitionName =
 hasAvroInstance :: Name.Name -> Q [Dec]
 hasAvroInstance (toName -> type_) =
   [d| instance HasAvroSchema $(conT type_) where
-        schema = Tagged $ case evalStateT (typeToAvro $ theta @ $(conT type_)) Set.empty of
+        schema = Tagged $ case evalStateT toAvro Set.empty of
           Left err  -> error $ Text.unpack $ Theta.pretty err
           Right res -> res
+          where toAvro                = typeToAvro definitionAvroVersion thetaType
+                thetaType             = theta @ $(conT type_)
+                definitionAvroVersion = avroVersion $ Theta.metadata $ Theta.module_ thetaType
     |]
 
 -- | Generate a 'Avro.ToAvro' instance for the type. This might

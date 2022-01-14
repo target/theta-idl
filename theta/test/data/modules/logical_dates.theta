@@ -1,0 +1,20 @@
+language-version: 1.0.0
+avro-version: 1.1.0
+---
+
+import primitives
+
+// We started using Avro's logical "date" and "timestamp-micros" types in
+// avro-version 1.2.0
+//
+// This doesn't change the semantics of the
+// encoding—the binary produced is identical—but it changes the generated
+// schemas.
+type Dates = {
+  logical_date: Date,
+  logical_datetime: Datetime,
+
+  // The date and datetime fields in Primtives should *not* use
+  // logical types since that module has avro-version set to 1.0.0
+  primitives: primitives.Primitives
+}

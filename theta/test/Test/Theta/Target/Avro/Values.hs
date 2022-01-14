@@ -168,9 +168,9 @@ primitives =
   , (Theta.string "",      Theta.string', avroString "")
   , (Theta.string "blarg", Theta.string', avroString "blarg")
 
-  , (Theta.date $ read "2019-02-11", Theta.date', avroDate 17938 )
+  , (Theta.date $ read "2019-02-11", Theta.date', avroInt 17938 )
 
-  , (Theta.datetime datetime, Theta.datetime', avroDatetime 1549894992000000)
+  , (Theta.datetime datetime, Theta.datetime', avroLong 1549894992000000)
   ]
   where datetime = read "2019-02-11 14:23:12 UTC"
 
@@ -217,22 +217,26 @@ records = [ (emptyValue, emptyType, Avro.Record emptySchema [])
           , (value, type_, Avro.Record schema [ (Avro.Record emptySchema [])
                                               , (avroInt 42)
                                               ])
-          ]
-  where wrap = Theta.withModule' $ Theta.Module
-                 { moduleName = "foo"
-                 , types = [("foo.Empty", Theta.Definition "foo.Empty" Nothing emptyType)]
-                 , imports = []
-                 , metadata = baseMetadata
-                 }
 
-        emptyType  = wrap $ Theta.Record' "foo.Empty" []
+          -- Test date and datetime handling with logical types (avro-version ≥ 1.1.0)
+          , (dates, datesType,
+             Avro.Record datesSchema [avroDate 17938, avroDatetime 1549894992000000])
+          ]
+  where wrap v = Theta.withModule' $ Theta.Module
+                   { moduleName = "foo"
+                   , types = [("foo.Empty", Theta.Definition "foo.Empty" Nothing emptyType)]
+                   , imports = []
+                   , metadata = baseMetadata { avroVersion = v }
+                   }
+
+        emptyType  = wrap "1.0.0" $ Theta.Record' "foo.Empty" []
         emptyValue = Theta.Value
           { Theta.type_   = emptyType
           , Theta.value   = Theta.Record []
           }
         emptySchema = ReadSchema.Record "foo.Empty" [] Nothing []
 
-        type_ = wrap $ Theta.Record' "foo.Foo"
+        type_ = wrap "1.0.0" $ Theta.Record' "foo.Foo"
                   [ Theta.Field "foo" Nothing emptyType
                   , Theta.Field "bar" Nothing Theta.int'
                   ]
@@ -245,6 +249,20 @@ records = [ (emptyValue, emptyType, Avro.Record emptySchema [])
 
         avroField name schema i =
           ReadSchema.ReadField name [] Nothing Nothing (ReadSchema.AsIs i) schema Nothing
+
+        dates = Theta.Value
+          { Theta.type_ = datesType
+          , Theta.value = Theta.Record
+            [ Theta.date (Theta.toDay 17938)
+            , Theta.datetime (Theta.toUTCTime 1549894992000000)
+            ]
+          }
+        datesType = wrap "1.1.0" $ Theta.Record' "foo.Dates"
+          [ Theta.Field "date" Nothing Theta.date'
+          , Theta.Field "datetime" Nothing Theta.datetime'
+          ]
+        datesSchema = ReadSchema.Record "foo.Dates" [] Nothing
+          [ avroField "date" schemaDate 0, avroField "datetime" schemaDatetime 1 ]
 
 
 variants :: [(Theta.Value, Theta.Type, Avro.Value)]
@@ -351,14 +369,13 @@ avroInt :: Int32 -> Avro.Value
 avroInt = Avro.Int schemaInt
 
 avroDate :: Int32 -> Avro.Value
-avroDate = Avro.Int (ReadSchema.Int (Just ReadSchema.Date))
+avroDate = Avro.Int schemaDate
 
 avroLong :: Int64 -> Avro.Value
 avroLong = Avro.Long (ReadSchema.Long ReadSchema.ReadLong Nothing)
 
 avroDatetime :: Int64 -> Avro.Value
-avroDatetime =
-  Avro.Long (ReadSchema.Long ReadSchema.ReadLong (Just ReadSchema.TimestampMicros))
+avroDatetime = Avro.Long schemaDatetime
 
 avroFloat :: Float -> Avro.Value
 avroFloat = Avro.Float (ReadSchema.Float ReadSchema.ReadFloat)
@@ -378,8 +395,14 @@ schemaUnion = ReadSchema.Union . Vector.indexed
 schemaInt :: ReadSchema.ReadSchema
 schemaInt = ReadSchema.Int Nothing
 
+schemaDate :: ReadSchema.ReadSchema
+schemaDate = ReadSchema.Int (Just ReadSchema.Date)
+
 schemaLong :: ReadSchema.ReadSchema
 schemaLong = ReadSchema.Long ReadSchema.ReadLong Nothing
+
+schemaDatetime :: ReadSchema.ReadSchema
+schemaDatetime = ReadSchema.Long ReadSchema.ReadLong (Just ReadSchema.TimestampMicros)
 
 schemaFloat :: ReadSchema.ReadSchema
 schemaFloat = ReadSchema.Float ReadSchema.ReadFloat

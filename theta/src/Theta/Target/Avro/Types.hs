@@ -51,6 +51,8 @@ import qualified Data.Set                   as Set
 import           Data.String.Interpolate    (__i)
 
 import qualified Theta.Error                as Theta
+import           Theta.Metadata             (Version)
+import qualified Theta.Metadata             as Metadata
 import           Theta.Name                 (Name)
 import qualified Theta.Name                 as Name
 import           Theta.Target.Avro.Error
@@ -134,16 +136,18 @@ toSchema Definition { definitionType, definitionDoc } =
       Type hash: #{hash definitionType}
     |]
 
-    toSchema' Type { baseType = Variant' name cases } =
-      evalStateT (variant name definitionDoc cases) Set.empty
     toSchema' Type { baseType = Record' name fields } =
-      evalStateT (record name definitionDoc fields) Set.empty
+      evalStateT (record name avroVersion definitionDoc fields) Set.empty
+    toSchema' Type { baseType = Variant' name cases } =
+      evalStateT (variant name avroVersion definitionDoc cases) Set.empty
     toSchema' Type { baseType = Reference' name, module_ } =
       case lookupDefinition name module_ of
         Right type_ -> toSchema type_
         Left _      -> throw $ NonExistentType name
     toSchema' invalid                          =
       throw $ InvalidExport invalid
+
+    avroVersion = Metadata.avroVersion $ metadata $ module_ definitionType
 {-# SPECIALIZE toSchema :: Definition Type -> Either Theta.Error Schema #-}
 
 -- | Build an Avro schema for a Theta variant given the variant's name
@@ -187,10 +191,13 @@ toSchema Definition { definitionType, definitionDoc } =
 -- @
 variant :: (MonadError Theta.Error m, MonadState (Set Name) m)
         => Name
+        -> Version
+        -- ^ The avro-version set for the module where this variant
+        -- was deifned.
         -> Maybe Doc
         -> (NonEmpty (Case Type))
         -> m Schema
-variant variantName doc variantCases = do
+variant variantName avroVersion doc variantCases = do
   included <- get
   if variantName `Set.member` included
     then throw $ DuplicateName variantName
@@ -198,7 +205,8 @@ variant variantName doc variantCases = do
     modify $ Set.insert variantName
     let caseToRecord Case { caseName, caseParameters, caseDoc }
           | caseName `Set.member` included = pure $ namedType caseName
-          | otherwise                      = record caseName caseDoc caseParameters
+          | otherwise                      =
+            record caseName avroVersion caseDoc caseParameters
     types <- force <$> traverse caseToRecord variantCases
 
     let field = Avro.Field
@@ -217,7 +225,7 @@ variant variantName doc variantCases = do
       , Avro.fields    = [field]
       }
   where force xs = liftRnf (`seq` ()) xs `seq` xs
-{-# SPECIALIZE variant :: Name -> Maybe Doc -> NonEmpty (Case Type) -> StateT (Set Name) (Either Theta.Error) Schema #-}
+{-# SPECIALIZE variant :: Name -> Version -> Maybe Doc -> NonEmpty (Case Type) -> StateT (Set Name) (Either Theta.Error) Schema #-}
 
 -- | Build an Avro schema for a Theta record. A Theta record is turned
 -- into an Avro record with the same name and fields.
@@ -225,12 +233,15 @@ record :: (MonadError Theta.Error m, MonadState (Set Name.Name) m)
        => Name.Name
        -- ^ The name of the record. The Avro record will have the same
        -- name, including the namespace.
+       -> Version
+       -- ^ The avro-version set in the module where the record was
+       -- defined.
        -> Maybe Doc
        -> Fields Type
        -- ^ The fields in the record. The Avro record definitions will
        -- have the same fields in the same order.
        -> m Schema
-record recordName doc Fields { fields } = do
+record recordName avroVersion doc Fields { fields } = do
   included <- get
   let alreadyDefined  = recordName `Set.member` included
       duplicateFields = not $ unique $ fieldName <$> fields
@@ -253,7 +264,7 @@ record recordName doc Fields { fields } = do
         }
 
     fieldToAvro Field { fieldName, fieldType, fieldDoc } = do
-      !type_ <- typeToAvro fieldType
+      !type_ <- typeToAvro avroVersion fieldType
       pure $ Avro.Field
         { Avro.fldName    = textName fieldName
         , Avro.fldAliases = []
@@ -264,7 +275,7 @@ record recordName doc Fields { fields } = do
         }
 
     force xs = liftRnf (`seq` ()) xs `seq` xs
-{-# SPECIALIZE record :: Name -> Maybe Doc -> Fields Type -> StateT (Set Name) (Either Theta.Error) Schema #-}
+{-# SPECIALIZE record :: Name -> Version -> Maybe Doc -> Fields Type -> StateT (Set Name) (Either Theta.Error) Schema #-}
 
 -- | Turn a Theta 'Name.Name' to the corresponding Avro name.
 nameToAvro :: Name.Name -> TypeName
@@ -284,44 +295,61 @@ namedType = Avro.NamedType . nameToAvro
 -- types. (This means distinction between different newtypes is not
 -- preserved in Avro!)
 typeToAvro :: (MonadError Theta.Error m, MonadState (Set Name) m)
-           => Type
+           => Version
+              -- ^ The Avro version of the *context* of this type.
+              --
+              -- For user-defined types (records, variants and
+              -- newtypes) this is the avro-version set in the module
+              -- where they are defined.
+              --
+              -- For primitive types, this is the avro-version of the
+              -- module where they are referenced, either directly or
+              -- through an alias.
+              --
+              -- This approach lets us maintain backwards
+              -- compatibility in a controllable way for Avro
+              -- encoding—for example, whether or not to use logical
+              -- Avro types for Date and Datetime.
+           -> Type
            -> m Schema
-typeToAvro Type { baseType, module_ } = case baseType of
-  Bool'               -> pure $! Avro.Boolean
-  Bytes'              -> pure $! Avro.Bytes Nothing
-  Int'                -> pure $! Avro.Int Nothing
-  Long'               -> pure $! Avro.Long Nothing
-  Float'              -> pure $! Avro.Float
-  Double'             -> pure $! Avro.Double
-  String'             -> pure $! Avro.String Nothing
+typeToAvro contextAvroVersion Type { baseType, module_ } = case baseType of
+  Bool'   -> pure $! Avro.Boolean
+  Bytes'  -> pure $! Avro.Bytes Nothing
+  Int'    -> pure $! Avro.Int Nothing
+  Long'   -> pure $! Avro.Long Nothing
+  Float'  -> pure $! Avro.Float
+  Double' -> pure $! Avro.Double
+  String' -> pure $! Avro.String Nothing
 
-  -- TODO: Switch to Avro's logical types for dates and timestamps?
-  --
-  -- Logical types were added to the Haskell library after
-  -- avro-0.5.0.0. Using them would make sense but might be a breaking
-  -- change to the Avro encoding—will need further investigation.
-  Date'               -> pure $! Avro.Int (Just Avro.Date)
-  Datetime'           -> pure $! Avro.Long (Just Avro.TimestampMicros)
+  Date'
+    | contextAvroVersion < "1.1.0" -> pure $! Avro.Int Nothing
+    | otherwise                    -> pure $! Avro.Int (Just Avro.Date)
+  Datetime'
+    | contextAvroVersion < "1.1.0" -> pure $! Avro.Long Nothing
+    | otherwise                    -> pure $! Avro.Long (Just Avro.TimestampMicros)
 
-  Array' item         -> Avro.Array <$!> typeToAvro item
-  Map' value          -> Avro.Map   <$!> typeToAvro value
-  Optional' type_     -> nullUnion  <$!> typeToAvro type_
+  Array' item     -> Avro.Array <$!> typeToAvro contextAvroVersion item
+  Map' value      -> Avro.Map   <$!> typeToAvro contextAvroVersion value
+  Optional' type_ -> nullUnion  <$!> typeToAvro contextAvroVersion type_
 
-  Record' name fields -> record name (getDoc name) fields
-  Variant' name cases -> variant name (getDoc name) cases
+  Record' name fields -> record name definitionAvroVersion (getDoc name) fields
+  Variant' name cases -> variant name definitionAvroVersion (getDoc name) cases
 
-  Newtype' _ type_    -> typeToAvro type_
+  Newtype' _ type_    -> typeToAvro definitionAvroVersion type_
   Reference' typeName -> do
     included <- get
     if typeName `Set.member` included
       then pure $! namedType typeName
       else case lookupName typeName module_ of
              Left _    -> throw $ NonExistentType typeName
-             Right res -> typeToAvro res
+             Right res -> typeToAvro contextAvroVersion res
   where nullUnion type_ = Avro.mkUnion $ Avro.Null :| [type_]
 
         getDoc name = case lookupDefinition name module_ of
           Right Definition { definitionDoc } -> definitionDoc
           Left _                             -> Nothing
-{-# SPECIALIZE typeToAvro :: Type -> StateT (Set Name) (Either Theta.Error) Schema #-}
 
+        -- avro-version where this type was defined, as opposed to
+        -- avro-version where it was used (contextAvroVersion)
+        definitionAvroVersion = Metadata.avroVersion $ metadata module_
+{-# SPECIALIZE typeToAvro :: Version -> Type -> StateT (Set Name) (Either Theta.Error) Schema #-}

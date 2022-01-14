@@ -12,8 +12,8 @@ type Primitives = {
   float    : Float,
   double   : Double,
   string   : String,
-  date     : Date,    // since 1.2.0
-  datetime : Datetime // since 1.2.0
+  date     : Date,
+  datetime : Datetime
 }
 
 type Containers = {

@@ -58,6 +58,7 @@ import           GHC.Exts                    (fromList)
 
 import           Theta.Error                 (Error)
 import qualified Theta.Error                 as Error
+import qualified Theta.Metadata              as Metadata
 import           Theta.Name                  (Name)
 import qualified Theta.Name                  as Name
 import           Theta.Target.Avro.Error
@@ -77,7 +78,8 @@ trace' label a = trace (label <> ":\n" <> show a <> "\n") a
 -- the Theta type of the value, as compiled by 'toSchema'.
 toAvro :: MonadError Error m => Value -> m Avro.Value
 toAvro value@Value { type_ } = do
-  !schema <- evalStateT (typeToAvro type_) Set.empty
+  let avroVersion = Metadata.avroVersion $ Theta.metadata $ Theta.module_ type_
+  !schema <- evalStateT (typeToAvro avroVersion type_) Set.empty
 
   let env      = runIdentity . Schema.buildTypeEnvironment die schema
       die name = error $ show name <> " not defined in generated Avro schema."
