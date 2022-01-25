@@ -81,56 +81,7 @@ import           Data.Versions                   (SemVer(..), VUnit(..))
 import qualified GHC.Exts                        as Exts
 import           GHC.Generics                    (Generic)
 
-import Language.Haskell.TH as TH
-    ( newName,
-      mkName,
-      stringL,
-      integerL,
-      litP,
-      varP,
-      conP,
-      recP,
-      fieldPat,
-      match,
-      varE,
-      conE,
-      litE,
-      appTypeE,
-      infixE,
-      caseE,
-      doE,
-      listE,
-      recConE,
-      normalB,
-      bindS,
-      noBindS,
-      valD,
-      sigD,
-      noSourceUnpackedness,
-      noSourceStrictness,
-      sourceStrict,
-      normalC,
-      recC,
-      bang,
-      bangType,
-      varBangType,
-      conT,
-      Exp,
-      Q,
-      Type,
-      Dec,
-      BangTypeQ,
-      Name,
-      dataD,
-      derivClause,
-      newtypeD,
-      tySynD,
-      lookupValueName,
-      nameBase,
-      runIO,
-      Con,
-      DerivClause,
-      Stmt )
+import           Language.Haskell.TH             as TH
 import           Language.Haskell.TH.Syntax
 
 import           Theta.Error                     (Error)
@@ -146,7 +97,6 @@ import qualified Theta.Target.Avro.Values        as Theta
 
 import qualified Theta.Target.Haskell.Conversion as Conversion
 import           Theta.Target.Haskell.HasTheta   (HasTheta (..))
-import Data.Maybe (fromMaybe)
 
 -- * Generating Haskell types
 
@@ -302,7 +252,7 @@ generateMetadata Metadata { languageVersion, avroVersion, moduleName } =
                      , _svMinor  = $(litE $ integerL $ fromIntegral _svMinor)
                      , _svPatch  = $(litE $ integerL $ fromIntegral _svPatch)
                      , _svPreRel = $(listE $ units <$> _svPreRel)
-                     , _svMeta   = fromMaybe _svMeta
+                     , _svMeta   = $(meta _svMeta)
                      }
             |]
 
@@ -310,6 +260,10 @@ generateMetadata Metadata { languageVersion, avroVersion, moduleName } =
 
         unit (Digits word) = [e| Digits $(litE $ integerL $ fromIntegral word) |]
         unit (Str text)    = [e| Text $(litE $ stringL $ Text.unpack text) |]
+
+        meta = \case
+          Just text -> litE $ stringL $ Text.unpack text
+          Nothing   -> [e| Nothing |]
 
 -- ** Type Definitions
 

@@ -32,7 +32,7 @@ common shared
                , aeson
                , aeson-pretty
                , aeson-qq
-               , avro >=0.5.2.0
+               , avro >=0.5.2.0 && <0.6
                , binary
                , bytestring
                , containers
@@ -51,7 +51,7 @@ common shared
                , time
                , unordered-containers
                , vector
-               , versions
+               , versions ==5.*
 
 flag isStatic
   manual: True
