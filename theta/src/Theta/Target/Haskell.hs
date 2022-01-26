@@ -252,14 +252,18 @@ generateMetadata Metadata { languageVersion, avroVersion, moduleName } =
                      , _svMinor  = $(litE $ integerL $ fromIntegral _svMinor)
                      , _svPatch  = $(litE $ integerL $ fromIntegral _svPatch)
                      , _svPreRel = $(listE $ units <$> _svPreRel)
-                     , _svMeta   = $(listE $ units <$> _svMeta)
+                     , _svMeta   = $(meta _svMeta)
                      }
             |]
 
-        units = listE . map unit
+        units = listE . toList . NonEmpty.map unit
 
         unit (Digits word) = [e| Digits $(litE $ integerL $ fromIntegral word) |]
         unit (Str text)    = [e| Text $(litE $ stringL $ Text.unpack text) |]
+
+        meta = \case
+          Just text -> litE $ stringL $ Text.unpack text
+          Nothing   -> [e| Nothing |]
 
 -- ** Type Definitions
 

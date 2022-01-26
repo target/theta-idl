@@ -60,7 +60,7 @@ instance Arbitrary Version where
                           <*> arbitrary
                           <*> arbitrary
                           <*> pure []
-                          <*> pure []
+                          <*> pure Nothing
 
 -- | Render a 'Version' in a compact, human-readable format.
 --

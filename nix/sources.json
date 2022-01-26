@@ -5,10 +5,10 @@
         "homepage": null,
         "owner": "commercialhaskell",
         "repo": "all-cabal-hashes",
-        "rev": "55f0640818e41a97c3090e6c671f6f50654ca11d",
-        "sha256": "04hjlblmyqkzhz073mvbyg9chr5jrvxzk2whk4hh6mw1pjs8l10z",
+        "rev": "648effa545704bd1af1136eef49dc5411975c143",
+        "sha256": "1ci9344bh166j2ibbzdprpr6h1zwmxln968aj8w7g5n6dbni8p68",
         "type": "file",
-        "url": "https://github.com/commercialhaskell/all-cabal-hashes/archive/55f0640818e41a97c3090e6c671f6f50654ca11d.tar.gz",
+        "url": "https://github.com/commercialhaskell/all-cabal-hashes/archive/648effa545704bd1af1136eef49dc5411975c143.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "language-rust": {
