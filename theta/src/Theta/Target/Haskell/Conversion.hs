@@ -84,7 +84,7 @@ class HasTheta a => ToTheta a where
 class HasTheta a => FromTheta a where
 
   -- | Convert a 'Theta.Value' to a Haskell type, explicitly managing
-  -- the error 'Context' with 'MoandState'. If you want to convert a
+  -- the error 'Context' with 'MonadState'. If you want to convert a
   -- type from the top (ie with no context), use 'fromTheta' instead.
   --
   -- Raises an error if the Theta value does not have the type
