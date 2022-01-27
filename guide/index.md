@@ -20,14 +20,18 @@ Theta lets you define protocols as algebraic data types and reuse those types wi
 
 ## Versioning
 
-Each Theta module starts with a metadata section specifying the version of the language and encodings (ie the Avro-based format) the schema uses:
+Each Theta module starts with a metadata section with two version specifications:
+
+  1.  `language-version`: controls the features supported by the Theta language itself
+  2. `avro-version`: controls how Theta gets encoded and decoded as Avro
 
 ```
 language-version: 1.0.0
 avro-version: 1.0.0
+---
 ```
 
-This lets different clients consistently communicate even if they are using different versions—or even different *implementations*—of the Theta compiler. Theta modules at a specific language and Avro version should always compile to compatible Avro encodings. The concrete guarantee is that a Theta compiler will either:
+Explicitly specifying versions lets different clients consistently communicate if they are using different versions—or even different *implementations*—of the Theta compiler. Theta modules at a specific language and Avro version should always compile to compatible Avro encodings. The concrete guarantee is that a Theta compiler will either:
 
   * compile a schema at a given version to the same Avro and encode/decode it correctly
   * fail to process the schema if it does not support the specified language/encoding versions
