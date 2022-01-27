@@ -34,7 +34,7 @@ This lets different clients consistently communicate even if they are using diff
 
 ## Namespaces
 
-The names of types and variant constructors in Theta have two components: a base name and a namespace made up of the name of the module where the name was defined. Modules themselves can be namespaced, with multiple names separated by dots (.). 
+The names of types and variant constructors in Theta have two components: a base name and a namespace made up of the name of the module where the name was defined. Modules themselves can be namespaced, with multiple names separated by dots (.).
 
 For example, you might have a module called `com.example`. When you import `com.example`, Theta will search through your load path to find `com/example.theta`. A type called `Foo` defined in this module will have the fully qualified name `com.example.foo`.
 
@@ -65,13 +65,38 @@ Theta type definitions are grouped together in modules. Each module is a file en
 <ROOT>/com/example/foo.theta
 ```
 
-`<ROOT>` is one of the directories that Theta searches through for modules, based on the Theta path which is set in different ways depending on the target you're compiling to.
+`<ROOT>` needs to be one of the directories specified in Theta's [load path](#load-path).
 
 Modules can import other modules, which will expose *every* type defined in the imported module. The `import` statement uses the fully qualified name of the module to import:
 
 ```
 import com.example.foo
 ```
+
+### Load Path
+
+The Theta load path controls which directories Theta searches through to find module files. A load path can specify multiple relative or absolute directories separated with `:`, similar to the standard `PATH` variable:
+
+```
+/home/tikhon/example/specs:relative/path/specs
+```
+
+The Theta executable can get the load path either from the `THETA_LOAD_PATH` environment variable
+
+``` shell
+export THETA_LOAD_PATH="example/specs:other/specs"
+theta ...
+```
+
+or through a command-line argument (`--path` or `-p` for short):
+
+``` shell
+theta --path "example/specs:other/specs" ...
+```
+
+If the command-line argument is used, the `THETA_LOAD_PATH` environment variable is ignored.
+
+Note: Fully qualified names should be unique; a load path with multiple definitions of a module with the same fully qualified name may lead to errors or incorrect behavior.
 
 ## Types
 
@@ -327,10 +352,12 @@ module Policy where
 
 import Theta.Target.Haskell (loadModule)
 
---        Theta path   module name
+--        load path   module name
 --             ↓          ↓
 loadModule "examples" "album"
 ```
+
+The [load path](#load-path) takes the same syntax as the `THETA_LOAD_PATH` environment variable: one or more directories separated by `:`. Relative paths are interpreted relative to your working directory during compilation, which should be the root of your project (ie the location of your `.cabal` file).
 
 A call to `loadModule` will generate a top-level reference `theta'module_name :: Theta.Module` (`theta'album` in this example) which gives us access to the entire parsed Theta module.
 
