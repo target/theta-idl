@@ -354,10 +354,14 @@ import Theta.Target.Haskell (loadModule)
 
 --        load path   module name
 --             ↓          ↓
-loadModule "examples" "album"
+loadModule "example/specs" "com.example.album"
 ```
 
-The [load path](#load-path) takes the same syntax as the `THETA_LOAD_PATH` environment variable: one or more directories separated by `:`. Relative paths are interpreted relative to your working directory during compilation, which should be the root of your project (ie the location of your `.cabal` file).
+This example will generate definitions for the module defined in `example/specs/com/example/album.theta` as well as any Theta modules it imports.
+
+The first argument to `loadModule` is the [load path](#load-path): one or more directories separated by `:`. Relative paths are interpreted relative to your working directory during compilation, which should be the root of your project (ie the location of your `.cabal` file).
+
+The second argument is the *fully qualified* name of the module. A module's name and namespace correspond to the module's filepath: `com.example.name` would be located in `com/example/name.theta` somewhere in the load path.
 
 A call to `loadModule` will generate a top-level reference `theta'module_name :: Theta.Module` (`theta'album` in this example) which gives us access to the entire parsed Theta module.
 
