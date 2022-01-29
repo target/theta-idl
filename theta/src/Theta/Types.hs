@@ -1,4 +1,6 @@
+{-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -45,6 +47,7 @@ import qualified Data.Text               as Text
 import qualified Data.Text.Encoding      as Text
 
 import           GHC.Exts                (IsList (..), IsString)
+import           GHC.Generics            (Generic)
 
 import           Theta.Metadata          (Metadata)
 import qualified Theta.Metadata          as Metadata
@@ -175,6 +178,9 @@ hashType module_ type_ = evalState (go type_) Set.empty
         Map' t      -> hashMap <$> go t
         Optional' t -> hashOptional <$> go t
 
+        Enum' n symbols ->
+          pure $ foldr (<>) (hashName n) $ hashText . enumSymbol <$> symbols
+
         -- Special handling to avoid infinite recursion:
         --
         -- If we've already seen a type, we hash it solely based
@@ -300,6 +306,7 @@ data BaseType t = Bool'
                   -- ^ An absolute date, with no time attached.
                 | Datetime'
                   -- ^ An absolute timestamp.
+
                 | Array' !t
                   -- ^ Arrays which have a specified type as elements
                   -- (can be nested).
@@ -310,9 +317,21 @@ data BaseType t = Bool'
                 | Optional' !t
                   -- ^ Optional, nullable types. Think 'Maybe' in
                   -- Haskell or @["null", "Foo"]@ in Avro.
+
                 | Reference' !Name
                   -- ^ A reference to some other named type. This could
                   -- be a record, a variant or a newtype.
+
+                | Enum' !Name !(NonEmpty EnumSymbol)
+                  -- ^ An Enum value is one of a set of
+                  -- symbols. Symbols have the same lexical
+                  -- restrictions as Avro names: they have to match
+                  -- the regular expression @[A-Za-z_][A-Za-z0-9_]*@.
+                  --
+                  -- The order of names defined in an Enum has no
+                  -- semantic value, but can affect the generated Avro
+                  -- schema and details of the binary encoding for the
+                  -- type.
                 | Record' !Name !(Fields t)
                   -- ^ A record is a named type with a set of fields
                   -- that can have differen types.
@@ -326,6 +345,12 @@ data BaseType t = Bool'
                   -- types in Haskell while keeping the Avro
                   -- representation the same.
                 deriving (Functor, Foldable, Traversable, Show)
+
+newtype EnumSymbol = EnumSymbol { enumSymbol :: Text }
+  deriving stock (Show, Eq, Ord, Generic)
+  deriving anyclass (Hashable)
+
+instance Pretty EnumSymbol where pretty (EnumSymbol symbol) = symbol
 
 -- | Returns the "underlying" type of a newtype or reference,
 -- recursively. This goes through any number of references and
@@ -366,6 +391,7 @@ isPrimitive Type { baseType } = case baseType of
   -- non-primitive types
   Array' {}        -> False
   Map' {}          -> False
+  Enum' {}         -> False
   Optional' {}     -> False
   Reference' {}    -> False
   Record' {}       -> False
@@ -411,6 +437,7 @@ prettyType Type { baseType } = case baseType of
   Optional' t  -> prettyType t <> "?"
 
   -- named types
+  Enum' n _    -> pretty n
   Reference' n -> pretty n
   Record' n _  -> pretty n
   Variant' n _ -> pretty n
