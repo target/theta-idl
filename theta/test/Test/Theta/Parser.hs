@@ -471,7 +471,7 @@ assertFails = \case
 
 -- | Assert that the parser succeeds without specifying what the
 -- result should be.
-assertSucceeds :: (Stream s, ShowErrorComponent e)
+assertSucceeds :: (VisualStream s, TraversableStream s, Stream s, ShowErrorComponent e)
                => Either (ParseErrorBundle s e) b
                -> Assertion
 assertSucceeds = \case
@@ -484,7 +484,7 @@ assertSucceeds = \case
 
 -- | Check whether the given parse result has no errors and returns
 -- the expected value.
-(?=) :: (Show a, Eq a, Stream s, ShowErrorComponent e)
+(?=) :: (Show a, Eq a, VisualStream s, TraversableStream s, Stream s, ShowErrorComponent e)
      => Either (ParseErrorBundle s e) a
      -> a
      -> Assertion
