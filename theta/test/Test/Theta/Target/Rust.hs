@@ -8,17 +8,13 @@
 
 module Test.Theta.Target.Rust where
 
-import           Control.Monad                 (when)
-
-import qualified Data.Algorithm.Diff           as Diff
-import qualified Data.Algorithm.DiffOutput     as Diff
-import qualified Data.Text                     as Text
 import qualified Data.Text.IO                  as Text
 
 import           System.FilePath               ((<.>), (</>))
 
 import qualified Theta.Metadata                as Theta
 import           Theta.Target.Haskell          (loadModule)
+import           Theta.Target.LanguageQuoter   ((?=))
 import           Theta.Target.Rust
 import           Theta.Target.Rust.QuasiQuoter (normalize)
 import qualified Theta.Types                   as Theta
@@ -45,42 +41,42 @@ tests = testGroup "Rust"
 test_toFile :: TestTree
 test_toFile = testCase "toFile" $ do
   expected <- loadRust "single_file"
-  toFile [theta'newtype, theta'recursive] ?= expected
+  toFile [theta'newtype, theta'recursive] ??= expected
 
 test_toModule :: TestTree
 test_toModule = testGroup "toModule"
   [ testCase "newtype.theta" $ do
       expected <- loadRust "newtype"
-      toModule theta'newtype ?= expected
+      toModule theta'newtype ??= expected
 
   , testCase "recursive.theta" $ do
       expected <- loadRust "recursive"
-      toModule theta'recursive ?= expected
+      toModule theta'recursive ??= expected
   ]
 
 test_toReference :: TestTree
 test_toReference = testGroup "toReference"
   [ testCase "primitive types" $ do
-      toReference Theta.bool'     ?= "bool"
-      toReference Theta.bytes'    ?= "Vec<u8>"
-      toReference Theta.int'      ?= "i32"
-      toReference Theta.long'     ?= "i64"
-      toReference Theta.float'    ?= "f32"
-      toReference Theta.double'   ?= "f64"
-      toReference Theta.date'     ?= "Date<Utc>"
-      toReference Theta.datetime' ?= "DateTime<Utc>"
+      toReference Theta.bool'     ??= "bool"
+      toReference Theta.bytes'    ??= "Vec<u8>"
+      toReference Theta.int'      ??= "i32"
+      toReference Theta.long'     ??= "i64"
+      toReference Theta.float'    ??= "f32"
+      toReference Theta.double'   ??= "f64"
+      toReference Theta.date'     ??= "Date<Utc>"
+      toReference Theta.datetime' ??= "DateTime<Utc>"
 
   , testCase "containers" $ do
-      toReference (Theta.array' Theta.int')       ?= "Vec<i32>"
-      toReference (Theta.array' Theta.string')    ?= "Vec<String>"
-      toReference (Theta.map' Theta.int')         ?= "HashMap<String, i32>"
-      toReference (Theta.map' Theta.string')      ?= "HashMap<String, String>"
-      toReference (Theta.optional' Theta.int')    ?= "Option<i32>"
-      toReference (Theta.optional' Theta.string') ?= "Option<String>"
+      toReference (Theta.array' Theta.int')       ??= "Vec<i32>"
+      toReference (Theta.array' Theta.string')    ??= "Vec<String>"
+      toReference (Theta.map' Theta.int')         ??= "HashMap<String, i32>"
+      toReference (Theta.map' Theta.string')      ??= "HashMap<String, String>"
+      toReference (Theta.optional' Theta.int')    ??= "Option<i32>"
+      toReference (Theta.optional' Theta.string') ??= "Option<String>"
 
-      toReference (Theta.array' $ Theta.map' Theta.int')     ?= "Vec<HashMap<String, i32>>"
-      toReference (Theta.map' $ Theta.array' Theta.int')     ?= "HashMap<String, Vec<i32>>"
-      toReference (Theta.array'$ Theta.optional' Theta.int') ?= "Vec<Option<i32>>"
+      toReference (Theta.array' $ Theta.map' Theta.int')     ??= "Vec<HashMap<String, i32>>"
+      toReference (Theta.map' $ Theta.array' Theta.int')     ??= "HashMap<String, Vec<i32>>"
+      toReference (Theta.array'$ Theta.optional' Theta.int') ??= "Vec<Option<i32>>"
 
   , testCase "named types" $ do
       let reference = wrap $ Theta.Reference' "base.FooReference"
@@ -89,17 +85,17 @@ test_toReference = testGroup "toReference"
             [ Theta.Case "base.Foo" Nothing [] ]
           newtype_  = wrap $ Theta.Newtype' "base.FooNewtype" record
 
-      toReference reference ?= "base::FooReference"
-      toReference record    ?= "base::FooRecord"
-      toReference variant   ?= "base::FooVariant"
-      toReference newtype_  ?= "base::FooNewtype"
+      toReference reference ??= "base::FooReference"
+      toReference record    ??= "base::FooRecord"
+      toReference variant   ??= "base::FooVariant"
+      toReference newtype_  ??= "base::FooNewtype"
   ]
   where wrap = Theta.withModule' Theta.baseModule
 
 test_toRecord :: TestTree
 test_toRecord = testGroup "toRecord"
   [ testCase "empty record" $ do
-      toRecord "foo.Empty" [] ?=
+      toRecord "foo.Empty" [] ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub struct Empty {
@@ -125,7 +121,7 @@ test_toRecord = testGroup "toRecord"
           input = Theta.Field "input" Nothing Theta.string'
           -- fields named "input" need special handling
 
-      toRecord "foo.OneField" [foo] ?=
+      toRecord "foo.OneField" [foo] ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub struct OneField {
@@ -149,7 +145,7 @@ test_toRecord = testGroup "toRecord"
         |]
 
 
-      toRecord "foo.TwoFields" [foo, input] ?=
+      toRecord "foo.TwoFields" [foo, input] ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub struct TwoFields {
@@ -178,7 +174,7 @@ test_toRecord = testGroup "toRecord"
 
   , testCase "references" $ do
       let foo = Theta.Field "foo" Nothing (reference "foo.Foo")
-      toRecord "foo.Foo" [foo] ?=
+      toRecord "foo.Foo" [foo] ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub struct Foo {
@@ -202,7 +198,7 @@ test_toRecord = testGroup "toRecord"
         |]
 
 
-      toRecord "foo.Bar" [foo] ?=
+      toRecord "foo.Bar" [foo] ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub struct Bar {
@@ -231,7 +227,7 @@ test_toVariant :: TestTree
 test_toVariant = testGroup "toVariant"
   [ testCase "single case" $ do
       let cases = [Theta.Case "foo.Case" Nothing [Theta.Field "foo" Nothing Theta.int']]
-      toVariant "foo.Variant" cases ?=
+      toVariant "foo.Variant" cases ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub enum Variant {
@@ -273,7 +269,7 @@ test_toVariant = testGroup "toVariant"
                                                  , Theta.Field "input" Nothing Theta.string'
                                                  ]
                   ]
-      toVariant "foo.Variant" cases ?=
+      toVariant "foo.Variant" cases ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub enum Variant {
@@ -327,7 +323,7 @@ test_toVariant = testGroup "toVariant"
 test_toNewtype :: TestTree
 test_toNewtype = testGroup "toNewtype"
   [ testCase "primitive" $ do
-      toNewtype "foo.Foo" Theta.int' ?=
+      toNewtype "foo.Foo" Theta.int' ??=
        [rust|
          #[derive(Copy, Clone, Debug, PartialEq)]
          pub struct Foo(pub i32);
@@ -349,7 +345,7 @@ test_toNewtype = testGroup "toNewtype"
        |]
 
   , testCase "reference" $ do
-      toNewtype "foo.Foo" (reference "foo.Bar") ?=
+      toNewtype "foo.Foo" (reference "foo.Bar") ??=
        [rust|
          #[derive(Copy, Clone, Debug, PartialEq)]
          pub struct Foo(pub foo::Bar);
@@ -371,7 +367,7 @@ test_toNewtype = testGroup "toNewtype"
        |]
 
   , testCase "container" $ do
-     toNewtype "foo.Foo" (Theta.array' Theta.double') ?=
+     toNewtype "foo.Foo" (Theta.array' Theta.double') ??=
        [rust|
          #[derive(Clone, Debug, PartialEq)]
          pub struct Foo(pub Vec<f64>);
@@ -401,15 +397,15 @@ test_toNewtype = testGroup "toNewtype"
 test_alias :: TestTree
 test_alias = testGroup "alias"
   [ testCase "primitive" $ do
-      toDefinition (Theta.Definition "foo.Foo" Nothing Theta.int') ?=
+      toDefinition (Theta.Definition "foo.Foo" Nothing Theta.int') ??=
         "pub type Foo = i32;"
 
   , testCase "reference" $ do
-      toDefinition (Theta.Definition "foo.Foo" Nothing (reference "foo.Bar")) ?=
+      toDefinition (Theta.Definition "foo.Foo" Nothing (reference "foo.Bar")) ??=
         "pub type Foo = foo::Bar;"
 
   , testCase "container" $ do
-     toDefinition (Theta.Definition "foo.Foo" Nothing (Theta.array' Theta.double')) ?=
+     toDefinition (Theta.Definition "foo.Foo" Nothing (Theta.array' Theta.double')) ??=
        "pub type Foo = Vec<f64>;"
   ]
   where reference = Theta.withModule' fooModule . Theta.Reference'
@@ -440,13 +436,5 @@ loadRust name = do
 -- of the *normalized* versions of the code. The normalized version is
 -- a bit less readable, but comparing them makes debugging tests a lot
 -- easier!
-(?=) :: Rust -> Rust -> Assertion
-a ?= b = do
-  let Rust a' = normalize a
-      Rust b' = normalize b
-  when (a' /= b') $ assertFailure $
-    Diff.ppDiff $ toString <$> Diff.getGroupedDiff (Text.lines a') (Text.lines b')
-  where toString :: Diff.Diff [Text.Text] -> Diff.Diff [String]
-        toString (Diff.First a)  = Diff.First  (Text.unpack <$> a)
-        toString (Diff.Second b) = Diff.Second (Text.unpack <$> b)
-        toString (Diff.Both a b) = Diff.Both   (Text.unpack <$> a) (Text.unpack <$> b)
+(??=) :: Rust -> Rust -> Assertion
+a ??= b = normalize a ?= normalize b

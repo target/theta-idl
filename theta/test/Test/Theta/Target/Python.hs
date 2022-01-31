@@ -10,31 +10,33 @@
 -- | Tests for the python code generation from Theta.
 module Test.Theta.Target.Python where
 
-import           Data.Aeson              ((.=), object)
-import qualified Data.Avro               as Avro
-import qualified Data.ByteString.Lazy    as LBS
-import qualified Data.Text               as Text
-import qualified Data.Text.Lazy          as Text (toStrict)
-import qualified Data.Time.Calendar      as Time
-import qualified Data.Time.Clock         as Time
+import           Data.Aeson                  (object, (.=))
+import qualified Data.Avro                   as Avro
+import qualified Data.ByteString.Lazy        as LBS
+import qualified Data.Text                   as Text
+import qualified Data.Text.Lazy              as Text (toStrict)
+import qualified Data.Time.Calendar          as Time
+import qualified Data.Time.Clock             as Time
 
-import           System.FilePath         ((<.>), (</>))
+import           System.FilePath             ((<.>), (</>))
 
-import           Text.Mustache           (compileMustacheFile, renderMustache)
+import           Text.Mustache               (compileMustacheFile,
+                                              renderMustache)
 
-import qualified Theta.Error             as Theta
-import           Theta.Metadata          (Metadata (..))
-import qualified Theta.Pretty            as Theta
-import           Theta.Target.Avro.Types (toSchema)
-import           Theta.Target.Haskell    (loadModule)
+import qualified Theta.Error                 as Theta
+import           Theta.Metadata              (Metadata (..))
+import qualified Theta.Pretty                as Theta
+import           Theta.Target.Avro.Types     (toSchema)
+import           Theta.Target.Haskell        (loadModule)
+import           Theta.Target.LanguageQuoter ((?=))
 import           Theta.Target.Python
-import qualified Theta.Types             as Theta
-import qualified Theta.Versions          as Theta
+import qualified Theta.Types                 as Theta
+import qualified Theta.Versions              as Theta
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import qualified Paths_theta             as Paths
+import qualified Paths_theta                 as Paths
 
 loadModule "test/data/modules" "newtype"
 loadModule "test/data/modules" "primitives"
@@ -77,26 +79,26 @@ test_decodeContainer = testGroup "decode container"
 test_toReference :: TestTree
 test_toReference = testGroup "toReference"
   [ testCase "primitive types" $ do
-      toReference "base" Theta.bool'   @?= [python|bool|]
-      toReference "base" Theta.bytes'  @?= [python|bytes|]
-      toReference "base" Theta.int'    @?= [python|int|]
-      toReference "base" Theta.long'   @?= [python|int|]
-      toReference "base" Theta.float'  @?= [python|float|]
-      toReference "base" Theta.double' @?= [python|float|]
-      toReference "base" Theta.string' @?= [python|str|]
+      toReference "base" Theta.bool'   ?= [python|bool|]
+      toReference "base" Theta.bytes'  ?= [python|bytes|]
+      toReference "base" Theta.int'    ?= [python|int|]
+      toReference "base" Theta.long'   ?= [python|int|]
+      toReference "base" Theta.float'  ?= [python|float|]
+      toReference "base" Theta.double' ?= [python|float|]
+      toReference "base" Theta.string' ?= [python|str|]
 
   , testCase "containers" $ do
-      toReference "base" (Theta.array' Theta.int')       @?= [python|List[int]|]
-      toReference "base" (Theta.array' Theta.string')    @?= [python|List[str]|]
-      toReference "base" (Theta.map' Theta.int')         @?= [python|Mapping[str, int]|]
-      toReference "base" (Theta.map' Theta.string')      @?= [python|Mapping[str, str]|]
-      toReference "base" (Theta.optional' Theta.int')    @?= [python|Optional[int]|]
-      toReference "base" (Theta.optional' Theta.string') @?= [python|Optional[str]|]
+      toReference "base" (Theta.array' Theta.int')       ?= [python|List[int]|]
+      toReference "base" (Theta.array' Theta.string')    ?= [python|List[str]|]
+      toReference "base" (Theta.map' Theta.int')         ?= [python|Mapping[str, int]|]
+      toReference "base" (Theta.map' Theta.string')      ?= [python|Mapping[str, str]|]
+      toReference "base" (Theta.optional' Theta.int')    ?= [python|Optional[int]|]
+      toReference "base" (Theta.optional' Theta.string') ?= [python|Optional[str]|]
 
   , testCase "nested containers" $ do
-      toReference "base" (Theta.array' (Theta.map' Theta.float')) @?=
+      toReference "base" (Theta.array' (Theta.map' Theta.float')) ?=
         [python|List[Mapping[str, float]]|]
-      toReference "base" (Theta.map' (Theta.array' Theta.float')) @?=
+      toReference "base" (Theta.map' (Theta.array' Theta.float')) ?=
         [python|Mapping[str, List[float]]|]
 
   , testGroup "named types"
@@ -106,10 +108,10 @@ test_toReference = testGroup "toReference"
             variant   = wrap $ Theta.Variant' "base.FooVariant" [Theta.Case "base.Foo" Nothing []]
             newtype_  = wrap $ Theta.Newtype' "base.FooNewtype" record
 
-        toReference "base" reference @?= [python|FooReference|]
-        toReference "base" record    @?= [python|FooRecord|]
-        toReference "base" variant   @?= [python|FooVariant|]
-        toReference "base" newtype_  @?= [python|FooNewtype|]
+        toReference "base" reference ?= [python|FooReference|]
+        toReference "base" record    ?= [python|FooRecord|]
+        toReference "base" variant   ?= [python|FooVariant|]
+        toReference "base" newtype_  ?= [python|FooNewtype|]
 
     , testCase "imported" $ do
         let reference = wrap $ Theta.Reference' "base.FooReference"
@@ -117,10 +119,10 @@ test_toReference = testGroup "toReference"
             variant   = wrap $ Theta.Variant' "base.FooVariant" [Theta.Case "base.Foo" Nothing []]
             newtype_  = wrap $ Theta.Newtype' "base.FooNewtype" record
 
-        toReference "foo" reference @?= [python|base.FooReference|]
-        toReference "foo" record    @?= [python|base.FooRecord|]
-        toReference "foo" variant   @?= [python|base.FooVariant|]
-        toReference "foo" newtype_  @?= [python|base.FooNewtype|]
+        toReference "foo" reference ?= [python|base.FooReference|]
+        toReference "foo" record    ?= [python|base.FooRecord|]
+        toReference "foo" variant   ?= [python|base.FooVariant|]
+        toReference "foo" newtype_  ?= [python|base.FooNewtype|]
     ]
   ]
   where wrap baseType = Theta.withModule' Theta.baseModule baseType
@@ -129,28 +131,28 @@ test_toRecord :: TestTree
 test_toRecord = testGroup "toRecord"
   [ testCase "empty record" $ do
       expected <- loadPython "empty_record"
-      toRecord' "test.Empty" [] ?= expected
+      toRecord' "test.Empty" [] ??= expected
 
   , testCase "simple types" $ do
       let foo = Theta.Field "foo" Nothing Theta.int'
           bar = Theta.Field "bar" Nothing Theta.string'
 
       expected <- loadPython "one_field"
-      toRecord' "test.OneField" [foo] ?= expected
+      toRecord' "test.OneField" [foo] ??= expected
 
       expected <- loadPython "two_fields"
-      toRecord' "test.TwoFields" [foo, bar] ?= expected
+      toRecord' "test.TwoFields" [foo, bar] ??= expected
 
   , testCase "local references" $ do
       expected <- loadPython "foo_reference"
-      toRecord' "test.Foo" [fooField] ?= expected
+      toRecord' "test.Foo" [fooField] ??= expected
 
       expected <- loadPython "bar_reference"
-      toRecord' "test.Bar" [fooField] ?= expected
+      toRecord' "test.Bar" [fooField] ??= expected
 
   , testCase "imported references" $ do
       expected <- loadPython "importing_reference"
-      toRecord' "test.Foo" [importingField] ?= expected
+      toRecord' "test.Foo" [importingField] ??= expected
   ]
   where toRecord' name fields =
           let type_ = Theta.withModule' module_ (Theta.Record' name fields) in
@@ -192,7 +194,7 @@ test_toVariant = testGroup "toVariant"
       let cases = [Theta.Case "test.Case" Nothing [Theta.Field "foo" Nothing Theta.int']]
 
       expected <- loadPython "one_case"
-      toVariant' "test.Variant" cases ?= expected
+      toVariant' "test.Variant" cases ??= expected
 
   , testCase "two cases" $ do
       let cases =
@@ -201,13 +203,13 @@ test_toVariant = testGroup "toVariant"
                                             , Theta.Field "bar" Nothing Theta.string']]
 
       expected <- loadPython "two_cases"
-      toVariant' "test.Variant" cases ?= expected
+      toVariant' "test.Variant" cases ??= expected
 
   , testCase "imported references" $ do
       let cases = [Theta.Case "test.Case" Nothing [importingField]]
 
       expected <- loadPython "one_case_importing"
-      toVariant' "test.Variant" cases ?= expected
+      toVariant' "test.Variant" cases ??= expected
   ]
   where toVariant' name cases =
           let type_ = Theta.withModule' module_ (Theta.Variant' name cases) in
@@ -247,22 +249,22 @@ test_toModule :: TestTree
 test_toModule = testGroup "toModule"
   [ testCase "newtype.theta" $ do
       expected <- loadPython "newtype"
-      toModule theta'newtype Nothing ?= expected
+      toModule theta'newtype Nothing ??= expected
 
   , testCase "importing_foo.theta" $ do
       expected <- loadPython "importing_foo"
-      toModule theta'importing_foo Nothing ?= expected
+      toModule theta'importing_foo Nothing ??= expected
 
       expected <- loadPython "importing_foo_qualified"
-      toModule theta'importing_foo (Just "theta") ?= expected
+      toModule theta'importing_foo (Just "theta") ??= expected
   ]
 
 -- | Compare a @Python@ value that might error with an expected
 -- @Python@ value, ignoring leading/trailing whitespace.
-(?=) :: Either Theta.Error Python -> Python -> Assertion
-got ?= Python expected = case got of
-    Left err           -> fail $ Text.unpack $ Theta.pretty err
-    Right (Python res) -> Text.strip res @?= Text.strip expected
+(??=) :: Either Theta.Error Python -> Python -> Assertion
+got ??= expected = case got of
+  Left err  -> fail $ Text.unpack $ Theta.pretty err
+  Right res -> res ?= expected
 
 -- | Load a @.mustache@ file with the given base name (without the
 -- @.mustache@) from @test/data/python@.
