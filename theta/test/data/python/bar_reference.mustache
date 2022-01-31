@@ -1,6 +1,6 @@
 @dataclass
 class Bar:
-    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"aliases":[],"doc":"Generated with Theta 1.0.0.0\\nType hash: f1f8d49e53501056214b7d466b09e73c","fields":[{"aliases":[],"name":"foo","type":{"aliases":[],"fields":[{"aliases":[],"name":"foo","type":"Foo"}],"name":"Foo","type":"record"}}],"name":"test.Bar","type":"record"}''')
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"aliases":[],"doc":"Generated with Theta {{version}}\\nType hash: f1f8d49e53501056214b7d466b09e73c","fields":[{"aliases":[],"name":"foo","type":{"aliases":[],"fields":[{"aliases":[],"name":"foo","type":"Foo"}],"name":"Foo","type":"record"}}],"name":"test.Bar","type":"record"}''')
 
     foo: 'Foo'
 
