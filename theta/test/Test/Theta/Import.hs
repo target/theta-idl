@@ -163,19 +163,20 @@ test_findInPath :: TestTree
 test_findInPath = testGroup "findInPath"
   [ testCase "relative paths" $ do
       dir <- Paths.getDataDir
-      let loadPath = LoadPath [root1, root2]
+      withCurrentDirectory dir $ do
+        let loadPath = LoadPath [root1, root2]
 
-      let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-      fileA <- Text.readFile pathA
-      Just (fileA', pathA') <- findInPath loadPath "a.theta"
-      assertEqualPath pathA' pathA
-      fileA' @?= fileA
+        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
+        fileA <- Text.readFile pathA
+        Just (fileA', pathA') <- findInPath loadPath "a.theta"
+        assertEqualPath pathA' pathA
+        fileA' @?= fileA
 
-      let pathB = dir </> "test" </> "data" </> "root-2" </> "b.theta"
-      fileB <- Text.readFile pathB
-      Just (fileB', pathB') <- findInPath loadPath "b.theta"
-      assertEqualPath pathB' pathB
-      fileB' @?= fileB
+        let pathB = dir </> "test" </> "data" </> "root-2" </> "b.theta"
+        fileB <- Text.readFile pathB
+        Just (fileB', pathB') <- findInPath loadPath "b.theta"
+        assertEqualPath pathB' pathB
+        fileB' @?= fileB
 
   , testCase "absolute paths" $ do
       dir <- Paths.getDataDir
