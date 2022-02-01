@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE ViewPatterns        #-}
 -- | This module contains a quasiquoter that lets us do string
 -- interpolation in a way that works well for generating code in
 -- different programming languages (like Python and Kotlin).
@@ -49,6 +50,10 @@
 -- @
 module Theta.Target.LanguageQuoter where
 
+import           Control.Monad             (when)
+
+import qualified Data.Algorithm.Diff       as Diff
+import qualified Data.Algorithm.DiffOutput as Diff
 import           Data.Char                 (isSpace)
 import           Data.Text                 (Text)
 import qualified Data.Text                 as Text
@@ -58,6 +63,8 @@ import           Language.Haskell.TH       (Name, mkName)
 import           Language.Haskell.TH.Lib   (appTypeE, conT, integerL, litE,
                                             stringL, varE)
 import           Language.Haskell.TH.Quote (QuasiQuoter (..))
+
+import qualified Test.Tasty.HUnit          as HUnit
 
 import           Text.Megaparsec           (Parsec, anySingleBut, eof,
                                             errorBundlePretty, many,
@@ -175,3 +182,33 @@ indentBy level str = case lines str of
   where indent line
           | all isSpace line = line
           | otherwise        = replicate level ' ' <> line
+
+
+-- ** Human-Readable Diffs
+
+-- | Calculate a line-based diff between two values.
+--
+-- The same action (add/remove/change) on multiple subsequent lines
+-- gets grouped into a single action covering all those lines.
+diff :: Interpolable a => a -> a -> [Diff.Diff [Text]]
+diff (toText -> a) (toText -> b) =
+  Diff.getGroupedDiff (Text.lines $ Text.strip a) (Text.lines $ Text.strip b)
+
+-- | Return a human-readable line-based diff between two values.
+--
+-- This is great for error messages and unit test failures.
+humanDiff :: Interpolable a => a -> a -> Text
+humanDiff a b = Text.pack $ Diff.ppDiff (toString <$> diff a b)
+  where toString (Diff.First a)  = Diff.First  (Text.unpack <$> a)
+        toString (Diff.Second b) = Diff.Second (Text.unpack <$> b)
+        toString (Diff.Both a b) = Diff.Both   (Text.unpack <$> a) (Text.unpack <$> b)
+
+-- | Assert that the two values are equal when converted to 'Text'
+-- with leading/trailing whitespace trimmed.
+--
+-- If the assertion fails, include a human-readable diff in the error
+-- message (see 'humanDiff').
+(?=) :: (Interpolable a) => a -> a -> HUnit.Assertion
+a ?= b = when (normalize a /= normalize b) $ do
+  HUnit.assertFailure (Text.unpack $ humanDiff a b)
+  where normalize = Text.strip . toText

@@ -1,18 +1,20 @@
 cabal-version:  2.2
 name:           theta
 version:        1.0.0.0
+synopsis:       Share algebraic data types across different languages with Avro.
+description:    Use algebraic data types to define data formats that work across different languages. Theta is an interface description language (IDL) designed around Avro.
 license:        Apache-2.0
+category:       Language
 build-type:     Simple
-extra-source-files:
+maintainer:     Tikhon Jelvis <tikhon@jelv.is>
+data-files:
   test/data/containers/*.avro
   test/data/modules/*.theta
   test/data/transitive/*.theta
-  test/data/theta-root-1/*.theta
-  test/data/theta-root-2/*.theta
+  test/data/root-1/*.theta
+  test/data/root-2/*.theta
 
-  test/data/kotlin/*.kt
   test/data/python/*.mustache
-  test/data/python/*.py
   test/data/rust/*.rs
 
 common shared
@@ -27,18 +29,20 @@ common shared
 
                -- turn off warning from C preprocess on macOS
                -optP-Wno-nonportable-include-path
-  build-depends: base
+  build-depends: base >=4.13 && <4.15
 
                , aeson
-               , aeson-pretty
+               , aeson-pretty >=0.8.9 && <0.9
                , aeson-qq
-               , avro >=0.5.2.0 && <0.6
+               , avro >=0.6 && <0.7
                , binary
                , bytestring
                , containers
                , deepseq
+               , Diff
                , filepath
                , hashable
+               , indexed-traversable
                , megaparsec
                , mtl
                , prettyprinter
@@ -48,6 +52,7 @@ common shared
                , template-haskell
                , text
                , tagged
+               , tasty-hunit
                , time
                , unordered-containers
                , vector
@@ -90,6 +95,7 @@ library
                     , Theta.Target.Rust
                     , Theta.Target.Rust.QuasiQuoter
   other-modules:      Paths_theta
+  autogen-modules:    Paths_theta
 
 test-suite tests
   import:             shared
@@ -117,11 +123,13 @@ test-suite tests
 
                     , Paths_theta
 
+  autogen-modules:    Paths_theta
+
+
   build-depends:      theta
 
                     , directory
-                    , Diff
-                    , stache
+                    , stache >=2.3.1 && <3
 
                     , tasty
                     , tasty-golden
@@ -137,14 +145,16 @@ executable theta
                     , optparse-applicative
 
   main-is:            Theta.hs
-  other-modules:      Paths_theta
-
-                    , Apps.Avro
+  other-modules:      Apps.Avro
                     , Apps.Hash
                     , Apps.Kotlin
                     , Apps.Python
                     , Apps.Rust
                     , Apps.Subcommand
+
+                    , Paths_theta
+  autogen-modules:    Paths_theta
+
   if flag(isStatic)
     ghc-options: -optl=-static -optl=-pthread -static
     ld-options: -static
