@@ -26,7 +26,12 @@ import           Theta.Types
 
 tests :: TestTree
 tests = testGroup "Parser"
-  [ testGroup "primitive types"
+  [ testGroup "metadata"
+    [ test_metadata
+    , test_metadataComments
+    ]
+
+  , testGroup "primitive types"
     [ test_bool
     , test_bytes
     , test_int
@@ -50,12 +55,55 @@ tests = testGroup "Parser"
     , test_newtype
     , test_reference
     ]
-    
+
   , testGroup "documentation"
     [ test_doc
     , test_docTypes
     ]
   ]
+
+-- * Metadata
+
+test_metadata :: TestTree
+test_metadata = testCase "Metadata" $ do
+  go (metadataSection "test") testMetadataSection ?= testMetadata "1.0.0"
+  where go parser input = parse parser "<test>" input
+
+test_metadataComments :: TestTree
+test_metadataComments = testGroup "Metadata with comments"
+  [ testCase "end-of-line" $ check [__i|
+      language-version: 1.0.0 // some language version
+      avro-version: 1.0.0 /* yay */
+      ---
+    |]
+
+  , testCase "before" $ check [__i|
+      // Comments before
+      /* More comments before
+       */
+      language-version: 1.0.0
+      avro-version: 1.0.0
+      ---
+    |]
+
+   , testCase "after" $ check [__i|
+       language-version: 1.0.0
+       avro-version: 1.0.0
+       /* after */
+       // after
+       ---
+       // also after?
+     |]
+
+    , testCase "interspersed" $ check [__i|
+        language-version: /* blarg? */ 1.0.0
+        // stuff
+        avro-version: /* yep */ 1.0.0
+        ---
+      |]
+  ]
+  where check input =
+          parse (metadataSection "test") "<test>" input ?= testMetadata "1.0.0"
 
 -- * Primitive Types
 
@@ -442,20 +490,27 @@ test_docTypes = testGroup "docs on types"
 
 parse' :: Version -> Parser a -> Text -> Either (ParseErrorBundle Text Void) a
 parse' languageVersion parser input =
-  parse (runReaderT parser testMetadata) "<tests>" input
-  where testMetadata = Metadata.Metadata
-          { Metadata.languageVersion
-          , Metadata.avroVersion = "1.0.0"
-          , Metadata.moduleName  = "test"
-          }
+  parse (runReaderT parser $ testMetadata languageVersion) "<tests>" input
+
+testMetadata :: Version -> Metadata.Metadata
+testMetadata languageVersion = Metadata.Metadata
+  { Metadata.languageVersion
+  , Metadata.avroVersion = "1.0.0"
+  , Metadata.moduleName  = "test"
+  }
+
+testMetadataSection :: Text
+testMetadataSection = [__i|
+    language-version: 1.0.0
+    avro-version: 1.0.0
+    ---
+  |]
 
 -- | Add version metadata on top of the given module body so that it
 -- can be parsed with moduleBody.
 wrapModule :: Text -> Text
 wrapModule body = [__i|
-    language-version: 1.0.0
-    avro-version: 1.0.0
-    ---
+    #{testMetadataSection}
     #{body}
   |]
 
@@ -494,4 +549,3 @@ Left err ?= expected     = assertFailure [__i|
     but got parse error:
     #{errorBundlePretty err}
   |]
-
