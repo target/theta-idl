@@ -17,6 +17,7 @@ mod tests {
 
     use theta::avro::{FromAvro, ToAvro};
 
+    use super::enums::*;
     use super::rust::*;
     use super::primitives::*;
 
@@ -129,6 +130,28 @@ mod tests {
 
         assert!(check_encoding(shadowed_record));
         assert!(check_encoding(shadowing_record));
+    }
+
+    // Enums
+    #[test]
+    fn test_round_trip_simple_enum() {
+        assert!(check_encoding(enums::SimpleEnum::SymbolA));
+        assert!(check_encoding(enums::SimpleEnum::SymbolB));
+    }
+
+    #[test]
+    fn test_round_trip_tricky_enum() {
+        assert!(check_encoding(enums::TrickyEnum::Sym));
+        assert!(check_encoding(enums::TrickyEnum::Sym_));
+        assert!(check_encoding(enums::TrickyEnum::Sym__));
+    }
+
+    #[test]
+    fn test_round_trip_enum_record() {
+        assert!(check_encoding(enums::EnumRecord {
+            enum_field: enums::TrickyEnum::Sym,
+            int_field: 1,
+        }));
     }
     
     fn check_encoding<A: ToAvro + FromAvro + PartialEq>(value: A) -> bool {

@@ -6,3 +6,9 @@ enum SimpleEnum = SymbolA | SymbolB
 
 /// Tricky enum designed to test Rust's name disambiguation logic
 enum TrickyEnum = Sym | sym | _Sym
+
+/// A record with one enum field and one int field.
+type EnumRecord = {
+    enum_field : TrickyEnum,
+    int_field : Int
+}
