@@ -372,8 +372,8 @@ generateEnum name symbols =
 -- @
 -- Bar | Baz | Baz_
 -- @
-enumConstructors :: Name.Name -> NonEmpty Theta.EnumSymbol -> [Name]
-enumConstructors enumName (NonEmpty.toList -> symbols) = mkName . Text.unpack <$> names
+disambiguateConstructors :: Name.Name -> NonEmpty Theta.EnumSymbol -> [Text]
+disambiguateConstructors enumName (NonEmpty.toList -> symbols) = names
   where names = evalState (mapM disambiguate symbols) Set.empty
 
         disambiguate (Theta.EnumSymbol (normalize -> symbol)) = do
@@ -386,6 +386,15 @@ enumConstructors enumName (NonEmpty.toList -> symbols) = mkName . Text.unpack <$
         capitalize text = case Text.uncons text of
           Just (c, cs) -> Text.cons (Char.toUpper c) cs
           Nothing      -> error $ "Empty enum symbol in " <> show enumName
+
+-- | Return disambiguated contructor names (as 'Name') for the given
+-- enum symbols.
+--
+-- See 'disambiguateConstructors' for the rules used to convert and
+-- disambiguate constructor names.
+enumConstructors :: Name.Name -> NonEmpty Theta.EnumSymbol -> [Name]
+enumConstructors enumName symbols =
+  mkName . Text.unpack <$> disambiguateConstructors enumName symbols
 
 -- | Generates a record with the specified fields, using the given
 -- name for both the type and the data constructor.

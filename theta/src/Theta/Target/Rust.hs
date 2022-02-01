@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ParallelListComp  #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -11,6 +12,7 @@ module Theta.Target.Rust
   ( Rust(..)
   , rust
 
+  , toEnum
   , toFile
   , toModule
   , toDefinition
@@ -21,6 +23,8 @@ module Theta.Target.Rust
   )
 where
 
+import           Prelude                       hiding (toEnum)
+
 import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.List.NonEmpty            as NonEmpty
 import qualified Data.Map                      as Map
@@ -28,9 +32,13 @@ import qualified Data.Set                      as Set
 import qualified Data.Text                     as Text
 import           Data.Tree                     (Tree (..))
 
+import           Text.Printf                   (printf)
+
 import           Theta.Name                    (Name)
 import qualified Theta.Name                    as Name
 import qualified Theta.Types                   as Theta
+
+import           Theta.Target.Haskell          (disambiguateConstructors)
 
 import           Theta.Target.Rust.QuasiQuoter (Rust (..), rust)
 
@@ -168,9 +176,102 @@ typeIdentifier Theta.Type { Theta.baseType } = case baseType of
   Theta.Reference' name -> qualifiedIdent name
 
   -- structured types
+  Theta.Enum' name _    -> qualifiedIdent name
   Theta.Record' name _  -> qualifiedIdent name
   Theta.Variant' name _ -> qualifiedIdent name
   Theta.Newtype' name _ -> qualifiedIdent name
+
+-- | Compile a Theta enum to a Rust enum.
+--
+-- Theta enums can be encoded as Rust enums with the same name
+-- disambiguation rules as Haskell. (See 'disambiguateConstructors'
+-- for details.)
+--
+-- @
+-- type Foo = Bar | baz | _Baz
+-- @
+--
+-- gives us the Rust type:
+--
+-- @
+-- #[derive(Clone, Debug, PartialEq)]
+-- enum Foo {
+--   Bar,
+--   Baz,
+--   Baz_,
+-- }
+-- @
+--
+-- along with several traits implementations:
+--
+-- @
+-- impl ToAvro for Foo {
+--   fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+--     match self {
+--       Foo::Bar  => 0i64.to_avro_buffer(buffer),
+--       Foo::Baz  => 1i64.to_avro_buffer(buffer),
+--       Foo::Baz_ => 2i64.to_avro_buffer(buffer),
+--     }
+--   }
+-- }
+-- @
+--
+-- @
+-- impl FromAvro for Foo {
+--   fn from_avro(input: &[u8]) -> IResult<&[u8], Self> {
+--     let (input, tag) = i64::from_avro(input)?;
+--     match tag {
+--       0 => Ok(Foo::Bar),
+--       1 => Ok(Foo::Baz),
+--       2 => Ok(Foo::Baz_),
+--       _ => Err(Err::Error((input, ErrorKind::Tag))),
+--     }
+--   }
+-- }
+-- @
+toEnum :: Name -> NonEmpty Theta.EnumSymbol -> Rust
+toEnum name symbols = [rust|
+  #[derive($defaultDerives)]
+  pub enum $typeName {
+      $cases
+  }
+
+  $implToAvro
+
+  $implFromAvro
+  |]
+  where typeName = ident name
+
+        cases = commaLines (fst <$> constructors)
+
+        implToAvro = toAvro typeName [rust|
+          match self {
+            $toAvroBranches
+          }
+        |]
+        toAvroBranches = commaLines $ toAvroBranch <$> constructors
+        toAvroBranch (constructor, i_) = [rust|
+          $typeName::$constructor => $i.to_avro_buffer(buffer)
+        |]
+          where i = Rust $ Text.pack $ printf "%di64" i_
+
+        implFromAvro = fromAvro typeName $ wrapContext name $ [rust|
+          let (input, tag) = i64::from_avro(input)?;
+          match tag {
+            $fromAvroBranches
+            _ => Err(Err::Error((input, ErrorKind::Tag))),
+          }
+        |]
+        fromAvroBranches = commaLines $ fromAvroBranch <$> constructors
+        fromAvroBranch (constructor, i_) = [rust|
+          $i => Ok($typeName::$constructor)
+        |]
+          where i = Rust $ Text.pack $ printf "%d" i_
+
+        constructors = [ (Rust constructor, i)
+                       | constructor <- disambiguateConstructors name symbols
+                       | i <- [0::Int ..]
+                       ]
 
 -- | Compile a Theta record to a Rust struct.
 --
@@ -824,9 +925,12 @@ refersTo Theta.Type { Theta.baseType, Theta.module_ } name = case baseType of
   Theta.Optional' type_ -> refersTo type_ name
 
   -- structured types
+  Theta.Enum' name' _ -> name == name'
+
   Theta.Record' name' fields
     | name' == name -> True
     | otherwise     -> fieldsReference fields
+
   Theta.Variant' name' cases
     | name' == name           -> True
     | name `elem` names cases -> True
