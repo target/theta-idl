@@ -31,7 +31,11 @@ type AlbumId = {
 ```
 import ids
 
-/** We keep track of people and bands separately because
+// Comments starting with /** or /// are documentation comments attached to definitions
+
+/** The recording artist for an album.
+  *
+  * We keep track of people and bands separately because
   * people are usually sorted by part of their name (ie
   * last name) while bands are always sorted by their
   * whole name.
@@ -43,7 +47,7 @@ data ArtistName = Band { name : String }
                   }
 type Track = {
   title     : String,
-  length    : Int,
+  length    : Int, // length in seconds
   artists   : [ArtistName]
 }
 
