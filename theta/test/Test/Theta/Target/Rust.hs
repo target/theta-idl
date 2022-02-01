@@ -10,11 +10,6 @@ module Test.Theta.Target.Rust where
 
 import           Prelude                       hiding (toEnum)
 
-import           Control.Monad                 (when)
-
-import qualified Data.Algorithm.Diff           as Diff
-import qualified Data.Algorithm.DiffOutput     as Diff
-import qualified Data.Text                     as Text
 import qualified Data.Text.IO                  as Text
 
 import           System.FilePath               ((<.>), (</>))
@@ -103,7 +98,7 @@ test_toReference = testGroup "toReference"
 test_toEnum :: TestTree
 test_toEnum = testGroup "toEnum"
   [ testCase "enum" $ do
-      toEnum "test.Foo" ["Bar", "baz", "_Baz"] ?=
+      toEnum "test.Foo" ["Bar", "baz", "_Baz"] ??=
         [rust|
           #[derive(Clone, Debug, PartialEq)]
           pub enum Foo {
