@@ -102,10 +102,9 @@ import           Theta.Target.Haskell.HasTheta   (HasTheta (..))
 
 -- * Generating Haskell types
 
--- | Generate Haskell types from a Theta module located at the given
--- path. This will generate a type for every definition in the given
--- Theta module as well as all the definitions it imports from other
--- modules.
+-- | Generate Haskell types from the specified Theta module. This will
+-- generate a type for every definition in the given Theta module as
+-- well as all the definitions it imports from other modules.
 --
 -- Each generated type has several typecalss instances:
 --
@@ -119,9 +118,8 @@ import           Theta.Target.Haskell.HasTheta   (HasTheta (..))
 --  * ToAvro
 --  * FromAvro
 --
--- The 'Name.Name' argument has an 'IsString' instance so you can call
--- 'loadModule' at the top-level of a Haskell module with two string
--- literals as arguments:
+-- Both the load path and the module name have 'IsString' instances,
+-- so the most common pattern is calling 'loadModule' with two strings:
 --
 -- @
 -- {-# LANGUAGE OverloadedStrings #-}
@@ -129,12 +127,26 @@ import           Theta.Target.Haskell.HasTheta   (HasTheta (..))
 -- @
 --
 -- @
--- loadModule "specs/theta" "com.example.foo"
+-- loadModule "specs/theta:other-specs/theta" "com.example.foo"
 -- @
 loadModule :: Import.LoadPath
-           -- ^ The path to the Theta root directory. We will retrieve
-           -- the specified module and all of its imports starting
-           -- from this path.
+           -- ^ The Theta load path—one or more root directories that
+           -- Theta will search for the module with the given name.
+           --
+           -- This takes the same kind of load path and syntax used by
+           -- the @THETA_LOAD_PATH@ environment variable: one or more
+           -- file paths separated by @:@.
+           --
+           -- Paths can be relative or absolute; when compiling with
+           -- GHC, relative paths will be resolved relative to your
+           -- project's root directory (ie where your .cabal file is
+           -- located).
+           --
+           -- Example:
+           --
+           -- @
+           -- "specs/theta:other-specs/theta"
+           -- @
            -> Name.ModuleName
            -- ^ The fully qualified name of the module written out
            -- with dots. Example: @"com.target.foo"@ for a module
