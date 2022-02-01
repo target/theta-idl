@@ -3,7 +3,7 @@ class Foo(Enum):
     baz = 1
     _Baz = 2
 
-    def encode_avro(self, encode: avro.Encoder):
+    def encode_avro(self, encoder: avro.Encoder):
         encoder.integral(self.value)
 
     def to_avro(self, out):
@@ -28,7 +28,7 @@ class Foo(Enum):
 
     @staticmethod
     def write_container(objects: List['Foo'], out,
-                        codec: str="deflate", sync_marker: Optiona[bytes]=None):
+                        codec: str="deflate", sync_marker: Optional[bytes]=None):
         encoder = avro.Encoder(out)
         container.encode_container(encoder, objects, codec, sync_marker, Foo)
 

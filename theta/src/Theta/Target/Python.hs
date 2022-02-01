@@ -174,7 +174,7 @@ toEnum currentModule enumName symbols = [python|
   class $name(Enum):
       $enumDeclarations
 
-      def encode_avro(self, encode: avro.Encoder):
+      def encode_avro(self, encoder: avro.Encoder):
           encoder.integral(self.value)
 
       def to_avro(self, out):
@@ -194,7 +194,7 @@ toEnum currentModule enumName symbols = [python|
 
       @staticmethod
       def write_container(objects: List['$name'], out,
-                          codec: str="deflate", sync_marker: Optiona[bytes]=None):
+                          codec: str="deflate", sync_marker: Optional[bytes]=None):
           encoder = avro.Encoder(out)
           container.encode_container(encoder, objects, codec, sync_marker, $name)
 
