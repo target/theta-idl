@@ -349,6 +349,7 @@ data BaseType t = Bool'
 newtype EnumSymbol = EnumSymbol { enumSymbol :: Text }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (Hashable)
+  deriving newtype (IsString)
 
 instance Pretty EnumSymbol where pretty (EnumSymbol symbol) = symbol
 

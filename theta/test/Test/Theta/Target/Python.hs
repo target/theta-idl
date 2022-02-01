@@ -10,7 +10,9 @@
 -- | Tests for the python code generation from Theta.
 module Test.Theta.Target.Python where
 
-import           Data.Aeson              ((.=), object)
+import           Prelude                 hiding (toEnum)
+
+import           Data.Aeson              (object, (.=))
 import qualified Data.Avro               as Avro
 import qualified Data.ByteString.Lazy    as LBS
 import qualified Data.Text               as Text
@@ -45,6 +47,7 @@ tests = testGroup "Python"
   [ test_decodeContainer
 
   , test_toReference
+  , test_toEnum
   , test_toRecord
   , test_toVariant
   , test_toModule
@@ -124,6 +127,13 @@ test_toReference = testGroup "toReference"
     ]
   ]
   where wrap baseType = Theta.withModule' Theta.baseModule baseType
+
+test_toEnum :: TestTree
+test_toEnum = testGroup "toEnum"
+  [ testCase "enum" $ do
+      Python expected <- loadPython "enum"
+      toEnum "test" "test.Foo" ["Bar", "baz", "_Baz"] @?= (Python $ Text.strip expected)
+  ]
 
 test_toRecord :: TestTree
 test_toRecord = testGroup "toRecord"
