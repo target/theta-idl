@@ -56,6 +56,10 @@ test_toModule = testGroup "toModule"
   , testCase "recursive.theta" $ do
       expected <- loadRust "recursive"
       toModule theta'recursive ??= expected
+
+  , testCase "enums.theta" $ do
+      expected <- loadRust "enums"
+      toModule theta'enums ??= expected
   ]
 
 test_toReference :: TestTree

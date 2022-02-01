@@ -114,6 +114,7 @@ toModule Theta.Module { Theta.types } = definitionLines $ imports : typeDefiniti
 toDefinition :: Theta.Definition Theta.Type -> Rust
 toDefinition Theta.Definition {..} = case Theta.baseType definitionType of
   -- structured types
+  Theta.Enum' name symbols  -> toEnum name symbols
   Theta.Record' name fields -> toRecord name fields
   Theta.Variant' name cases -> toVariant name cases
   Theta.Newtype' name type_ -> toNewtype name type_
@@ -219,13 +220,15 @@ typeIdentifier Theta.Type { Theta.baseType } = case baseType of
 -- @
 -- impl FromAvro for Foo {
 --   fn from_avro(input: &[u8]) -> IResult<&[u8], Self> {
---     let (input, tag) = i64::from_avro(input)?;
---     match tag {
---       0 => Ok(Foo::Bar),
---       1 => Ok(Foo::Baz),
---       2 => Ok(Foo::Baz_),
---       _ => Err(Err::Error((input, ErrorKind::Tag))),
---     }
+--     context("test.Foo", |input| {
+--       let (input, tag) = i64::from_avro(input)?;
+--       match tag {
+--         0 => Ok(Foo::Bar),
+--         1 => Ok(Foo::Baz),
+--         2 => Ok(Foo::Baz_),
+--         _ => Err(Err::Error((input, ErrorKind::Tag))),
+--       }
+--     })(input)
 --   }
 -- }
 -- @
