@@ -572,16 +572,16 @@ thetaType moduleName definitionName =
 --
 -- @
 -- instance HasTheta Foo where
---   module_ _ = theta'bar
+--   module_ _ = theta'com'example
 --   theta _   =
 --     let name = Name { namespace = ["com", "example"], name = "Foo" } in
---     case Theta.lookupName name theta'bar of
+--     case Theta.lookupName name theta'com'example of
 --       Right res -> res
 --       Left err  -> error $ "Tempalte Haskell bug: " <> err
 -- @
 hasThetaInstance :: Name
                     -- ^ The top-level Haskell name for the module (ie
-                    -- @theta'bar@).
+                    -- @theta'com'example@).
                  -> Name.Name
                     -- ^ The fully qualified name of the Theta type.
                  -> Q [Dec]
@@ -661,12 +661,13 @@ fromAvroInstance (toName -> type_) =
 -- for what their respective instances look like.
 toThetaInstance :: Name
                    -- ^ The top-level haskell name for the module (ie
-                   -- @theta'bar@).
+                   -- @theta'com'example@).
                 -> Theta.Type
                    -- ^ The Theta type to generate the
                    -- 'Conversion.ToTheta' instance for.
                 -> Q [Dec]
 toThetaInstance moduleName type_ = case Theta.baseType type_ of
+  Theta.Enum' name symbols  -> enumToTheta moduleName name symbols
   Theta.Record' name fields -> recordToTheta moduleName name fields
   Theta.Variant' name cases -> variantToTheta moduleName name cases
   Theta.Newtype' name _     ->
@@ -681,6 +682,59 @@ toThetaInstance moduleName type_ = case Theta.baseType type_ of
 -- | A capturable name that we use to define 'toTheta' functions.
 argName :: Name
 argName = mkName "value"
+
+-- | Generate a 'Conversion.ToTheta' instance for an enum.
+--
+-- Given:
+--
+-- @
+-- enum com.example.Foo = Bar | baz | _Baz
+-- @
+--
+-- we get:
+--
+-- @
+-- instance ToTheta Foo where
+--   toTheta value = Theta.Value
+--     { Theta.value   = enumValue
+--     , Theta.type_   = let name = Name { namespace = ["com", "example"], name = "Foo" } in
+--         case Theta.lookupName name theta'com'example of
+--           Right res -> res
+--           Left err  -> error $ "Template Haskell bug: " <> err
+--     }
+--     where enumValue = case value of
+--       Bar  -> Theta.EnumSymbol "Bar"
+--       Baz  -> Theta.EnumSymbol "baz"
+--       Baz_ -> Theta.EnumSymbol "_Baz"
+--
+--   avroEncoding value = case value of
+--     Bar  -> encodeInt 0
+--     Baz  -> encodeInt 1
+--     Baz_ -> encodeInt 2
+-- @
+enumToTheta :: Name -> Name.Name -> NonEmpty Theta.EnumSymbol -> Q [Dec]
+enumToTheta moduleName enumName symbols =
+  [d| instance Conversion.ToTheta $(conT $ toName enumName) where
+        toTheta $(varP argName) = Theta.Value
+          { Theta.value = enumValue
+          , Theta.type_ = $(thetaType moduleName enumName)
+          }
+          where enumValue = $(caseE (varE argName) $ symbolToTheta <$> constructors)
+
+        avroEncoding $(varP argName) =
+          $(caseE (varE argName) $
+              [encodeSymbol i c | i <- [0..] | (_, c) <- constructors])
+    |]
+  where symbolToTheta (name, constructor) =
+          match constructor (normalB [e| Theta.EnumSymbol $(stringE name) |]) []
+
+        encodeSymbol i constructor =
+          match constructor (normalB [e| encodeInt $(litE $ integerL i) |]) []
+
+        constructors = [ (Text.unpack name, conP constructor [])
+                       | Theta.EnumSymbol name <- NonEmpty.toList symbols
+                       | constructor <- enumConstructors enumName symbols
+                       ]
 
 -- | Generates a 'Conversion.ToTheta' instance for a record, relying
 -- on the 'Conversion.ToTheta' instances of each field type.
@@ -697,10 +751,9 @@ argName = mkName "value"
 -- instance ToTheta Foo where
 --   toTheta value = Theta.Value
 --     { Theta.value   = record
---     , Theta.module_ = theta'bar
 --     , Theta.type_   =
 --         let name = Name { namespace = ["com", "example"], name = "Foo" } in
---         case Theta.lookupName name theta'bar of
+--         case Theta.lookupName name theta'com'example of
 --           Right res -> res
 --           Left err  -> error $ "Template Haskell bug: " <> err
 --     }
@@ -716,7 +769,7 @@ argName = mkName "value"
 -- @
 recordToTheta :: Name
                  -- ^ The top-level haskell name for the module (ie
-                 -- @theta'bar@).
+                 -- @theta'com'example@).
               -> Name.Name
                  -- ^ The name of the Theta record.
               -> Theta.Fields Theta.Type
@@ -765,10 +818,9 @@ recordToTheta moduleName name Theta.Fields { Theta.fields } =
 -- instance ToTheta Foo where
 --   toTheta value = Theta.Value
 --     { Theta.value   = variant
---     , Theta.module_ = theta'bar
 --     , Theta.type_   =
 --         let name = Name { namespace = ["com", "example"], name = "Foo" } in
---         case Theta.lookupName name theta'bar of
+--         case Theta.lookupName name theta'com'example of
 --           Right res -> res
 --           Left err  -> error $ "Template Haskell bug: " <> err
 --     }
@@ -885,7 +937,7 @@ fromThetaInstance type_ = case Theta.baseType type_ of
 --         fail "Invalid enum tag. Expected [0..2] but got " <> show invalid <> "."
 -- @
 enumFromTheta :: Name.Name -> NonEmpty Theta.EnumSymbol -> Q [Dec]
-enumFromTheta name cases =
+enumFromTheta name symbols =
   [d|
    instance Conversion.FromTheta $(conT $ toName name) where
      fromTheta' v@Theta.Value { Theta.type_, Theta.value } = case value of
@@ -918,12 +970,12 @@ enumFromTheta name cases =
         baseCase = match (varP invalid) (normalB errorCall) []
         errorCall = [e| fail $(message) <> show invalid <> "." |]
         message = stringE $ "Invalid enum tag. Expected [0.."
-                         <> show (length cases - 1)
+                         <> show (length symbols - 1)
                          <> "] but got"
 
     constructors = [ (Text.unpack name, conE constructor)
-                   | Theta.EnumSymbol name <- NonEmpty.toList cases
-                   | constructor <- enumConstructors name cases
+                   | Theta.EnumSymbol name <- NonEmpty.toList symbols
+                   | constructor <- enumConstructors name symbols
                    ]
 
     -- Apply `checkSchema` to _ and then name, since the first
