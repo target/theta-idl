@@ -1,1 +1,14 @@
 resolver: lts-18.21
+extra-deps:
+- git: git@github.com:haskell-works/avro.git
+  commit: ae14b8c24c190c110767e1279ef76dd342a42486
+- git: git@github.com:stackbuilders/stache.git
+  commit: f4e3b3f39efcdbb31588dd2a3f2fa73717094baf
+- aeson-2.0.3.0
+- OneTuple-0.3.1
+- attoparsec-0.14.4
+- hashable-1.4.0.2
+- semialign-1.2.0.1
+- text-short-0.1.5
+- time-compat-1.9.6.1
+
