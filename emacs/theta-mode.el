@@ -23,7 +23,7 @@
   "Keywords that specify version constraints in Theta module headers.")
 
 (defconst theta-definition-keywords
-  '("type" "alias")
+  '("type" "alias" "enum")
   "Theta keywords that define new type names.")
 
 (defconst theta-primitive-types

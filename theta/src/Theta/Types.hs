@@ -254,25 +254,26 @@ toBaseType' Type { baseType } = BaseType' $ toBaseType' <$> baseType
 instance Eq BaseType' where
   (BaseType' s) == (BaseType' t) = case (s, t) of
             -- primitive types
-            (Bool', Bool')                         ->  True
-            (Bytes', Bytes')                       ->  True
-            (Int', Int')                           ->  True
-            (Long', Long')                         ->  True
-            (Float', Float')                       ->  True
-            (Double', Double')                     ->  True
-            (String', String')                     ->  True
-            (Date', Date')                         ->  True
-            (Datetime', Datetime')                 ->  True
+            (Bool', Bool')                         -> True
+            (Bytes', Bytes')                       -> True
+            (Int', Int')                           -> True
+            (Long', Long')                         -> True
+            (Float', Float')                       -> True
+            (Double', Double')                     -> True
+            (String', String')                     -> True
+            (Date', Date')                         -> True
+            (Datetime', Datetime')                 -> True
 
             -- containers
-            (Array' s, Array' t)                   ->  s == t
-            (Map' s, Map' t)                       ->  s == t
-            (Optional' s, Optional' t)             ->  s == t
+            (Array' s, Array' t)                   -> s == t
+            (Map' s, Map' t)                       -> s == t
+            (Optional' s, Optional' t)             -> s == t
 
             -- named types
-            (Record' n fields, Record' n' fields') ->  n == n' && fields == fields'
-            (Variant' n cases, Variant' n' cases') ->  n == n' && cases == cases'
-            (Newtype' n t, Newtype' n' t')         ->  n == n' && t == t'
+            (Enum' n symbols, Enum' n' symbols')   -> n == n' && symbols == symbols'
+            (Record' n fields, Record' n' fields') -> n == n' && fields == fields'
+            (Variant' n cases, Variant' n' cases') -> n == n' && cases == cases'
+            (Newtype' n t, Newtype' n' t')         -> n == n' && t == t'
 
             -- comparing with references:
             (Reference' n, Reference' n')          -> n == n'

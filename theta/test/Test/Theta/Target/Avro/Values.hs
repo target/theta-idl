@@ -15,6 +15,7 @@ import           Control.Monad.Except            (runExceptT)
 import qualified Data.Avro.Encoding.FromAvro     as Avro
 import qualified Data.Avro.Schema.ReadSchema     as ReadSchema
 import qualified Data.ByteString                 as BS
+import           Data.Either                     (fromRight)
 import qualified Data.HashMap.Strict             as HashMap
 import           Data.Int                        (Int32, Int64)
 import           Data.Text                       (Text)
@@ -38,6 +39,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
 Theta.loadModule "test/data/modules" "recursive"
+Theta.loadModule "test/data/modules" "enum"
 
 tests :: TestTree
 tests = testGroup "Values"
@@ -107,6 +109,7 @@ test_toAvro :: TestTree
 test_toAvro = testGroup "toAvro"
   [ testCase "primitive types" $ check primitives
   , testCase "containers" $ check containers
+  , testCase "enums" $ check enums
   , testCase "records" $ check records
   , testCase "variants" $ check variants
   ]
@@ -121,6 +124,7 @@ test_fromAvro :: TestTree
 test_fromAvro = testGroup "fromAvro"
   [ testCase "primitive types" $ check primitives
   , testCase "containers" $ check containers
+  , testCase "enums" $ check enums
   , testCase "records" $ check records
   , testCase "variants" $ check variants
   ]
@@ -211,6 +215,25 @@ containers =
         nestedOptional = optional Theta.int' $ Just $ Theta.int 37
         nestedUnion    = schemaUnion [ReadSchema.Null, schemaInt]
         wrapNested     = avroUnion [ReadSchema.Null, schemaInt]
+
+enums :: [(Theta.Value, Theta.Type, Avro.Value)]
+enums = [ (simple "Simple", simpleType, Avro.Enum simpleAvro 0 "Simple")
+
+        , (tricky "Sym", trickyType, Avro.Enum trickyAvro 0 "Sym")
+        , (tricky "sym", trickyType, Avro.Enum trickyAvro 1 "sym")
+        , (tricky "_Sym", trickyType, Avro.Enum trickyAvro 2 "_Sym")
+        ]
+  where simple     = Theta.Value simpleType . Theta.Enum
+        simpleType = Theta.theta @SimpleEnum
+        simpleAvro =
+          ReadSchema.Enum "enum.SimpleEnum" [] (Just "A simple documented enum") ["Simple"]
+
+        tricky     = Theta.Value trickyType . Theta.Enum
+        trickyType = Theta.theta @TrickyEnum
+        trickyAvro = ReadSchema.Enum "enum.TrickyEnum" [] (Theta.getText <$> trickyDoc)
+                       ["Sym", "sym", "_Sym"]
+        trickyDoc  = fromRight (error "enum.TrickyEnum not present in theta'enum.") $
+          Theta.getDoc <$> Theta.lookupDefinition "enum.TrickyEnum" theta'enum
 
 records :: [(Theta.Value, Theta.Type, Avro.Value)]
 records = [ (emptyValue, emptyType, Avro.Record emptySchema [])

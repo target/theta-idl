@@ -44,6 +44,7 @@ import qualified Theta.Target.Haskell.HasTheta as HasTheta
 
 loadModule "test/data/modules" "documentation"
 loadModule "test/data/modules" "logical_dates"
+loadModule "test/data/modules" "enum"
 
 tests :: TestTree
 tests = testGroup "Types"
@@ -66,7 +67,8 @@ tests = testGroup "Types"
     ]
 
   , testGroup "named types"
-    [ test_record
+    [ test_enum
+    , test_record
     , test_variant
     , test_newtype
     ]
@@ -148,6 +150,21 @@ test_optional = testCase "Optional" $ do
     Avro.Map (wrap (Avro.String Nothing))
 
 -- * Named Types
+
+test_enum :: TestTree
+test_enum = testGroup "enum"
+  [ testCase "one case" $ do
+      check (typeToAvro "1.0.0" $ get "test.EnumOne") $
+        Avro.Enum "test.EnumOne" [] Nothing ["one"]
+
+  , testCase "two cases" $ do
+      check (typeToAvro "1.0.0" $ get "test.EnumTwo") $
+        Avro.Enum "test.EnumTwo" [] Nothing ["one", "Two"]
+
+  , testCase "three cases" $ do
+      check (typeToAvro "1.0.0" $ get "test.EnumThree") $
+        Avro.Enum "test.EnumThree" [] Nothing ["one", "Two", "two"]      
+  ]
 
 test_record :: TestTree
 test_record = testGroup "record"
@@ -243,7 +260,11 @@ test_newtype = testCase "newtype" $ do
 
 test_documentation :: TestTree
 test_documentation = testGroup "documentation"
-  [ testCase "record" $ do
+  [ testCase "enum" $ do
+      let enum = typeToAvro "1.0.0" $ HasTheta.theta @SimpleEnum
+      check (Avro.doc <$> enum) (Just "A simple documented enum")
+
+  , testCase "record" $ do
       let user = typeToAvro "1.0.0" $ HasTheta.theta @User
       check (Avro.doc <$> user) (Just "User metadata.")
 
@@ -320,40 +341,45 @@ testModule = Module
   , metadata
   }
   where types    =
-          [ -- records
-            (def "test.EmptyRecord" $ Record' "test.EmptyRecord" [])
-          , (def "test.OneField" $ Record' "test.OneField" [Field "foo" Nothing string'])
-          , (def "test.TwoFields" $ Record' "test.TwoFields"
+          [ -- enums
+            def "test.EnumOne" $ Enum' "test.EnumOne" ["one"]
+          , def "test.EnumTwo" $ Enum' "test.EnumTwo" ["one", "Two"]
+          , def "test.EnumThree" $ Enum' "test.EnumThree" ["one", "Two", "two"]
+
+            -- records
+          , def "test.EmptyRecord" $ Record' "test.EmptyRecord" []
+          , def "test.OneField" $ Record' "test.OneField" [Field "foo" Nothing string']
+          , def "test.TwoFields" $ Record' "test.TwoFields"
              [ Field "foo" Nothing string'
              , Field "bar" Nothing $ array' string'
-             ])
-          , (def "test.Recursive" $ Record' "test.Recursive"
-              [ Field "foo" Nothing $ wrap $ Reference' "test.Recursive" ])
-          , (def "test.Foo" $ Record' "test.Foo" [])
-          , (def "test.Nested" $ Record' "test.Nested"
-              [ Field "foo" Nothing $ wrap $ Reference' "test.Foo"
-              , Field "bar" Nothing $ wrap $ Reference' "test.Foo"
-              ])
+             ]
+          , def "test.Recursive" $ Record' "test.Recursive"
+             [ Field "foo" Nothing $ wrap $ Reference' "test.Recursive" ]
+          , def "test.Foo" $ Record' "test.Foo" []
+          , def "test.Nested" $ Record' "test.Nested"
+             [ Field "foo" Nothing $ wrap $ Reference' "test.Foo"
+             , Field "bar" Nothing $ wrap $ Reference' "test.Foo"
+             ]
 
-            -- enums (variants with no fields on their constructors)
-          , (def "test.Enum1" $ Variant' "test.Enum1" [ Case "test.Enum1_A" Nothing [] ])
-          , (def "test.Enum2" $ Variant' "test.Enum2" [ Case "test.Enum2_A" Nothing []
-                                                      , Case "test.Enum2_B" Nothing []
-                                                      ])
+            -- variants with no fields on their constructors
+          , def "test.Enum1" $ Variant' "test.Enum1" [ Case "test.Enum1_A" Nothing [] ]
+          , def "test.Enum2" $ Variant' "test.Enum2" [ Case "test.Enum2_A" Nothing []
+                                                     , Case "test.Enum2_B" Nothing []
+                                                     ]
 
             -- variants
-          , (def "test.OneCase" $
-                Variant' "test.OneCase"
-                  [Case "test.One" Nothing
+          , def "test.OneCase" $
+               Variant' "test.OneCase"
+                 [Case "test.One" Nothing
+                  [ Field "foo" Nothing $ wrap $ Reference' "test.Foo"
+                  , Field "bar" Nothing $ optional' $ wrap $ Reference' "test.Foo" ]]
+          , def "test.TwoCases" $
+               Variant' "test.TwoCases"
+                 [ Case "test.One" Nothing
                    [ Field "foo" Nothing $ wrap $ Reference' "test.Foo"
-                   , Field "bar" Nothing $ optional' $ wrap $ Reference' "test.Foo" ]])
-          , (def "test.TwoCases" $
-                Variant' "test.TwoCases"
-                  [ Case "test.One" Nothing
-                    [ Field "foo" Nothing $ wrap $ Reference' "test.Foo"
-                    , Field "bar" Nothing $ optional' $ wrap $ Reference' "test.Foo" ]
-                  , Case "test.Two" Nothing []
-                  ])
+                   , Field "bar" Nothing $ optional' $ wrap $ Reference' "test.Foo" ]
+                 , Case "test.Two" Nothing []
+                 ]
           ]
         metadata = Metadata.Metadata
           { Metadata.languageVersion = "1.0.0"

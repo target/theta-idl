@@ -734,11 +734,11 @@ enumToTheta moduleName enumName symbols =
           $(caseE (varE argName) $
               [encodeSymbol i c | i <- [0..] | (_, c) <- constructors])
     |]
-  where symbolToTheta (name, constructor) =
-          match constructor (normalB [e| Theta.EnumSymbol $(stringE name) |]) []
+  where symbolToTheta (name, constructor) = match constructor
+          (normalB [e| Theta.Enum (Theta.EnumSymbol $(stringE name)) |]) []
 
         encodeSymbol i constructor =
-          match constructor (normalB [e| encodeInt $(litE $ integerL i) |]) []
+          match constructor (normalB [e| Conversion.encodeInt $(litE $ integerL i) |]) []
 
         constructors = [ (Text.unpack name, conP constructor [])
                        | Theta.EnumSymbol name <- NonEmpty.toList symbols
@@ -930,20 +930,20 @@ fromThetaInstance type_ = case Theta.baseType type_ of
 --     Theta.Enum symbol -> do
 --       checkSchema @Foo v
 --       case symbol of
---         "Bar"   -> Bar
---         "baz"   -> Baz
---         "_Baz"  -> Baz_
+--         "Bar"   -> pure Bar
+--         "baz"   -> pure Baz
+--         "_Baz"  -> pure Baz_
 --         invalid -> error $ "Invalid enum symbol ‘" <> Text.unpack invalid <> "’!"
 --     _ -> mismatch (theta @Foo) type_
 --
 --   avroDecoding = do
 --     tag <- Avro.getLong
 --     case tag of
---       0 -> Bar
---       1 -> Baz
---       2 -> Baz_
+--       0 -> pure Bar
+--       1 -> pure Baz
+--       2 -> pure Baz_
 --       invalid ->
---         fail "Invalid enum tag. Expected [0..2] but got " <> show invalid <> "."
+--         fail ("Invalid enum tag. Expected [0..2] but got " <> show invalid <> ".")
 -- @
 enumFromTheta :: Name.Name -> NonEmpty Theta.EnumSymbol -> Q [Dec]
 enumFromTheta name symbols =
@@ -963,11 +963,11 @@ enumFromTheta name symbols =
     enumCase = caseE [e| symbol |] $ (caseBranch <$> constructors) <> [baseCase]
       where
         caseBranch (name, constructor) =
-          match (litP $ stringL name) (normalB constructor) []
+          match (litP $ stringL name) (normalB [e| pure $(constructor) |]) []
 
         baseCase = match (varP invalid) (normalB errorCall) []
         errorCall = [e| error $ "Invalid enum symbol ‘"
-                             <> Text.unpack $(varE invalid)
+                             <> Text.unpack (Theta.enumSymbol $(varE invalid))
                              <> "’!"
                       |]
 
@@ -975,13 +975,14 @@ enumFromTheta name symbols =
       caseE [e| tag |] $ [ decodeTag tag c | tag <- [0..] | (_, c) <- constructors ]
                       <> [ baseCase ]
       where
-        decodeTag tag constructor = match (litP $ integerL tag) (normalB constructor) []
+        decodeTag tag constructor =
+          match (litP $ integerL tag) (normalB [e| pure $(constructor) |]) []
         baseCase = match (varP invalid) (normalB errorCall) []
-        errorCall = [e| fail $(message) <> show invalid <> "." |]
+        errorCall = [e| fail ($(message) <> show $(varE invalid) <> ".") |]
         message = stringE $ "Invalid enum tag. Expected [0.."
                          <> show (length symbols - 1)
                          <> "] but got"
-
+                         
     constructors = [ (Text.unpack name, conE constructor)
                    | Theta.EnumSymbol name <- NonEmpty.toList symbols
                    | constructor <- enumConstructors name symbols

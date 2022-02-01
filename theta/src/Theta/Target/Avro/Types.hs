@@ -251,8 +251,7 @@ enum enumName doc (NonEmpty.toList -> symbols) = do
     , Avro.doc     = getText <$> doc
     , Avro.symbols = avroSymbols
     }
-  where avroSymbols = Vector.fromList $ deduplicate $ enumSymbol <$> symbols
-        deduplicate = Set.toList . Set.fromList
+  where avroSymbols = Vector.fromList $ enumSymbol <$> symbols
 
 -- | Build an Avro schema for a Theta record. A Theta record is turned
 -- into an Avro record with the same name and fields.

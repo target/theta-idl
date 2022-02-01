@@ -549,7 +549,7 @@ alias = withDoc $ do
 statement :: Parser Statement
 statement = definitionStatement <|> importStatement
   where definitionStatement =
-          DefinitionStatement <$> (try definition <|> alias)
+          DefinitionStatement <$> (try definition <|> try enumDefinition <|> alias)
         importStatement =
           ImportStatement <$> import_
 
