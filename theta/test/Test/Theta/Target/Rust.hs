@@ -28,6 +28,7 @@ import qualified Paths_theta                   as Paths
 
 loadModule "test/data/modules" "newtype"
 loadModule "test/data/modules" "recursive"
+loadModule "test/data/modules" "enums"
 
 tests :: TestTree
 tests = testGroup "Rust"

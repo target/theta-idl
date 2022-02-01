@@ -44,7 +44,7 @@ import qualified Theta.Target.Haskell.HasTheta as HasTheta
 
 loadModule "test/data/modules" "documentation"
 loadModule "test/data/modules" "logical_dates"
-loadModule "test/data/modules" "enum"
+loadModule "test/data/modules" "enums"
 
 tests :: TestTree
 tests = testGroup "Types"

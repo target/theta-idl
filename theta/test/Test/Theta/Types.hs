@@ -34,7 +34,7 @@ loadModule "test/data/transitive" "d"
 loadModule "test/data/modules" "named_types"
 loadModule "test/data/modules" "nested_newtypes"
 loadModule "test/data/modules" "recursive"
-loadModule "test/data/modules" "enum"
+loadModule "test/data/modules" "enums"
 
 tests :: TestTree
 tests = testGroup "Types"
@@ -216,8 +216,8 @@ test_hashing = testGroup "hashing"
 
     , testGroup "named types"
       [ testCase "enum" $ do
-          HasTheta.theta @TrickyEnum ?= "ef37a95b4c7621a107011f61a8afbe2c"
-          
+          HasTheta.theta @TrickyEnum ?= "a5598bd1d8c1126f98add389ed96086c"
+
       , testCase "record" $ do
           HasTheta.theta @Record   ?= "12830fe0301c2dbf8fbd09c85ed2bef8"
 

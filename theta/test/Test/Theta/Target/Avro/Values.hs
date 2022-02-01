@@ -39,7 +39,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
 Theta.loadModule "test/data/modules" "recursive"
-Theta.loadModule "test/data/modules" "enum"
+Theta.loadModule "test/data/modules" "enums"
 
 tests :: TestTree
 tests = testGroup "Values"
@@ -226,14 +226,14 @@ enums = [ (simple "Simple", simpleType, Avro.Enum simpleAvro 0 "Simple")
   where simple     = Theta.Value simpleType . Theta.Enum
         simpleType = Theta.theta @SimpleEnum
         simpleAvro =
-          ReadSchema.Enum "enum.SimpleEnum" [] (Just "A simple documented enum") ["Simple"]
+          ReadSchema.Enum "enums.SimpleEnum" [] (Just "A simple documented enum") ["Simple"]
 
         tricky     = Theta.Value trickyType . Theta.Enum
         trickyType = Theta.theta @TrickyEnum
-        trickyAvro = ReadSchema.Enum "enum.TrickyEnum" [] (Theta.getText <$> trickyDoc)
+        trickyAvro = ReadSchema.Enum "enums.TrickyEnum" [] (Theta.getText <$> trickyDoc)
                        ["Sym", "sym", "_Sym"]
-        trickyDoc  = fromRight (error "enum.TrickyEnum not present in theta'enum.") $
-          Theta.getDoc <$> Theta.lookupDefinition "enum.TrickyEnum" theta'enum
+        trickyDoc  = fromRight (error "enums.TrickyEnum not present in theta'enums.") $
+          Theta.getDoc <$> Theta.lookupDefinition "enums.TrickyEnum" theta'enums
 
 records :: [(Theta.Value, Theta.Type, Avro.Value)]
 records = [ (emptyValue, emptyType, Avro.Record emptySchema [])
