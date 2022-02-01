@@ -127,9 +127,9 @@ test_toEnum = testGroup "toEnum"
               context("test.Foo", |input| {
                 let (input, tag) = i64::from_avro(input)?;
                 match tag {
-                  0 => Ok(Foo::Bar),
-                  1 => Ok(Foo::Baz),
-                  2 => Ok(Foo::Baz_),
+                  0 => Ok((input, Foo::Bar)),
+                  1 => Ok((input, Foo::Baz)),
+                  2 => Ok((input, Foo::Baz_)),
                   _ => Err(Err::Error((input, ErrorKind::Tag))),
                 }
               })(input)

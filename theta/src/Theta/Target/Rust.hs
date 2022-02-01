@@ -223,9 +223,9 @@ typeIdentifier Theta.Type { Theta.baseType } = case baseType of
 --     context("test.Foo", |input| {
 --       let (input, tag) = i64::from_avro(input)?;
 --       match tag {
---         0 => Ok(Foo::Bar),
---         1 => Ok(Foo::Baz),
---         2 => Ok(Foo::Baz_),
+--         0 => Ok((input, Foo::Bar)),
+--         1 => Ok((input, Foo::Baz)),
+--         2 => Ok((input, Foo::Baz_)),
 --         _ => Err(Err::Error((input, ErrorKind::Tag))),
 --       }
 --     })(input)
@@ -267,7 +267,7 @@ toEnum name symbols = [rust|
         |]
         fromAvroBranches = commaLines $ fromAvroBranch <$> constructors
         fromAvroBranch (constructor, i_) = [rust|
-          $i => Ok($typeName::$constructor)
+          $i => Ok((input, $typeName::$constructor))
         |]
           where i = Rust $ Text.pack $ printf "%d" i_
 

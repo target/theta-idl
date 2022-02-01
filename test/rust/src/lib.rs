@@ -6,6 +6,8 @@ pub mod rust;
 
 pub mod shadowing;
 
+pub mod enums;
+
 #[cfg(test)]
 mod tests {
     use chrono::naive::NaiveDate;

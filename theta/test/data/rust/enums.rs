@@ -21,7 +21,7 @@ impl FromAvro for SimpleEnum {
         context("enums.SimpleEnum", |input| {
             let (input, tag) = i64::from_avro(input)?;
             match tag {
-                0 => Ok(SimpleEnum::Simple),
+                0 => Ok((input, SimpleEnum::Simple)),
                 _ => Err(Err::Error((input, ErrorKind::Tag))),
             }
         })(input)
@@ -50,9 +50,9 @@ impl FromAvro for TrickyEnum {
         context("enums.TrickyEnum", |input| {
             let (input, tag) = i64::from_avro(input)?;
             match tag {
-                0 => Ok(TrickyEnum::Sym),
-                1 => Ok(TrickyEnum::Sym_),
-                2 => Ok(TrickyEnum::Sym__),
+                0 => Ok((input, TrickyEnum::Sym)),
+                1 => Ok((input, TrickyEnum::Sym_)),
+                2 => Ok((input, TrickyEnum::Sym__)),
                 _ => Err(Err::Error((input, ErrorKind::Tag))),
             }
         })(input)
