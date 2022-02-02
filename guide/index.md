@@ -121,7 +121,7 @@ Theta supports a small set of primitive types that match up to the primitive typ
   * `Double`: 64-bit floating point numbers
   * `String`: Unicode strings
   * `Date`: Absolute dates (in days)
-  * `Datetime`: Absolute timestamps (in seconds)
+  * `Datetime`: Absolute timestamps (in microseconds)
 
 ### Containers
 
@@ -242,8 +242,8 @@ Theta's primitive types directly match up with Avro's primitive types:
   * `Float`: `"float"`
   * `Double`: `"double"`
   * `String`: `"string"`
-  * `Date`: `"long"`
-  * `Datetime`: `"long"`
+  * `Date`: logical type `"date"`, physical type `"int"`
+  * `Datetime`: logical type `"time-micros"`, physical type `"long"`
 
 #### Containers
 
