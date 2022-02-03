@@ -24,7 +24,7 @@ let
       [dependencies]
       chrono = "0.4.0"
       nom = "5.0.0"
-      theta = { path = "${theta-rust}" }
+      theta = { path = "./theta-rust" }
     '';
   };
 
@@ -49,23 +49,23 @@ let
 
     installPhase = ''
       mkdir -p $out
-      cd $out
 
-      # 1
+      # Theta's Rust support library
+      cp -r ${theta-rust} $out/theta-rust
+
       cp ${test-cargo-toml} $out/Cargo.toml
       cp $src/Cargo.lock $out
 
-      # 2
-      mkdir -p $out/modules
-      cp $src/modules/*.theta $out/modules
-
-      # 3
+      # Copy over Rust source for tests (src/*.rs from this directory)
       mkdir -p $out/src
       cp $src/src/*.rs $out/src
 
-      # 4
+      # Copy over Theta modules
+      mkdir -p $out/modules
+      cp $src/modules/*.theta $out/modules
       export THETA_LOAD_PATH=$out/modules
 
+      # Generate Rust code for each Theta module
       for module_name in $out/modules/*.theta
       do
         module=$(basename $module_name .theta)
@@ -77,7 +77,10 @@ let
 in pkgs.naersk.buildPackage {
   src = theta-generated-rust;
 
-  buildInputs = [ theta-rust ];
+  # Without this, the theta-rust directory created in
+  # theta-generated-rust (cp -r ${theta-rust} $out/theta-rust) gets
+  # filtered out by Naersk.
+  copySources = ["theta-rust"];
 
   remapPathPrefix = true;
   doCheck = true;
