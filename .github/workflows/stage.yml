@@ -1,12 +1,13 @@
-name: CI
+# Additional tests run on merge into stage
+name: Stage Tests
 
 on:
-  pull_request:
   push:
-  workflow_dispatch:
+    branches:
+      - 'stage'
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,6 +25,9 @@ jobs:
       - name: Build Theta
         run: nix-build theta
 
+      - name: Cross-Language Tests
+        run: nix-build test
+
       - name: Cache Stack Dependencies
         uses: actions/cache@v2
         with:
@@ -36,6 +40,3 @@ jobs:
 
       - name: Stack Test
         run: ci/stack-test ./theta
-
-      - name: Cross-Language Tests
-        run: nix-build test
