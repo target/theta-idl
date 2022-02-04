@@ -1,5 +1,5 @@
 { pkgs ? import ../nix/nixpkgs.nix {}
-, python ? pkgs.python371
+, python ? pkgs.python38
 }:
 let
   pythonPackages = python.override {
