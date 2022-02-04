@@ -8,6 +8,7 @@ let
   tools = with pkgs.haskellPackages; [
     cabal-install
     stylish-haskell
+    pkgs.time-ghc-modules
   ];
 in
 pkgs.lib.overrideDerivation theta.env (old: {
