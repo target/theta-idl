@@ -35,11 +35,13 @@ data BaseValue = Boolean !Bool
                  -- ^ Each 'Value' in an array should have the same
                  -- type.
                | Map !(HashMap Text Value)
-
                  -- ^ A map can (currently) only have 'Text'
                  -- keys. Each 'Value' in a map should have the same
                  -- type.
                | Optional !(Maybe Value)
+
+               | Enum !Theta.EnumSymbol
+                 -- ^ An enum value is a specific enum symbol.
                | Record {-# UNPACK #-} !(Vector Value)
                  -- ^ A record is a map from field names to
                  -- values.

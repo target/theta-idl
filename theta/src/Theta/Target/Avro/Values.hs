@@ -111,6 +111,15 @@ toAvro value@Value { type_ } = do
               Just a  -> union 1 $! go env t a
               Nothing -> union 0 Avro.Null
 
+          -- enums
+          (t@ReadSchema.Enum{}, Enum (Theta.EnumSymbol symbol)) ->
+            case Vector.elemIndex symbol (ReadSchema.symbols t) of
+              Just i  -> Avro.Enum t i symbol
+              Nothing -> error $ "Enum "
+                             <> Text.unpack (Schema.renderFullname $ ReadSchema.name t)
+                             <> " does not contain symbol "
+                             <> schemaName t
+
           -- records
           (t@ReadSchema.Record{}, Record values) ->
             Avro.Record t $! Vector.fromList
@@ -123,7 +132,8 @@ toAvro value@Value { type_ } = do
                       Just type_ -> go env type_ value
                       Nothing    -> error $ "No field named "
                                          <> Text.unpack name
-                                         <> " in Avro record schema."
+                                         <> " in Avro record schema for "
+                                         <> schemaName t
 
                   fieldTypes = HashMap.fromList [ (fldName, fldType)
                                                 | ReadSchema.ReadField {..} <- ReadSchema.fields t ]
@@ -178,6 +188,8 @@ toAvro value@Value { type_ } = do
         forceVector v = Vector.foldl' (const (`seq` ())) () `seq` v
         -- TODO: get rid of forceVector once we upgrade to a version
         -- of vector that has an NFData1 instance (> 0.12.1, I expect)
+
+        schemaName = Text.unpack . Schema.renderFullname . ReadSchema.name
 {-# SPECIALIZE toAvro :: Value -> Either Error Avro.Value #-}
 
 -- | Convert from an Avro object to a Theta 'Value', verifying against
@@ -230,6 +242,11 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
               _         -> Optional . Just <$> fromAvro t v
 
           -- constructed types
+          (Theta.Enum' name symbols,
+           Avro.Enum ReadSchema.Enum{} _ (Theta.EnumSymbol -> symbol)) ->
+            if elem symbol symbols
+            then pure $ Enum symbol
+            else throw $ InvalidEnumSymbol name symbol
           (Theta.Record' name fields,
            Avro.Record recordSchema@ReadSchema.Record{} recordValues) ->
             Record <$> convertFields name fields (fieldSchemas recordSchema recordValues)

@@ -8,6 +8,8 @@
 
 module Test.Theta.Target.Rust where
 
+import           Prelude                       hiding (toEnum)
+
 import qualified Data.Text.IO                  as Text
 
 import           System.FilePath               ((<.>), (</>))
@@ -26,12 +28,14 @@ import qualified Paths_theta                   as Paths
 
 loadModule "test/data/modules" "newtype"
 loadModule "test/data/modules" "recursive"
+loadModule "test/data/modules" "enums"
 
 tests :: TestTree
 tests = testGroup "Rust"
   [ test_toFile
   , test_toModule
   , test_toReference
+  , test_toEnum
   , test_toRecord
   , test_toVariant
   , test_toNewtype
@@ -52,6 +56,10 @@ test_toModule = testGroup "toModule"
   , testCase "recursive.theta" $ do
       expected <- loadRust "recursive"
       toModule theta'recursive ??= expected
+
+  , testCase "enums.theta" $ do
+      expected <- loadRust "enums"
+      toModule theta'enums ??= expected
   ]
 
 test_toReference :: TestTree
@@ -91,6 +99,44 @@ test_toReference = testGroup "toReference"
       toReference newtype_  ??= "base::FooNewtype"
   ]
   where wrap = Theta.withModule' Theta.baseModule
+
+test_toEnum :: TestTree
+test_toEnum = testGroup "toEnum"
+  [ testCase "enum" $ do
+      toEnum "test.Foo" ["Bar", "baz", "_Baz"] ??=
+        [rust|
+          #[derive(Clone, Debug, PartialEq)]
+          pub enum Foo {
+            Bar,
+            Baz,
+            Baz_,
+          }
+
+          impl ToAvro for Foo {
+            fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+              match self {
+                Foo::Bar => 0i64.to_avro_buffer(buffer),
+                Foo::Baz => 1i64.to_avro_buffer(buffer),
+                Foo::Baz_ => 2i64.to_avro_buffer(buffer),
+              }
+            }
+          }
+
+          impl FromAvro for Foo {
+            fn from_avro(input: &[u8]) -> IResult<&[u8], Self> {
+              context("test.Foo", |input| {
+                let (input, tag) = i64::from_avro(input)?;
+                match tag {
+                  0 => Ok((input, Foo::Bar)),
+                  1 => Ok((input, Foo::Baz)),
+                  2 => Ok((input, Foo::Baz_)),
+                  _ => Err(Err::Error((input, ErrorKind::Tag))),
+                }
+              })(input)
+            }
+          }
+        |]
+  ]
 
 test_toRecord :: TestTree
 test_toRecord = testGroup "toRecord"

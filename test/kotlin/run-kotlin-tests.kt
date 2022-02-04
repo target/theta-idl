@@ -1,5 +1,6 @@
 package theta
 
+import com.example.enum.*
 import com.example.importing.*
 import com.example.newtype.*
 import com.example.primitives.*

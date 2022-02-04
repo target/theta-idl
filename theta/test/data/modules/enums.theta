@@ -1,0 +1,10 @@
+language-version: 1.1.0
+avro-version: 1.0.0
+---
+
+/// A simple documented enum
+enum SimpleEnum = Simple
+
+/// This enum has weird symbol names to stress the disambiguation
+/// logic in our Haskell/Rust/etc code generation.
+enum TrickyEnum = Sym | sym | _Sym

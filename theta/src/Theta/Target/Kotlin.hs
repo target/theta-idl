@@ -16,6 +16,8 @@ module Theta.Target.Kotlin
   , isValidIdentifier
   ) where
 
+import           Prelude                         hiding (toEnum)
+
 import qualified Data.Char                       as Char
 import           Data.Foldable                   (toList)
 import           Data.List.NonEmpty              (NonEmpty)
@@ -88,6 +90,7 @@ toDefinition :: Theta.Definition Theta.Type
 toDefinition Theta.Definition { Theta.definitionName, Theta.definitionType }  =
   case Theta.baseType definitionType of
     -- structured types
+    Theta.Enum' name symbols       -> toEnum name symbols
     Theta.Record' name fields      -> toRecord name fields
     Theta.Variant' name cases      -> toVariant name cases
     Theta.Newtype' name underlying ->
@@ -141,6 +144,21 @@ toVariant (toIdentifier -> name) (NonEmpty.toList -> cases) =
         toClass Theta.Case {..} = [kotlin|$caseClass : $name()|]
           where caseClass = toRecord caseName caseParameters
 
+-- | Compile a Theta enum to a Kotlin enum class.
+--
+-- Since Kotlin's identifiers have the same syntax restrictions as
+-- Avro enum symbols, the symbol names are used directly in the enum
+-- class definition.
+toEnum :: Name -> NonEmpty Theta.EnumSymbol -> Kotlin
+toEnum (toIdentifier -> name) (NonEmpty.toList -> symbols) =
+  [kotlin|
+    enum class $name {
+      $kotlinSymbols
+    }
+   |]
+  where kotlinSymbols =
+          toLinesList [ Kotlin symbol | Theta.EnumSymbol symbol <- symbols ]
+
 -- | Return a Kotlin snippet that /refers/ to the given Theta type.
 --
 -- For primitive types, this returns the equivalent Kotlin type.
@@ -171,10 +189,12 @@ toReference Theta.Type { Theta.baseType } = case baseType of
   Theta.Optional' a     -> let type_ = toReference a in [kotlin|$type_?|]
 
   -- named types
-  Theta.Reference' name -> toIdentifier name
+  Theta.Enum' name _    -> toIdentifier name
   Theta.Record' name _  -> toIdentifier name
   Theta.Variant' name _ -> toIdentifier name
   Theta.Newtype' name _ -> toIdentifier name
+
+  Theta.Reference' name -> toIdentifier name
 
 -- | Compile a list of 'Kotlin' snippets into a single Kotlin block
 -- with one snippet per line.
