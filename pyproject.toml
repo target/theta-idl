@@ -2,8 +2,11 @@
 name = "theta-python"
 version = "0.1.0"
 description = "Support libraries for using Theta types from Python"
-authors = ["Tikhon Jelvis <tikhon@jelv.is>"]
+authors = ["Target Brands, Inc"]
 license = "Apache License, Version 2.0"
+packages = [
+    { include = "python/**/*.py" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.7"
