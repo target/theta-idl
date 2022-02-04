@@ -39,9 +39,5 @@ pkgs.lib.overrideDerivation theta.env (old: {
   # https://github.com/target/lorri/issues/383
   shellHook = ''
     unset SOURCE_DATE_EPOCH
-
-    # Make sure Stack and other Nix commands use right
-    # base version of Nixpkgs
-    export NIX_PATH="nixpkgs=${sources.nixpkgs}"
   '';
 })
