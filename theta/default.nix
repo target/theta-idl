@@ -50,6 +50,14 @@ let
   expose-cabal = p:
     pkgs.haskell.lib.addBuildTool p compiler.cabal-install;
 
+  excluded = [
+    "dist"
+    "dist-newstyle"
+    "stack.yaml"
+    ".stack-work"
+    "stack.yaml.lock"
+    "stack-shell.nix"
+  ];
 in
 compiler.developPackage {
   name = "theta";
@@ -57,7 +65,7 @@ compiler.developPackage {
     {
       src = ./.;
       filter = path: type:
-           !(baseNameOf (toString path) == "dist-newstyle")
+           !(pkgs.lib.elem (baseNameOf (toString path)) excluded)
         && !pkgs.lib.hasPrefix ".ghc.environment." (baseNameOf (toString path))
         && pkgs.lib.cleanSourceFilter path type;
     }).outPath;

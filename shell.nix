@@ -4,6 +4,7 @@
 }:
 
 let
+  sources = import nix/sources.nix;
 
   nightly-channel = pkgs.rustChannelOf {
     channel = "nightly";

@@ -50,7 +50,8 @@ tests = testGroup "Parser"
     ]
 
   , testGroup "named types"
-    [ test_record
+    [ test_enum
+    , test_record
     , test_variant
     , test_newtype
     , test_reference
@@ -60,6 +61,8 @@ tests = testGroup "Parser"
     [ test_doc
     , test_docTypes
     ]
+
+  , test_backwardsCompatibility
   ]
 
 -- * Metadata
@@ -220,12 +223,33 @@ test_optional = testCase "Optional" $ do
 
 -- * Named Types
 
+test_enum :: TestTree
+test_enum = testGroup "Enum"
+  [ testCase "one case" $ do
+      let one = "enum Foo = Bar"
+          expected = BaseType' $ Enum' "test.Foo" ["Bar"]
+      parse' "1.1.0" enumDefinition one ?=
+        Definition "test.Foo" Nothing expected
+
+  , testCase "two cases" $ do
+      let two = "enum Foo = Bar | Baz"
+          expected = BaseType' $ Enum' "test.Foo" ["Bar", "Baz"]
+      parse' "1.1.0" enumDefinition two ?=
+        Definition "test.Foo" Nothing expected
+
+  , testCase "three cases" $ do
+      let three = "enum Foo = Bar | baz | _Baz"
+          expected = BaseType' $ Enum' "test.Foo" ["Bar", "baz", "_Baz"]
+      parse' "1.1.0" enumDefinition three ?=
+        Definition "test.Foo" Nothing expected
+  ]
+
 test_record :: TestTree
 test_record = testGroup "Record"
   [ testCase "empty" $ do
       let empty    = "type Foo = {\n}\n"
           expected = BaseType' $ Record' "test.Foo" []
-      parse' "1.0.0" definition  empty ?=
+      parse' "1.0.0" definition empty ?=
         Definition "test.Foo" Nothing expected
 
   , testCase "one field" $ do
@@ -234,7 +258,7 @@ test_record = testGroup "Record"
                      \}\n"
           expected = BaseType' $ Record' "test.Foo" [field]
           field    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' Int'))
-      parse' "1.0.0" definition  oneField ?=
+      parse' "1.0.0" definition oneField ?=
         Definition "test.Foo" Nothing expected
 
   , testCase "two fields" $ do
@@ -245,7 +269,7 @@ test_record = testGroup "Record"
           expected  = BaseType' $ Record' "test.Foo" [field1, field2]
           field1    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' Int'))
           field2    = Field "bar" Nothing $ BaseType' (Reference' "test2.Foo")
-      parse' "1.0.0" definition  twoFields ?=
+      parse' "1.0.0" definition twoFields ?=
         Definition "test.Foo" Nothing expected
 
   , testCase "date fields" $ do
@@ -484,6 +508,17 @@ test_docTypes = testGroup "docs on types"
         parse' "1.0.0" (moduleBody "test") variant ?=
           [DefinitionStatement (Definition "test.Foo" Nothing type_)]
     ]
+  ]
+
+-- * Backwards Compatibility
+
+-- Check that we fail on new language additions for older
+-- language-version modules.
+test_backwardsCompatibility :: TestTree
+test_backwardsCompatibility = testGroup "backwards compatibility"
+  [ testCase "enum <1.1.0" $ do
+      let enum = "enum Foo = Bar | Baz"
+      assertFails $ parse' "1.0.0" statement enum
   ]
 
 -- * Utilities

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Run Stack test on the given directory, setting up the Nix
+# integration with Nixpkgs controlled by sources.nix
+
+# Should be run from top-level directory in repo:
+#
+# ci/stack-test theta
+
+expr='"nixpkgs=${(import nix/sources.nix).nixpkgs}"'
+nix_path="$(eval echo "$(nix-instantiate --eval -E "$expr")")"
+
+cd $1
+stack --nix \
+      --nix-shell-file stack-shell.nix \
+      --nix-path="$nix_path" \
+      test

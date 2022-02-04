@@ -1,6 +1,5 @@
 { pkgs ? import ../nix/nixpkgs.nix {}
-, theta ? import ../theta { inherit werror; }
-, werror ? false
+, theta ? import ../theta {}
 }:
 
 {

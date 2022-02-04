@@ -4,7 +4,7 @@ This directory defines a Nix derivation that tests the Python code that Theta ge
 
 ## Adding Test Modules
 
-If you want to add a new module `foo` to the Python tests, you need to take three steps:
+If you want to add a new module `example` to the Python tests, you need to take three steps:
 
   1. Add `example.theta` to `modules`.
   2. Add `import example` to `modules/python_tests.theta`.

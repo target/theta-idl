@@ -11,6 +11,7 @@ Theta lets you define protocols as algebraic data types and reuse those types wi
       * [Containers](#containers)
       * [Records](#records)
       * [Variants](#variants)
+      * [Enums](#enums)
       * [Newtypes and Aliases](#newtypes-and-aliases)
   * [Targets](#targets)
     * [Avro](#avro)
@@ -120,7 +121,7 @@ Theta supports a small set of primitive types that match up to the primitive typ
   * `Double`: 64-bit floating point numbers
   * `String`: Unicode strings
   * `Date`: Absolute dates (in days)
-  * `Datetime`: Absolute timestamps (in seconds)
+  * `Datetime`: Absolute timestamps (in microseconds)
 
 ### Containers
 
@@ -190,6 +191,16 @@ type OrderStatus = Shipped { eta : Date }
 
 The fields in each case can be different or have different types.
 
+### Enums
+
+Enums are value that can be one of several explicitly listed symbols.
+
+```
+enum Suit = Spades | Hearts | Diamonds | Clubs
+```
+
+From one perspective, an enum is just a restricted form of variant: it's a variant where each case only has a constructor and no fields. Enums can also differ from variants in how they are compiled to different targets—for example, a variant compiles to a union of records in Avro, while an enum compiles to an [Avro enum][avro-enum-spec]. Enums also generate different code from variants in languages like Python and Kotlin.
+
 ### Newtypes and Aliases
 
 Apart from records and variants, we can also define named types that correspond to other types:
@@ -231,8 +242,8 @@ Theta's primitive types directly match up with Avro's primitive types:
   * `Float`: `"float"`
   * `Double`: `"double"`
   * `String`: `"string"`
-  * `Date`: `"long"`
-  * `Datetime`: `"long"`
+  * `Date`: logical type `"date"`, physical type `"int"`
+  * `Datetime`: logical type `"time-micros"`, physical type `"long"`
 
 #### Containers
 
@@ -348,7 +359,7 @@ alias Quantity = Int
 
 Theta types can be exposed as Haskell types via Template Haskell using the `loadModule` function:
 
-```
+``` haskell
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
@@ -356,8 +367,8 @@ module Policy where
 
 import Theta.Target.Haskell (loadModule)
 
---        load path   module name
---             ↓          ↓
+--            load path       module name
+--                ↓                ↓
 loadModule "example/specs" "com.example.album"
 ```
 
@@ -403,8 +414,8 @@ type com.example.Bar = {
 ```
 
 will generate the following Haskell definitions:
-
-```
+p
+``` haskell
 theta'foo :: Theta.Module
 
 data Bar = Bar { baz :: Int32 }
@@ -449,10 +460,10 @@ type Album = {
 
 turns into the following Haskell type:
 
-```
+``` haskell
 data Album = Album
   { title       :: Text
-  , artisst     :: Text
+  , artist      :: Text
   , label       :: Text
   , tract_count :: Int
   }
@@ -471,7 +482,7 @@ type OrderStatus = Shipped { eta : Date }
 
 turns into the following Haskell type:
 
-```
+``` haskell
 data OrderStatus = Shipped { eta :: Day }
                  | Delivered { eta :: Day, delivered :: Day }
 ```
@@ -489,7 +500,7 @@ type Weird = Foo { a : Int }
 
 Generating the Haskell type for this directly would not compile because `a` has two *different* types (if `a` had the same type in both cases, it would not be a problem):
 
-```
+``` haskell
 -- does not compile
 data Weird = Foo { a :: Int }
            | Bar { a :: Text }
@@ -497,7 +508,7 @@ data Weird = Foo { a :: Int }
 
 To deal with this edge case, the generated Haskell types have the case's constructor added to any conflicting names:
 
-```
+``` haskell
 data Weird = Foo { a'Foo :: RequestPolicy }
            | Bar { a'Bar :: DcPolicy }
 ```
@@ -511,10 +522,56 @@ type Weird = Foo { a : Int,    b : Int }
 
 would generate:
 
-```
+``` haskell
 data Weird = Foo { a'Foo :: Int,  b :: Int }
            | Bar { a'Bar :: Text, b :: Int }
 ```
+
+#### Enums
+
+Enums are compiled to Haskell sum types, just like variants. 
+
+```
+enum Status = Active | Inactive
+```
+
+would generate
+
+``` haskell
+data Status = Active | Inactive
+```
+
+Enum symbols in Theta can be any symbol legal in Avro[^avro-symbols], which means that some enums will have symbols that are not lexically valid Haskell constructors[^haskell-constructors]. To turn symbols into valid Haskell constructors, we drop any leading underscores and capitalize the first letter.
+
+```
+enum Tricky = weird | _odd
+```
+
+becomes:
+
+``` haskell
+data Tricky = Weird | Odd
+```
+
+If making symbols into valid constructors results in duplicate names, we go through the list of symbols left-to-right and add a `_` to the end of any symbol that would otherwise be duplicated.
+
+```
+enum Trickier = odd | Odd | __odd_
+```
+
+becomes:
+
+``` haskell
+data Trickier = Odd | Odd_ | Odd__
+```
+
+[^avro-symbols]: [Enum symbols in Avro][avro-enum-spec] can be any string that matches the regular expression `[a-zA-Z_][a-zA-Z0-9_]*`—that is, the first character can be an upper- or lowercase letter or an underscore, and the rest of the symbol can have any of those characters as well as numbers.
+
+[^haskell-constructors]: Haskell constructors cannot start with lowercase letters or underscores.
+
+[avro-enum-spec]: https://avro.apache.org/docs/current/spec.html#Enums
+
+**Note**: While enum symbols in Theta are not namespaced and do not conflict with constructor names, an enum with the same constructor name as another enum or variant *will* cause conflicts in Haskell.
 
 #### Aliases and Newtypes
 
@@ -526,7 +583,7 @@ alias Quantity = Int
 
 becomes
 
-```
+``` haskell
 type Quantity = Int32
 ```
 
@@ -538,6 +595,6 @@ type ProductId = String
 
 becomes
 
-```
+``` haskell
 newtype ProductId = ProductId Text
 ```

@@ -22,6 +22,12 @@ let
       foo.Baz	74aa1ef0f5de1b09a4eec622127f42d5
     '';
   };
+  expected-enum = pkgs.writeTextFile {
+    name = "theta-hash-expected-enum";
+    text = ''
+      enum.Foo	10ac7250eaaf54a514d6a7789ec45570
+    '';
+  };
 in
 pkgs.runCommand "theta-hash-test"
   { THETA_LOAD_PATH = ./modules; } ''
@@ -32,4 +38,7 @@ pkgs.runCommand "theta-hash-test"
 
   ${theta}/bin/theta hash -m importing_foo -m other > $out/theta-hash-2
   diff ${expected-2} $out/theta-hash-2
+
+  ${theta}/bin/theta hash -m enum > $out/theta-hash-enum
+  diff ${expected-enum} $out/theta-hash-enum
   ''

@@ -10,6 +10,8 @@ avro-version: 1.0.0
  *
  */
 
+import enum
+
 import importing
 
 import variant
