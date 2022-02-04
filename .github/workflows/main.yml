@@ -21,14 +21,17 @@ jobs:
           name: theta-idl
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-      - name: build haskell
+      - name: Build Theta
         run: nix-build theta
 
-      - name: cross-language tests
-        run: nix-build test
+      - name: Stack Test
+        run: ci/stack-test ./theta
 
-      - name: Stack test
-        run: |
-          nix-shell
-          cd theta
-          stack --nix --nix-shell-file stack-shell.nix test
+      - name: Cache Stack Dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-store-${{ hashFiles('theta/stack.yaml.lock') }}-${{ hashFiles('theta/stack.yaml.lock') }}
+            
+      - name: Cross-Language Tests
+        run: nix-build test
