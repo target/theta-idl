@@ -7,6 +7,7 @@ import unittest
 
 from theta import avro
 
+from theta_python_tests.enum import EnumWrapper, SimpleEnum
 from theta_python_tests.primitives import Containers, Primitives
 from theta_python_tests.importing import Foo
 from theta_python_tests.variant import Either, I, J, S
@@ -64,6 +65,12 @@ class TestContainers(unittest.TestCase):
     @given(containers)
     def test_containers(self, record):
         round_trip(record, Containers)
+
+
+class TestEnum(unittest.TestCase):
+    def test_enum(self):
+        round_trip(EnumWrapper(SimpleEnum.SymbolA), EnumWrapper)
+        round_trip(EnumWrapper(SimpleEnum.SymbolB), EnumWrapper)
 
 
 class TestVariant(unittest.TestCase):

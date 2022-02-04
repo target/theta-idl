@@ -41,6 +41,7 @@ import           Test.Tasty.HUnit
 loadModule "test/data/transitive" "c"
 loadModule "test/data/modules" "importing_foo"
 loadModule "test/data/modules" "primitives"
+loadModule "test/data/modules" "enums"
 
 -- * Tests
 

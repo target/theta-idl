@@ -1,0 +1,38 @@
+class Foo(Enum):
+    Bar = 0
+    baz = 1
+    _Baz = 2
+
+    def encode_avro(self, encoder: avro.Encoder):
+        encoder.integral(self.value)
+
+    def to_avro(self, out):
+        self.encode_avro(avro.Encoder(out))
+
+    @staticmethod
+    def decode_avro(decoder: avro.Decoder):
+        tag = decoder.integral()
+
+        if tag == 0:
+            return Foo.Bar
+        elif tag == 1:
+            return Foo.baz
+        elif tag == 2:
+            return Foo._Baz
+        else:
+            raise Exception(f"Invalid tag for enum: {tag}.")
+
+    @staticmethod
+    def from_avro(in_):
+        return Foo.decode_avro(avro.Decoder(in_))
+
+    @staticmethod
+    def write_container(objects: List['Foo'], out,
+                        codec: str="deflate", sync_marker: Optional[bytes]=None):
+        encoder = avro.Encoder(out)
+        container.encode_container(encoder, objects, codec, sync_marker, Foo)
+
+    @staticmethod
+    def read_container(in_) -> Iterator['Foo']:
+        decoder = avro.Decoder(in_)
+        return container.decode_container(decoder, Foo)

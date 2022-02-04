@@ -78,6 +78,9 @@ data AvroError = InvalidExport Type
                | DuplicateFieldName Name
                  -- ^ The record with the given name has a duplicate
                  -- field.
+               | InvalidEnumSymbol Name EnumSymbol
+                 -- ^ The enum symbol is not part of the named Theta
+                 -- enum.
                | MissingField Name FieldName
                  -- ^ The Avro record does not have a field that is
                  -- expected by the Theta type we are converting to.
@@ -125,14 +128,16 @@ instance Pretty AvroError where
     InvalidName name ->
       [p| The name ‘#{name}’ is not a valid Theta name. |]
     DuplicateName name ->
-      [p| The name ‘#{pretty name}’ has multiple definitions. |]
+      [p| The name ‘#{name}’ has multiple definitions. |]
     DuplicateFieldName name ->
-      [p| The record ‘#{pretty name}’ has multiple fields with the same name. |]
+      [p| The record ‘#{name}’ has multiple fields with the same name. |]
+    InvalidEnumSymbol enum symbol ->
+      [p| The enum ‘#{enum}’ does not contain the symbol ‘#{symbol}’. |]
     MissingField record field ->
-      [p| The record ‘#{pretty record}’ is missing the expected field ‘#{pretty field}’. |]
+      [p| The record ‘#{record}’ is missing the expected field ‘#{field}’. |]
     InvalidVariant reason variant ->
       [p|
-        The variant ‘#{pretty variant}’ was not encoded correctly in Avro:
+        The variant ‘#{variant}’ was not encoded correctly in Avro:
 
         #{prettyReason reason}
            |]
@@ -146,7 +151,7 @@ instance Pretty AvroError where
            |]
     FieldNameMismatch record theta avro ->
       let header  =
-            [p| "The Avro record ‘#{pretty record}’ has a different set of fields than expected." |]
+            [p| "The Avro record ‘#{record}’ has a different set of fields than expected." |]
           missing = prettyDifference "Missing" theta avro
           extra   = prettyDifference "Extra" avro theta
       in header <> missing <> extra

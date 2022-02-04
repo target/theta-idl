@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RankNTypes        #-}
 
 module Theta.Parser where
@@ -11,6 +12,7 @@ import qualified Control.Monad.Reader       as Reader
 import           Control.Monad.Trans        (lift)
 
 import           Data.List.NonEmpty         (NonEmpty (..))
+import qualified Data.List.NonEmpty         as NonEmpty
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 import           Data.Versions              (semver')
@@ -27,6 +29,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import           Theta.Metadata             (Metadata, Version (..))
 import qualified Theta.Metadata             as Metadata
 import qualified Theta.Name                 as Name
+import           Theta.Pretty               (p)
 import           Theta.Types
 
 -- | Parsers for the Theta syntax outside the metadata section take
@@ -59,6 +62,27 @@ type Parser = ReaderT Metadata (Parsec Void Text)
 -- module's metadata section.
 version :: Parser Version
 version = Metadata.languageVersion <$> Reader.ask
+
+-- | Check whether the version of the module is at least the specified
+-- minimum version.
+--
+-- If the version of the module is too low, raises a parse error with
+-- an error message explaining that the named feature is not
+-- supported.
+requireVersion :: Version
+               -- ^ The minimum version (inclusive) that supports the
+               -- named feature.
+               -> Text
+               -- ^ The name of the feature used for the user-facing
+               -- error message.
+               -> Parser ()
+requireVersion minVersion feature = do
+  v <- version
+  when (v < minVersion) $
+    fail [p|
+      Support for #{feature} requires language-version ≥ #{minVersion}
+      Current module being parsed has language-version = #{v}
+    |]
 
 -- * Metadata
 
@@ -153,7 +177,9 @@ keyword :: Text -> Parser Text
 keyword word = lexeme $ string word <* notFollowedBy (alphaNumChar <|> char '_')
 
 reservedWords :: [(Version, [Text])]
-reservedWords = [ ("1.0.0", v1_0_0) ]
+reservedWords = [ ("1.0.0", v1_0_0)
+                , ("1.1.0", v1_1_0)
+                ]
   where v1_0_0 = [ "import"
                  , "type"
                  , "alias"
@@ -169,6 +195,8 @@ reservedWords = [ ("1.0.0", v1_0_0) ]
                  , "Double"
                  , "String"
                  ]
+
+        v1_1_0 = [ "enum" ]
 
 identifier :: Parser Text
 identifier = do
@@ -456,6 +484,36 @@ definition = withDoc $ do
     , definitionType = BaseType' type_
     }
 
+-- | Parse an enum definition:
+--
+-- @
+-- enum Suit = Spades | Hearts | Clubs | Diamonds
+-- @
+--
+-- Just like type definitions, enums can have documentation attached:
+--
+-- @
+-- /// Cards can have one of four suits
+-- enum Suit = Spades | Hearts | Clubs | Diamonds
+-- @
+--
+-- Enums are supported with language-version ≥ 1.1.0
+enumDefinition :: Parser (Definition BaseType')
+enumDefinition = withDoc $ do
+  void $ try (symbol "enum")
+  requireVersion "1.1.0" "enum"
+  definitionName <- name
+  void $ symbol "="
+  symbols <- enumSymbol `sepBy1` symbol "|"
+  let enum = Enum' definitionName $ NonEmpty.fromList symbols
+  pure $ Definition { definitionDoc = Nothing
+                    , definitionName
+                    , definitionType = BaseType' enum
+                    }
+  where enumSymbol = EnumSymbol . Text.pack <$> lexeme ((:) <$> first <*> rest)
+        first = letterChar <|> char '_'
+        rest  = many $ alphaNumChar <|> char '_'
+
 -- | Parses a type alias.
 --
 -- @
@@ -491,7 +549,7 @@ alias = withDoc $ do
 statement :: Parser Statement
 statement = definitionStatement <|> importStatement
   where definitionStatement =
-          DefinitionStatement <$> (try definition <|> alias)
+          DefinitionStatement <$> (try definition <|> try enumDefinition <|> alias)
         importStatement =
           ImportStatement <$> import_
 

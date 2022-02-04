@@ -60,7 +60,7 @@ inRange Range { lower, upper } version = version >= lower && version < upper
 -- Specified as @language-version@ in the header of every Theta
 -- module.
 theta :: Range
-theta = Range { name = "theta-version", lower = "1.0.0", upper = "1.1.0" }
+theta = Range { name = "theta-version", lower = "1.0.0", upper = "1.2.0" }
 
 -- | Is the given version of the Theta Avro encoding supported by this
 -- version of the package?

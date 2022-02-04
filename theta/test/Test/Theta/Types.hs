@@ -34,6 +34,7 @@ loadModule "test/data/transitive" "d"
 loadModule "test/data/modules" "named_types"
 loadModule "test/data/modules" "nested_newtypes"
 loadModule "test/data/modules" "recursive"
+loadModule "test/data/modules" "enums"
 
 tests :: TestTree
 tests = testGroup "Types"
@@ -77,6 +78,7 @@ test_eq = testGroup "Eq instance"
           , Theta.map' Theta.int'
           , Theta.optional' Theta.int'
 
+          , HasTheta.theta @TrickyEnum
           , HasTheta.theta @Record
           , HasTheta.theta @Variant
           , HasTheta.theta @Newtype
@@ -109,6 +111,7 @@ test_eq = testGroup "Eq instance"
           Theta.Optional'{}  -> type_ @?= type_
 
           -- named types
+          Theta.Enum'{}      -> type_ @?= type_
           Theta.Reference'{} -> type_ @?= type_
           Theta.Record'{}    -> type_ @?= type_
           Theta.Variant'{}   -> type_ @?= type_
@@ -211,17 +214,27 @@ test_hashing = testGroup "hashing"
         Theta.optional' Theta.bytes' ?= "fe8555ea03aa8ac9de9b74cda03313a3"
         Theta.optional' Theta.date'  ?= "fb84e2ea1a4379adcb3ce3eb6cae3c6c"
 
-    , testCase "named types" $ do
-        -- from newtype.theta
-        HasTheta.theta @Record   ?= "12830fe0301c2dbf8fbd09c85ed2bef8"
-        HasTheta.theta @Variant  ?= "d018a023a21f379ee6cefc2270e06760"
-        HasTheta.theta @Newtype  ?= "20f7cf73ddc12ea5aeb866dbcc147fa4"
-        HasTheta.theta @Newtype2 ?= "9a186dc3ed7f0a7206f313121ba5e98b"
+    , testGroup "named types"
+      [ testCase "enum" $ do
+          HasTheta.theta @TrickyEnum ?= "a5598bd1d8c1126f98add389ed96086c"
 
-        -- from nested_types.theta
-        HasTheta.theta @Newtype_0 ?= "9afe3955179b3c12b134ffc8b708f83a"
-        HasTheta.theta @Newtype_1 ?= "b7dec420e20dc6ac129007a565aca39c"
-        HasTheta.theta @Alias     ?= "b7dec420e20dc6ac129007a565aca39c"
+      , testCase "record" $ do
+          HasTheta.theta @Record   ?= "12830fe0301c2dbf8fbd09c85ed2bef8"
+
+      , testCase "variant" $ do
+          HasTheta.theta @Variant  ?= "d018a023a21f379ee6cefc2270e06760"
+
+      , testCase "newtype" $ do
+          HasTheta.theta @Newtype  ?= "20f7cf73ddc12ea5aeb866dbcc147fa4"
+          HasTheta.theta @Newtype2 ?= "9a186dc3ed7f0a7206f313121ba5e98b"
+
+          -- from nested_types.theta
+          HasTheta.theta @Newtype_0 ?= "9afe3955179b3c12b134ffc8b708f83a"
+          HasTheta.theta @Newtype_1 ?= "b7dec420e20dc6ac129007a565aca39c"
+
+      , testCase "alias" $ do
+          HasTheta.theta @Alias     ?= "b7dec420e20dc6ac129007a565aca39c"
+      ]
 
     , testCase "recursive" $ do
         HasTheta.theta @Recursive ?= "b49f702e7f64ff003622e4c476d81e3a"

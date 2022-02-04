@@ -1,15 +1,16 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-unused-pattern-binds #-}
 -- for some reason, my TH code produces false-positive "unused
 -- binds" and "unused matches" warnings
 
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ParallelListComp    #-}
 {-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -53,7 +54,7 @@
 module Theta.Target.Haskell where
 
 import           Control.Monad.Except
-import           Control.Monad.State             (evalStateT)
+import           Control.Monad.State             (evalState, evalStateT, get, put)
 
 import qualified Data.Avro                       as Avro
 import qualified Data.Avro.Encoding.ToAvro       as Avro
@@ -61,6 +62,7 @@ import qualified Data.Avro.Encoding.FromAvro     as Avro
 import qualified Data.Avro.Internal.Get          as Avro
 import           Data.Avro.HasAvroSchema         (HasAvroSchema (..))
 import           Data.ByteString.Lazy            (ByteString)
+import qualified Data.Char                       as Char
 import           Data.Foldable                   (toList, traverse_)
 import           Data.HashMap.Strict             (HashMap)
 import           Data.Int                        (Int32, Int64)
@@ -302,7 +304,8 @@ generateDefinition :: Name
                    -> Q [Dec]
 generateDefinition moduleName Theta.Definition {..} =
   case Theta.baseType definitionType of
-    -- records, variants and newtypes need to be defined explicitly
+    -- named types need to be defined explicitly
+    Theta.Enum' name symbols  -> withInstances =<< generateEnum name symbols
     Theta.Record' name fields -> withInstances =<< generateRecord name fields
     Theta.Variant' name cases -> withInstances =<< generateVariant name cases
     Theta.Newtype' name type_ -> withInstances =<< generateNewtype name type_
@@ -327,6 +330,71 @@ generateDefinition moduleName Theta.Definition {..} =
 
 -- $ Faclilities for defining Haskell types for records,
 -- variants... etc.
+
+-- | Generates a Haskell type for an enum. The type will have a
+-- constructor for each enum symbol.
+--
+-- The constructor name for a symbol is the symbol's name with the
+-- first letter capitalized and any leading underscores dropped. If
+-- these rules result in duplicate names, each subsequent constructor
+-- will have an extra _ added to the end.
+--
+-- The following Theta enum:
+--
+-- @
+-- enum com.example.Foo = Bar | baz | _Baz
+-- @
+--
+-- will produce the following Haskell type:
+--
+-- @
+-- data Foo = Bar | Baz | Baz_
+-- @
+generateEnum :: Name.Name -> NonEmpty Theta.EnumSymbol -> Q Dec
+generateEnum name symbols =
+  dataD (pure []) (toName name) [] Nothing constructors [defaultClasses]
+  where constructors = [ normalC name [] | name <- enumConstructors name symbols ]
+
+-- | Return a list of disambiguated constructor names for the given
+-- set of enum symbols.
+--
+-- The constructor name for a symbol is that symbol with the leading
+-- letter capitalized and any leading underscores stripped. If this
+-- change results in multiple symbols mapping to the same name, each
+-- subsequent name gets an additional trailing underscore.
+--
+-- @
+-- enum Foo = Bar | baz | _Baz
+-- @
+--
+-- will produce the constructors
+--
+-- @
+-- Bar | Baz | Baz_
+-- @
+disambiguateConstructors :: Name.Name -> NonEmpty Theta.EnumSymbol -> [Text]
+disambiguateConstructors enumName (NonEmpty.toList -> symbols) = names
+  where names = evalState (mapM disambiguate symbols) Set.empty
+
+        disambiguate (Theta.EnumSymbol (normalize -> symbol)) = do
+          seen <- get
+          if Set.member symbol seen
+            then disambiguate $ Theta.EnumSymbol (symbol <> "_")
+            else symbol <$ put (Set.insert symbol seen)
+
+        normalize = capitalize . Text.dropWhile (== '_')
+        capitalize text = case Text.uncons text of
+          Just (c, cs) -> Text.cons (Char.toUpper c) cs
+          Nothing      -> error $ "Empty enum symbol in " <> show enumName
+
+-- | Return disambiguated contructor names (as 'Name') for the given
+-- enum symbols.
+--
+-- See 'disambiguateConstructors' for the rules used to convert and
+-- disambiguate constructor names.
+enumConstructors :: Name.Name -> NonEmpty Theta.EnumSymbol -> [Name]
+enumConstructors enumName symbols =
+  mkName . Text.unpack <$> disambiguateConstructors enumName symbols
 
 -- | Generates a record with the specified fields, using the given
 -- name for both the type and the data constructor.
@@ -513,16 +581,16 @@ thetaType moduleName definitionName =
 --
 -- @
 -- instance HasTheta Foo where
---   module_ _ = theta'bar
+--   module_ _ = theta'com'example
 --   theta _   =
 --     let name = Name { namespace = ["com", "example"], name = "Foo" } in
---     case Theta.lookupName name theta'bar of
+--     case Theta.lookupName name theta'com'example of
 --       Right res -> res
 --       Left err  -> error $ "Tempalte Haskell bug: " <> err
 -- @
 hasThetaInstance :: Name
                     -- ^ The top-level Haskell name for the module (ie
-                    -- @theta'bar@).
+                    -- @theta'com'example@).
                  -> Name.Name
                     -- ^ The fully qualified name of the Theta type.
                  -> Q [Dec]
@@ -602,12 +670,13 @@ fromAvroInstance (toName -> type_) =
 -- for what their respective instances look like.
 toThetaInstance :: Name
                    -- ^ The top-level haskell name for the module (ie
-                   -- @theta'bar@).
+                   -- @theta'com'example@).
                 -> Theta.Type
                    -- ^ The Theta type to generate the
                    -- 'Conversion.ToTheta' instance for.
                 -> Q [Dec]
 toThetaInstance moduleName type_ = case Theta.baseType type_ of
+  Theta.Enum' name symbols  -> enumToTheta moduleName name symbols
   Theta.Record' name fields -> recordToTheta moduleName name fields
   Theta.Variant' name cases -> variantToTheta moduleName name cases
   Theta.Newtype' name _     ->
@@ -622,6 +691,59 @@ toThetaInstance moduleName type_ = case Theta.baseType type_ of
 -- | A capturable name that we use to define 'toTheta' functions.
 argName :: Name
 argName = mkName "value"
+
+-- | Generate a 'Conversion.ToTheta' instance for an enum.
+--
+-- Given:
+--
+-- @
+-- enum com.example.Foo = Bar | baz | _Baz
+-- @
+--
+-- we get:
+--
+-- @
+-- instance ToTheta Foo where
+--   toTheta value = Theta.Value
+--     { Theta.value   = enumValue
+--     , Theta.type_   = let name = Name { namespace = ["com", "example"], name = "Foo" } in
+--         case Theta.lookupName name theta'com'example of
+--           Right res -> res
+--           Left err  -> error $ "Template Haskell bug: " <> err
+--     }
+--     where enumValue = case value of
+--       Bar  -> Theta.EnumSymbol "Bar"
+--       Baz  -> Theta.EnumSymbol "baz"
+--       Baz_ -> Theta.EnumSymbol "_Baz"
+--
+--   avroEncoding value = case value of
+--     Bar  -> encodeInt 0
+--     Baz  -> encodeInt 1
+--     Baz_ -> encodeInt 2
+-- @
+enumToTheta :: Name -> Name.Name -> NonEmpty Theta.EnumSymbol -> Q [Dec]
+enumToTheta moduleName enumName symbols =
+  [d| instance Conversion.ToTheta $(conT $ toName enumName) where
+        toTheta $(varP argName) = Theta.Value
+          { Theta.value = enumValue
+          , Theta.type_ = $(thetaType moduleName enumName)
+          }
+          where enumValue = $(caseE (varE argName) $ symbolToTheta <$> constructors)
+
+        avroEncoding $(varP argName) =
+          $(caseE (varE argName) $
+              [encodeSymbol i c | i <- [0..] | (_, c) <- constructors])
+    |]
+  where symbolToTheta (name, constructor) = match constructor
+          (normalB [e| Theta.Enum (Theta.EnumSymbol $(stringE name)) |]) []
+
+        encodeSymbol i constructor =
+          match constructor (normalB [e| Conversion.encodeInt $(litE $ integerL i) |]) []
+
+        constructors = [ (Text.unpack name, conP constructor [])
+                       | Theta.EnumSymbol name <- NonEmpty.toList symbols
+                       | constructor <- enumConstructors enumName symbols
+                       ]
 
 -- | Generates a 'Conversion.ToTheta' instance for a record, relying
 -- on the 'Conversion.ToTheta' instances of each field type.
@@ -638,10 +760,9 @@ argName = mkName "value"
 -- instance ToTheta Foo where
 --   toTheta value = Theta.Value
 --     { Theta.value   = record
---     , Theta.module_ = theta'bar
 --     , Theta.type_   =
 --         let name = Name { namespace = ["com", "example"], name = "Foo" } in
---         case Theta.lookupName name theta'bar of
+--         case Theta.lookupName name theta'com'example of
 --           Right res -> res
 --           Left err  -> error $ "Template Haskell bug: " <> err
 --     }
@@ -657,7 +778,7 @@ argName = mkName "value"
 -- @
 recordToTheta :: Name
                  -- ^ The top-level haskell name for the module (ie
-                 -- @theta'bar@).
+                 -- @theta'com'example@).
               -> Name.Name
                  -- ^ The name of the Theta record.
               -> Theta.Fields Theta.Type
@@ -706,10 +827,9 @@ recordToTheta moduleName name Theta.Fields { Theta.fields } =
 -- instance ToTheta Foo where
 --   toTheta value = Theta.Value
 --     { Theta.value   = variant
---     , Theta.module_ = theta'bar
 --     , Theta.type_   =
 --         let name = Name { namespace = ["com", "example"], name = "Foo" } in
---         case Theta.lookupName name theta'bar of
+--         case Theta.lookupName name theta'com'example of
 --           Right res -> res
 --           Left err  -> error $ "Template Haskell bug: " <> err
 --     }
@@ -780,6 +900,7 @@ fromThetaInstance :: Theta.Type
                      -- we're generating the instance.
                   -> Q [Dec]
 fromThetaInstance type_ = case Theta.baseType type_ of
+  Theta.Enum' name symbols  -> enumFromTheta name symbols
   Theta.Record' name fields -> recordFromTheta name fields
   Theta.Variant' name cases -> variantFromTheta name cases
   Theta.Newtype' name _     ->
@@ -792,6 +913,88 @@ fromThetaInstance type_ = case Theta.baseType type_ of
       |]
 
   _                         -> [d| |]
+
+-- | Generates a 'Conversion.FromTheta' instance for an enum.
+--
+-- Given an enum:
+--
+-- @
+-- enum Foo = Bar | baz | _Baz
+-- @
+--
+-- we get the following 'Conversion.FromTheta' instance:
+--
+-- @
+-- instance FromTheta Foo where
+--   fromTheta' v@Theta.Value { Theta.type_, Theta.value } = case value of
+--     Theta.Enum symbol -> do
+--       checkSchema @Foo v
+--       case symbol of
+--         "Bar"   -> pure Bar
+--         "baz"   -> pure Baz
+--         "_Baz"  -> pure Baz_
+--         invalid -> error $ "Invalid enum symbol ‘" <> Text.unpack invalid <> "’!"
+--     _ -> mismatch (theta @Foo) type_
+--
+--   avroDecoding = do
+--     tag <- Avro.getLong
+--     case tag of
+--       0 -> pure Bar
+--       1 -> pure Baz
+--       2 -> pure Baz_
+--       invalid ->
+--         fail ("Invalid enum tag. Expected [0..2] but got " <> show invalid <> ".")
+-- @
+enumFromTheta :: Name.Name -> NonEmpty Theta.EnumSymbol -> Q [Dec]
+enumFromTheta name symbols =
+  [d|
+   instance Conversion.FromTheta $(conT $ toName name) where
+     fromTheta' v@Theta.Value { Theta.type_, Theta.value } = case value of
+       Theta.Enum symbol -> do
+         $(apCheckSchema) v
+         $(enumCase)
+       _ -> Conversion.mismatch $(apTheta) type_
+
+     avroDecoding = do
+       tag <- Avro.getLong
+       $(decodingCase)
+    |]
+  where
+    enumCase = caseE [e| symbol |] $ (caseBranch <$> constructors) <> [baseCase]
+      where
+        caseBranch (name, constructor) =
+          match (litP $ stringL name) (normalB [e| pure $(constructor) |]) []
+
+        baseCase = match (varP invalid) (normalB errorCall) []
+        errorCall = [e| error $ "Invalid enum symbol ‘"
+                             <> Text.unpack (Theta.enumSymbol $(varE invalid))
+                             <> "’!"
+                      |]
+
+    decodingCase =
+      caseE [e| tag |] $ [ decodeTag tag c | tag <- [0..] | (_, c) <- constructors ]
+                      <> [ baseCase ]
+      where
+        decodeTag tag constructor =
+          match (litP $ integerL tag) (normalB [e| pure $(constructor) |]) []
+        baseCase = match (varP invalid) (normalB errorCall) []
+        errorCall = [e| fail ($(message) <> show $(varE invalid) <> ".") |]
+        message = stringE $ "Invalid enum tag. Expected [0.."
+                         <> show (length symbols - 1)
+                         <> "] but got"
+                         
+    constructors = [ (Text.unpack name, conE constructor)
+                   | Theta.EnumSymbol name <- NonEmpty.toList symbols
+                   | constructor <- enumConstructors name symbols
+                   ]
+
+    -- Apply `checkSchema` to _ and then name, since the first
+    -- quantified type in checkSchema is `m`
+    apCheckSchema =
+      appTypeE [e| Conversion.checkSchema @_ |] (conT $ toName name)
+    apTheta = appTypeE [e| theta |] (conT $ toName name)
+
+    invalid = mkName "invalid"
 
 -- | Generates a 'Conversion.FromTheta' instance for a record, relying
 -- on the 'Conversion.FromTheta' instances for each field type.
@@ -971,6 +1174,7 @@ generateThetaExp type_ = case Theta.baseType type_ of
   Theta.Map' type_          -> [e| Theta.map' $(generateThetaExp type_) |]
   Theta.Optional' type_     -> [e| Theta.optional' $(generateThetaExp type_) |]
 
+  Theta.Enum' name symbols  -> wrap $ enumExp name symbols
   Theta.Record' name fields -> wrap $ recordExp name fields
   Theta.Variant' name cases -> wrap $ variantExp name cases
 
@@ -978,6 +1182,13 @@ generateThetaExp type_ = case Theta.baseType type_ of
   Theta.Newtype' name type_ -> wrap $ newtypeExp name type_
   where wrap exp =
           [e| Theta.withModule' $(varE $ globalModuleName $ Theta.module_ type_) $(exp) |]
+
+        enumExp name symbols =
+          [e| Theta.Enum' $(generateName name) $ NonEmpty.fromList $(symbolsList) |]
+          where symbolsList = listE $
+                  [ [e| Theta.EnumSymbol $(stringE $ Text.unpack symbol) |]
+                  | Theta.EnumSymbol symbol <- NonEmpty.toList symbols
+                  ]
 
         recordExp name Theta.Fields { Theta.fields } =
           [e| Theta.Record' $(generateName name)
@@ -1024,6 +1235,7 @@ generateType type_ = case Theta.baseType type_ of
   Theta.Map' values     -> [t| HashMap Text $(generateType values) |]
   Theta.Optional' type_ -> [t| Maybe $(generateType type_) |]
 
+  Theta.Enum' name _    -> toType name
   Theta.Record' name _  -> toType name
   Theta.Variant' name _ -> toType name
 

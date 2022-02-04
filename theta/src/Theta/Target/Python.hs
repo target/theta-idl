@@ -1,12 +1,14 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedLists   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE OverloadedLists     #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ParallelListComp    #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 -- | Compile Theta schemas to Python classes that can
 -- serialize/deserialize to Avro.
@@ -16,11 +18,14 @@ module Theta.Target.Python
 
   , toModule
 
+  , toEnum
   , toReference
   , toRecord
   , toVariant
   )
 where
+
+import           Prelude                         hiding (toEnum)
 
 import           Control.Monad.Except            (MonadError)
 
@@ -58,6 +63,7 @@ toModule Theta.Module {..} packagePath = do
     from abc import ABC
     from dataclasses import dataclass
     from datetime import date, datetime
+    from enum import Enum
     import json
     from typing import Any, ClassVar, Dict, Iterator, List, Mapping, Optional
 
@@ -114,10 +120,12 @@ toReference currentModule Theta.Type { Theta.baseType } = case baseType of
     in [python|Optional[$type_]|]
 
   -- named types
-  Theta.Reference' name -> toIdentifier currentModule name
+  Theta.Enum' name _    -> toIdentifier currentModule name
   Theta.Record' name _  -> toIdentifier currentModule name
   Theta.Variant' name _ -> toIdentifier currentModule name
   Theta.Newtype' name _ -> toIdentifier currentModule name
+
+  Theta.Reference' name -> toIdentifier currentModule name
 
 -- | Return a Python snippet that defines a type with the given name
 -- corresponding to the given Theta type.
@@ -138,6 +146,8 @@ toDefinition :: MonadError Theta.Error m
 toDefinition currentModule definition =
   case Theta.baseType $ Theta.definitionType definition of
     -- structured types
+    Theta.Enum' name symbols    ->
+      pure $ toEnum currentModule name symbols
     Theta.Record' name fields   -> do
       schema <- toSchema definition
       toRecord currentModule schema name fields
@@ -154,6 +164,71 @@ toDefinition currentModule definition =
              identifier =
                toIdentifier currentModule $ Theta.definitionName definition
          in pure [python|$identifier = '$reference'|]
+
+-- | Compile a Theta enum to a Python enum.
+toEnum :: Name.ModuleName
+       -> Name.Name
+       -> NonEmpty Theta.EnumSymbol
+       -> Python
+toEnum currentModule enumName symbols = [python|
+  class $name(Enum):
+      $enumDeclarations
+
+      def encode_avro(self, encoder: avro.Encoder):
+          encoder.integral(self.value)
+
+      def to_avro(self, out):
+          self.encode_avro(avro.Encoder(out))
+
+      @staticmethod
+      def decode_avro(decoder: avro.Decoder):
+          tag = decoder.integral()
+
+          $symbolBranches
+          else:
+              raise Exception(f"Invalid tag for enum: {tag}.")
+
+      @staticmethod
+      def from_avro(in_):
+          return $name.decode_avro(avro.Decoder(in_))
+
+      @staticmethod
+      def write_container(objects: List['$name'], out,
+                          codec: str="deflate", sync_marker: Optional[bytes]=None):
+          encoder = avro.Encoder(out)
+          container.encode_container(encoder, objects, codec, sync_marker, $name)
+
+      @staticmethod
+      def read_container(in_) -> Iterator['$name']:
+          decoder = avro.Decoder(in_)
+          return container.decode_container(decoder, $name)
+  |]
+  where name = toIdentifier currentModule enumName
+
+        enumDeclarations =
+          toLines [ [python|$symbol = $i|]
+                  | (symbol, i) <- NonEmpty.toList pythonSymbols
+                  ]
+
+        symbolBranches = go pythonSymbols
+          where go ((symbol, _) :| rest) =
+                  toLines $ ifCase symbol : (elifCase <$> rest)
+                ifCase symbol = [python|
+                  if tag == 0:
+                      return $name.$symbol
+                |]
+                elifCase (symbol, i) = [python|
+                  elif tag == $i:
+                      return $name.$symbol
+                |]
+
+        pythonSymbols = [ (Python symbol, i)
+                        | Theta.EnumSymbol symbol <- symbols
+                        | i' <- [0..]
+                        , let i = Python (Text.pack $ show i')
+                        ]
+
+
 
 -- | Compile a Theta record to a Python dataclass.
 toRecord :: MonadError Theta.Error m
@@ -404,6 +479,10 @@ encodingFunction Theta.Type { Theta.baseType, Theta.module_ } = case baseType of
     |]
 
   -- Named Types
+  Theta.Enum' _ _ ->
+    pure [python|
+      lambda symbol: symbol.encode_avro(encoder)
+    |]
   Theta.Record' _ _  ->
     pure [python|
       lambda record: record.encode_avro(encoder)
@@ -455,6 +534,8 @@ decodingFunction currentModule Theta.Type { Theta.baseType, Theta.module_ } =
       pure [python|decoder.optional(lambda: $elementFunction)|]
 
     -- Named Types
+    Theta.Enum' (toIdentifier currentModule -> name) _ ->
+      pure [python|$name.decode_avro(decoder)|]
     Theta.Record' (toIdentifier currentModule -> name) _ ->
       pure [python|$name.decode_avro(decoder)|]
     Theta.Variant' (toIdentifier currentModule -> name) _ ->

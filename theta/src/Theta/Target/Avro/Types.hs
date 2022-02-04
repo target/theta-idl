@@ -46,9 +46,11 @@ import qualified Data.Avro                  as Avro
 import qualified Data.Avro.Schema.Schema    as Avro
 import           Data.List                  (sort)
 import           Data.List.NonEmpty         (NonEmpty (..))
+import qualified Data.List.NonEmpty         as NonEmpty
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
 import           Data.String.Interpolate    (__i)
+import qualified Data.Vector                as Vector
 
 import qualified Theta.Error                as Theta
 import           Theta.Metadata             (Version)
@@ -227,6 +229,30 @@ variant variantName avroVersion doc variantCases = do
   where force xs = liftRnf (`seq` ()) xs `seq` xs
 {-# SPECIALIZE variant :: Name -> Version -> Maybe Doc -> NonEmpty (Case Type) -> StateT (Set Name) (Either Theta.Error) Schema #-}
 
+-- | Build an Avro schema for a Theta enum. A Theta enum is encoded as
+-- an avro enum with the same symbols in the same order.
+enum :: (MonadError Theta.Error m, MonadState (Set Name.Name) m)
+     => Name.Name
+     -- ^ The name of the enum.
+     -> Maybe Doc
+     -> NonEmpty EnumSymbol
+     -- ^ The symbols for the enum in order. This should not have
+     -- duplicates but, if it does, duplicates will be discarded in
+     -- the generated Avro type.
+     -> m Schema
+enum enumName doc (NonEmpty.toList -> symbols) = do
+  included <- get
+  let alreadyDefined = enumName `Set.member` included
+  when alreadyDefined $ throw $ DuplicateName enumName
+
+  pure $ Avro.Enum
+    { Avro.name    = nameToAvro enumName
+    , Avro.aliases = []
+    , Avro.doc     = getText <$> doc
+    , Avro.symbols = avroSymbols
+    }
+  where avroSymbols = Vector.fromList $ enumSymbol <$> symbols
+
 -- | Build an Avro schema for a Theta record. A Theta record is turned
 -- into an Avro record with the same name and fields.
 record :: (MonadError Theta.Error m, MonadState (Set Name.Name) m)
@@ -332,6 +358,7 @@ typeToAvro contextAvroVersion Type { baseType, module_ } = case baseType of
   Map' value      -> Avro.Map   <$!> typeToAvro contextAvroVersion value
   Optional' type_ -> nullUnion  <$!> typeToAvro contextAvroVersion type_
 
+  Enum' name symbols  -> enum name (getDoc name) symbols
   Record' name fields -> record name definitionAvroVersion (getDoc name) fields
   Variant' name cases -> variant name definitionAvroVersion (getDoc name) cases
 
