@@ -106,6 +106,7 @@ data MetadataEntry = LanguageVersion Version
 -- @
 metadataSection :: Name.ModuleName -> Parsec Void Text Metadata
 metadataSection moduleName = do
+  void whitespace
   first    <- languageVersion <|> avroVersion
   metadata <- case first of
     LanguageVersion language -> do
@@ -121,7 +122,7 @@ metadataSection moduleName = do
         languageVersion =
           symbol "language-version" *> symbol ":" *> (LanguageVersion <$> version)
 
-        version = Version <$> semver'
+        version = (Version <$> semver') <* whitespace
 
         symbol     = L.symbol whitespace
         whitespace =
