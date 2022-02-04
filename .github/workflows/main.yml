@@ -24,14 +24,18 @@ jobs:
       - name: Build Theta
         run: nix-build theta
 
-      - name: Stack Test
-        run: ci/stack-test ./theta
-
       - name: Cache Stack Dependencies
         uses: actions/cache@v2
         with:
-          path: ~/.stack
-          key: ${{ runner.os }}-store-${{ hashFiles('theta/stack.yaml.lock') }}-${{ hashFiles('theta/stack.yaml.lock') }}
-            
+          path: |
+            ~/.stack
+            .stack-work
+          key: ${{ runner.os }}-stack-${{ hashFiles('theta/stack.yaml.lock', 'theta/theta.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-stack
+
+      - name: Stack Test
+        run: ci/stack-test ./theta
+
       - name: Cross-Language Tests
         run: nix-build test
