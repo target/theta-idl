@@ -28,4 +28,7 @@ jobs:
         run: nix-build test
 
       - name: Stack test
-        run: cd theta && stack --nix --nix-shell-file stack-shell.nix test
+        run: |
+          nix-shell
+          cd theta
+          stack --nix --nix-shell-file stack-shell.nix test
