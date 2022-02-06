@@ -2,9 +2,12 @@
 #
 # Check that Theta's command-line tool can generate Avro schemas
 # without any errors.
-{ pkgs ? import ../../nix/nixpkgs.nix {}
-, theta ? import ../../theta { inherit pkgs; }
-}:
+{ pkgs }:
+
+let
+  inherit (pkgs) theta;
+in
+
 # Test that we can correctly handle Unicode text in Theta modules.
 #
 # Depending on Nix settings, it's possible to compile Haskell programs

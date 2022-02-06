@@ -1,9 +1,10 @@
-{ pkgs ? import ../../nix/nixpkgs.nix {}
-, theta ? import ../../theta { inherit pkgs; }
+{ pkgs
 , theta-rust-src ? ../../rust
 }:
 
 let
+  inherit (pkgs) theta;
+
   theta-rust = builtins.filterSource
     (path: type:
       type != "directory" || builtins.baseNameOf path != "target")

@@ -1,7 +1,9 @@
-{ compiler-version ? "ghc884"
-, sources ? import ../nix/sources.nix
-, pkgs ? import ../nix/nixpkgs.nix { inherit sources;}
+{ pkgs
+
+, compiler-version ? "ghc884"
+
 , compiler ? pkgs.haskell.packages."${compiler-version}"
+
 , source-overrides ? {
   aeson = "2.0.3.0";
   aeson-pretty = "0.8.9";
@@ -17,6 +19,14 @@
   unordered-containers = "0.2.16.0";
   versions = "5.0.2";
 }
+
+, build-tools ? [               # extra tools available for nix develop
+  compiler.stylish-haskell
+  compiler.cabal-install
+  pkgs.stack
+  pkgs.time-ghc-modules
+]
+
 , werror ? true
 }:
 
@@ -47,8 +57,8 @@ let
     then pkgs.haskell.lib.appendConfigureFlag p "--ghc-option=-Werror"
     else p;
 
-  expose-cabal = p:
-    pkgs.haskell.lib.addBuildTool p compiler.cabal-install;
+  add-build-tools = p:
+    pkgs.haskell.lib.addBuildTools p build-tools;
 
   excluded = [
     "dist"
@@ -77,7 +87,7 @@ compiler.developPackage {
 
   # Don't try to build static executables on Darwin systems
   modifier = let
-    base = p: enable-werror (expose-cabal p);
+    base = p: enable-werror (add-build-tools p);
   in
     if pkgs.stdenv.isDarwin then base else p: enable-static (base p);
 

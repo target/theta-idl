@@ -1,10 +1,10 @@
 # This expression is meant to be built in CI.
 #
 # Check that Theta's command-line tool correctly outputs type hashes.
-{ pkgs ? import ../../nix/nixpkgs.nix {}
-, theta ? import ../../theta { inherit pkgs; }
-}:
+{ pkgs }:
 let
+  inherit (pkgs) theta;
+
   # Note the tab characters in the expected strings!
   expected-1 = pkgs.writeTextFile {
     name = "theta-hash-expected-1";
