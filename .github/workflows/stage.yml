@@ -29,8 +29,6 @@ jobs:
             ~/.stack
             .stack-work
           key: ${{ runner.os }}-stack-work-${{ hashFiles('theta/stack.yaml.lock', 'theta/theta.cabal') }}
-          restore-keys: |
-            ${{ runner.os }}-stack
 
       - name: Stack Test
         run: ci/stack-test ./theta
