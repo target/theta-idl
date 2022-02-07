@@ -23,6 +23,7 @@
 , build-tools ? [               # extra tools available for nix develop
   compiler.stylish-haskell
   compiler.cabal-install
+  compiler.haskell-language-server
   pkgs.stack
   pkgs.time-ghc-modules
 ]

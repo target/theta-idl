@@ -35,6 +35,7 @@
         };
 
         devShells = {
+          theta = packages.theta.env;
           rust = import ./rust/shell.nix { inherit pkgs; };
         };
 
