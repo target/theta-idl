@@ -2,7 +2,7 @@ cabal-version:  2.2
 name:           theta
 version:        1.0.0.0
 synopsis:       Share algebraic data types across different languages with Avro.
-description:    Use algebraic data types to define data formats that work across different languages. Theta is an interface description language (IDL) designed around Avro.
+description:    Use algebraic data types to define data formats that work across different languages. Theta lets you use a single set of types to generate Avro schemas as well as types that serialize and deserialize to those schemas in Python, Haskell and Rust.
 license:        Apache-2.0
 category:       Language
 build-type:     Simple
