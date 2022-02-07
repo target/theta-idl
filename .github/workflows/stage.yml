@@ -28,7 +28,7 @@ jobs:
           path: |
             ~/.stack
             .stack-work
-          key: ${{ runner.os }}-stack-${{ hashFiles('theta/stack.yaml.lock', 'theta/theta.cabal') }}
+          key: ${{ runner.os }}-stack-work-${{ hashFiles('theta/stack.yaml.lock', 'theta/theta.cabal') }}
           restore-keys: |
             ${{ runner.os }}-stack
 
