@@ -5,10 +5,10 @@
 # If it fails, the Kotlin error message should printed with the call
 # to nix build
 
-{ pkgs ? import ../../nix/nixpkgs.nix {}
-, theta ? import ../../theta { inherit pkgs; }
-}:
+{ pkgs }:
 let
+  inherit (pkgs) theta;
+
   theta-generated-kotlin = pkgs.runCommand "theta-generated-kotlin" {
     THETA_LOAD_PATH = ./modules;
     THETA = "${theta}/bin/theta";

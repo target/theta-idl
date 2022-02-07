@@ -1,19 +1,16 @@
-{ pkgs ? import ../nix/nixpkgs.nix {}
-, python ? pkgs.python371
-}:
+{ pkgs }:
 let
-  pythonPackages = python.override {
-    packageOverrides = self: super: {
-      hypothesis = import ./hypothesis.nix { inherit python; };
-    };
-  };
+  python = pkgs.pythonPackages.pkgs;
 in
-pythonPackages.pkgs.buildPythonPackage {
+python.buildPythonPackage {
   pname   = "theta-python";
   version = "1.0.2";
   src     = ./.;
 
-  checkInputs = [ pythonPackages.pkgs.hypothesis ];
+  checkInputs = [ python.hypothesis ];
+
+  # For development (nix develop)
+  nativeBuildInputs = with pkgs; [ theta ];
 
   meta = {
     description = "The library Theta uses for parsing Avro.";

@@ -1,4 +1,4 @@
-{ pkgs ? import ../nix/nixpkgs.nix {} }:
+{ pkgs }:
 
 pkgs.naersk.buildPackage {
   src = builtins.filterSource

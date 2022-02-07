@@ -7,20 +7,9 @@
 # If it fails, the python error message should
 # printed with the call to nix build
 
-{ pkgs ? import ../../nix/nixpkgs.nix {}
-, python ? pkgs.python37
-, theta ? import ../../theta { inherit pkgs; }
-}:
+{ pkgs }:
 let
-  pythonPackages =
-    python.override {
-      packageOverrides = self: super: {
-        hypothesis = import ../../python/hypothesis.nix { inherit pkgs python; };
-
-        # The support package Theta-generated code uses to parse Avro.
-        theta-python = import ../../python { inherit pkgs python; };
-      };
-    };
+  inherit (pkgs) pythonPackages theta theta-python;
 
   theta-generated-python = pkgs.runCommand "theta-generated-python" {
     THETA_LOAD_PATH = ./modules;
@@ -34,7 +23,7 @@ in pythonPackages.pkgs.buildPythonPackage {
   version = "1.0.0";
   src = ./.;
   nativeBuildInputs = [ theta ];
-  checkInputs = with pythonPackages.pkgs; [ theta-python hypothesis ];
+  checkInputs = [ theta-python pythonPackages.pkgs.hypothesis ];
   preConfigure = ''
     cp -r ${theta-generated-python}/* theta_python_tests
   '';
