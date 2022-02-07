@@ -106,11 +106,11 @@ favorite_album = Album(
       [Person("Astley", "Rick")],
       [Track("Never Gonna Give You Up", 215, [Person("Astley", "Rick")])]
     )
-    
+
 # Write "album.avro" file:
 with open("album.avro", "wb") as out_stream:
     favorite_album.to_avro(out_stream)
-    
+
 # Read it back:
 with open("album.avro", "rb") as in_stream:
     album = Album.from_avro(in_stream)
@@ -122,7 +122,7 @@ You can also read/write the [Avro container format][containers]:
 ```
 with open("album_container.avro", "wb") as out_stream:
     Album.write_container([favorite_album], out_stream)
-    
+
 with open("album_container.avro", "rb") as in_stream:
     albums = Album.read_container(in_stream)
     print(albums[0])
@@ -155,63 +155,94 @@ Theta comes with an Emacs mode. To install it, copy `emacs/theta-mode.el` into y
 
 ## Developing Theta
 
+### Nix
+
 Theta uses [Nix] to manage dependencies and builds across several languages.
 
 To get started, [install Nix][install-nix] if you don't already have it:
 
-```
+``` shell
 curl -L https://nixos.org/nix/install | sh
 ```
 
-Once you have Nix set up, you can build Theta and check that it works:
+This project uses [Nix Flakes][flakes] which is a relatively new Nix feature that needs to be enabled in the your Nix config file. You can create a Nix config file and enable Flakes with the following command:
 
+``` shell
+mkdir -p ~/.config/nix
+echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
 ```
-nix-build
+
+If this causes problems, take a look at [the Nix wiki][flakes-wiki] for possible solutions.
+
+[flakes]: https://serokell.io/blog/practical-nix-flakes
+
+[flakes-wiki]: https://nixos.wiki/wiki/flakes#Installing_flakes
+
+### Building
+
+Once you have Nix set up, you can build Theta and check that it works. Nix links the result of the build with a symlink named `result`:
+
+``` shell
+nix build
 result/bin/theta --version
 ```
 
-You can install and uninstall the `theta` executable for your user:
+If you get an error about `build` being an experimental command that is not enabled, see [the Nix section](#nix) for how to enable it.
+
+Which should result in something like:
 
 ```
-nix-env -i -f theta # install
-nix-env -e theta    # uninstall
+Theta 1.0.0.0
 ```
 
-You can also run tests across all the languages Theta supports:
+The project is split into several components that are built separately:
 
-```
-nix-build test
-```
+  1. `theta`:  The core Haskell library and executable
+  2. `rust`: The Rust support library
+  3. `python`: The Python support library
+  4. `test`: Tests for executable functionality and generated code (in Python, Rust and Kotlin)
 
-You can get the right version of development tools you need to work on Theta's components (core Haskell library, Python, Rust... etc) using Nix shells:
+Each of these can be built separately. For example, to run the cross-language tests, you would write:
 
-```
-nix-shell theta  # cabal, ghc and Haskell packages
-nix-shell rust   # cargo, rustc and Rust packages
-nix-shell python # Python and Python packages
-```
-
-For example, if you want to run Theta's Haskell tests locally with `cabal`, you can run:
-
-```
-nix-shell theta
-cd theta
-cabal test
+``` shell
+nix build .#test
 ```
 
-And to run tests on the Rust support library:
+`theta` is the default target, so `nix build` is the same as `nix build .#theta`.
+
+### Development Tools
+
+Nix manages development environments for each of the components—like a cross-language virtualenv. The environments have the dependencies you need to work on the respective component—`cabal` for Haskell development, `cargo` for Rust... etc.
 
 ```
-nix-shell rust
-cd rust
-cargo test
+nix develop .#theta  # cabal and Haskell packages
+nix develop .#rust   # cargo, Rust packages, theta itself
+nix develop .#python # Python, Python packages, theta itself
 ```
 
-To manage development shells automatically, check out [lorri].
+Give it a try:
+
+``` shell
+nix develop .#theta
+cabal --version
+```
+
+This should give you an output something like this, even if you don't have `cabal` installed on your system:
+
+```
+cabal-install version 3.6.2.0
+compiled using version 3.6.2.0 of the Cabal library
+```
+
+The first time you run `nix develop` for a target it might take some time to download and build the tools and dependencies it needs, but it should run instantly on subsequent times.
+
+Once you've got everything set up, you can use [`direnv`][direnv] to automatically enter and exit development shells based on the directory you're in; while `direnv` has Nix integration built in, using [`nix-direnv`][nix-direnv] integration can provide better performance. While you don't strictly have to, it's convenient to install and manage both `direnv` and `nix-direnv` with Nix.
 
 [Nix]: https://nixos.org/
 [install-nix]: https://nixos.org/download.html#nix-quick-install
-[lorri]: https://github.com/target/lorri
+[direnv]: https://direnv.net/
+[nix-direnv]: https://github.com/nix-community/nix-direnv
+
 
 ## Colophon
 
