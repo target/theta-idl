@@ -252,7 +252,7 @@ moduleHierarchy names = toTree $ foldr insert empty (moduleParts <$> names)
         expand []       = empty
         expand (p : ps) = ModuleTree [(p, expand ps)]
 
-        empty = ModuleTree $ Map.empty
+        empty = ModuleTree Map.empty
 
         toTree (ModuleTree map) =
           [Node part (toTree tree) | (part, tree) <- Map.toList map]

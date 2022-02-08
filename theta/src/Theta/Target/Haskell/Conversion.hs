@@ -316,7 +316,7 @@ encode0 = EncodeRaw.encodeRaw (0 :: Word64)
 
 -- | Encode a Haskell 'Int'.
 encodeInt :: Int -> ByteString.Builder
-encodeInt x = EncodeRaw.encodeRaw x
+encodeInt = EncodeRaw.encodeRaw
 {-# INLINE encodeInt #-}
 
 -- * Avro Decoding Helpers

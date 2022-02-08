@@ -49,7 +49,7 @@ data Opts = Opts
 kotlinOpts :: Parser Opts
 kotlinOpts = Opts <$> modules
                   <*> (fmap parsePrefix <$> importPrefix)
-                  <*> (targetDirectory "the theta directory")
+                  <*> targetDirectory "the theta directory"
   where parsePrefix prefix =
           case List.find (not . Kotlin.isValidIdentifier) parts of
             Nothing          -> parts

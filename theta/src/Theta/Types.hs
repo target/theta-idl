@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE DerivingStrategies         #-}
@@ -31,12 +30,11 @@ import           Data.Functor.Identity   (Identity (..))
 import           Data.Hashable           (Hashable)
 import           Data.HashMap.Strict     (HashMap)
 import qualified Data.HashMap.Strict     as HashMap
-import           Data.List               (sortBy)
+import           Data.List               (sortOn)
 import           Data.List.NonEmpty      (NonEmpty)
 import           Data.Map                (Map)
 import qualified Data.Map                as Map
 import           Data.Maybe              (catMaybes, listToMaybe)
-import           Data.Ord                (comparing)
 import           Data.Sequence           (Seq ((:<|)), (|>))
 import qualified Data.Sequence           as Seq
 import           Data.Set                (Set)
@@ -192,7 +190,7 @@ hashType module_ type_ = evalState (go type_) Set.empty
           pure $ hashName n <> hashList fieldHashes
 
         Variant' n cases -> whenUnseen n $ do
-          let caseList = sortBy (comparing caseName) $ toList cases
+          let caseList = sortOn caseName $ toList cases
           caseHashes <- mapM hashCase caseList
           pure $ hashName n <> hashList (toList caseHashes)
 
@@ -467,7 +465,7 @@ data Field t = Field
   } deriving (Functor, Foldable, Traversable, Show, Eq)
 
 instance HasDoc (Field t) where
-  doc f field = fmap setDoc $ f (fieldDoc field)
+  doc f field = setDoc <$> f (fieldDoc field)
     where setDoc doc = field { fieldDoc = doc }
 
 -- | All the fields defined in a record or a branch of a variant.
@@ -515,7 +513,7 @@ data Case t = Case
   } deriving (Functor, Foldable, Traversable, Show, Eq)
 
 instance HasDoc (Case t) where
-  doc f case_ = fmap setDoc $ f (caseDoc case_)
+  doc f case_ = setDoc <$> f (caseDoc case_)
     where setDoc doc = case_ { caseDoc = doc }
 
 -- ** Wrapped Types
@@ -636,7 +634,7 @@ data Definition t = Definition
   { definitionName :: Name
     -- ^ The name of the /definition/. If the definition is an alias,
     -- this is the name of the /alias/, not the type it aliases.
-  , definitionDoc  :: (Maybe Doc)
+  , definitionDoc  :: Maybe Doc
     -- ^ Documentation specific to the definition/alias.
   , definitionType :: t
     -- ^ The underlying type. If this is an alias, the type could have
@@ -644,7 +642,7 @@ data Definition t = Definition
   } deriving (Show, Eq)
 
 instance HasDoc (Definition t) where
-  doc f definition = fmap setDoc $ f (definitionDoc definition)
+  doc f definition = setDoc <$> f (definitionDoc definition)
     where setDoc doc = definition { definitionDoc = doc }
 
 -- | A module with the name @base@ that contains all the primitive

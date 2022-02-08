@@ -134,7 +134,7 @@ test_toEnum :: TestTree
 test_toEnum = testGroup "toEnum"
   [ testCase "enum" $ do
       Python expected <- loadPython "enum"
-      toEnum "test" "test.Foo" ["Bar", "baz", "_Baz"] @?= (Python $ Text.strip expected)
+      toEnum "test" "test.Foo" ["Bar", "baz", "_Baz"] @?= Python (Text.strip expected)
   ]
 
 test_toRecord :: TestTree

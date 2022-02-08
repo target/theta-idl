@@ -68,7 +68,7 @@ tests = testGroup "Parser"
 -- * Metadata
 
 test_metadata :: TestTree
-test_metadata = testCase "Metadata" $ do
+test_metadata = testCase "Metadata" $
   go (metadataSection "test") testMetadataSection ?= testMetadata "1.0.0"
   where go parser input = parse parser "<test>" input
 
@@ -353,12 +353,12 @@ test_newtype = testCase "Newtype" $ do
 
 test_reference :: TestTree
 test_reference = testCase "Reference" $ do
-  parse' "1.0.0" reference "test.Foo" ?= (BaseType' $ Reference' "test.Foo")
-  parse' "1.0.0" atom "test.Bar"      ?= (BaseType' $ Reference' "test.Bar")
+  parse' "1.0.0" reference "test.Foo" ?= BaseType' (Reference' "test.Foo")
+  parse' "1.0.0" atom "test.Bar"      ?= BaseType' (Reference' "test.Bar")
 
   -- "Long" is a substring of "Longs"
-  parse' "1.0.0" reference "test.Longs" ?= (BaseType' $ Reference' "test.Longs")
-  parse' "1.0.0" atom "test.Longs"      ?= (BaseType' $ Reference' "test.Longs")
+  parse' "1.0.0" reference "test.Longs" ?= BaseType' (Reference' "test.Longs")
+  parse' "1.0.0" atom "test.Longs"      ?= BaseType' (Reference' "test.Longs")
 
 -- * Documentation
 
@@ -524,8 +524,7 @@ test_backwardsCompatibility = testGroup "backwards compatibility"
 -- * Utilities
 
 parse' :: Version -> Parser a -> Text -> Either (ParseErrorBundle Text Void) a
-parse' languageVersion parser input =
-  parse (runReaderT parser $ testMetadata languageVersion) "<tests>" input
+parse' languageVersion parser = parse (runReaderT parser $ testMetadata languageVersion) "<tests>"
 
 testMetadata :: Version -> Metadata.Metadata
 testMetadata languageVersion = Metadata.Metadata

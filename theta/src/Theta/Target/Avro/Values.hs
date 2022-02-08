@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NumDecimals           #-}
@@ -9,7 +8,6 @@
 {-# LANGUAGE ParallelListComp      #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | Conversions between Theta values and Avro. Theta schemas can be
@@ -31,7 +29,7 @@
 -- converted with /any/ Theta schema.
 module Theta.Target.Avro.Values where
 
-import           Control.Monad               (when)
+import           Control.Monad               (void, when)
 import           Control.Monad.Except        (MonadError)
 import           Control.Monad.Identity      (Identity (..))
 import           Control.Monad.State.Strict  (evalStateT)
@@ -66,7 +64,7 @@ import           Theta.Target.Avro.Types
 import qualified Theta.Types                 as Theta
 import           Theta.Value
 
-import Debug.Trace
+import           Debug.Trace
 
 trace' :: Show a => String -> a -> a
 trace' label a = trace (label <> ":\n" <> show a <> "\n") a
@@ -85,7 +83,7 @@ toAvro value@Value { type_ } = do
       die name = error $ show name <> " not defined in generated Avro schema."
 
   pure $! go (ReadSchema.fromSchema . env) (ReadSchema.fromSchema schema) value
-  where go env !schema v@(!Value { value }) = case (schema, value) of
+  where go env !schema v@Value { value } = case (schema, value) of
           -- named types
           (ReadSchema.NamedType name, _)  -> go env (env name) v
 
@@ -262,7 +260,7 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
         fieldSchemas :: ReadSchema.ReadSchema
                      -> Vector Avro.Value
                      -> HashMap Text Avro.Value
-        fieldSchemas (ReadSchema.Record { ReadSchema.fields }) values = HashMap.fromList
+        fieldSchemas ReadSchema.Record { ReadSchema.fields } values = HashMap.fromList
           [ (ReadSchema.fldName field, value)
           | field <- fields
           | value <- Vector.toList values
@@ -331,7 +329,7 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
                   values     =
                     [ (fields ! name, avroValues ! name)
                     | name <- Theta.fieldNames parameters ]
-                  keys       = HashSet.fromMap . fmap (const ())
+                  keys       = HashSet.fromMap . void
                   thetaKeys  = keys fields
                   avroKeys   = keys avroValues
 

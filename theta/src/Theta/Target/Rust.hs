@@ -72,9 +72,7 @@ toFile modules = definitionLines $ attrs : (go [] <$> hierarchy)
                 moduleRoots = map Rust $ Set.toList $ Set.fromList
                   [ Name.moduleRoot $ Theta.moduleName m | m <- modules ]
 
-                content = case Map.lookup name moduleMap of
-                  Just module_ -> toModule module_
-                  Nothing      -> ""
+                content = maybe "" toModule (Map.lookup name moduleMap)
 
                 name     = Name.fromModuleParts $ soFar <> [part]
                 baseName = Rust $ Name.baseName name
@@ -258,7 +256,7 @@ toEnum name symbols = [rust|
         |]
           where i = Rust $ Text.pack $ printf "%di64" i_
 
-        implFromAvro = fromAvro typeName $ wrapContext name $ [rust|
+        implFromAvro = fromAvro typeName $ wrapContext name [rust|
           let (input, tag) = i64::from_avro(input)?;
           match tag {
             $fromAvroBranches

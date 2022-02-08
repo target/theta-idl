@@ -102,7 +102,7 @@ quoter typeName = QuasiQuoter
   , quoteDec  = unsupported
   }
   where unsupported =
-          error $ "This quasiquoter can only be used in an expression context."
+          error "This quasiquoter can only be used in an expression context."
 
         interpolate = combine . map (interpolateLine . parseLine)
 

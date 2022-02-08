@@ -197,7 +197,7 @@ variant :: (MonadError Theta.Error m, MonadState (Set Name) m)
         -- ^ The avro-version set for the module where this variant
         -- was deifned.
         -> Maybe Doc
-        -> (NonEmpty (Case Type))
+        -> NonEmpty (Case Type)
         -> m Schema
 variant variantName avroVersion doc variantCases = do
   included <- get
@@ -339,13 +339,13 @@ typeToAvro :: (MonadError Theta.Error m, MonadState (Set Name) m)
            -> Type
            -> m Schema
 typeToAvro contextAvroVersion Type { baseType, module_ } = case baseType of
-  Bool'   -> pure $! Avro.Boolean
-  Bytes'  -> pure $! Avro.Bytes Nothing
-  Int'    -> pure $! Avro.Int Nothing
-  Long'   -> pure $! Avro.Long Nothing
-  Float'  -> pure $! Avro.Float
-  Double' -> pure $! Avro.Double
-  String' -> pure $! Avro.String Nothing
+  Bool'   -> pure Avro.Boolean
+  Bytes'  -> pure $ Avro.Bytes Nothing
+  Int'    -> pure $ Avro.Int Nothing
+  Long'   -> pure $ Avro.Long Nothing
+  Float'  -> pure Avro.Float
+  Double' -> pure Avro.Double
+  String' -> pure $ Avro.String Nothing
 
   Date'
     | contextAvroVersion < "1.1.0" -> pure $! Avro.Int Nothing

@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -18,7 +17,7 @@
 module Theta.Import where
 
 import           Control.Exception      (IOException, catch, displayException)
-import           Control.Monad          (foldM, when)
+import           Control.Monad          (foldM, unless, when)
 import           Control.Monad.Except   (MonadError, throwError)
 import           Control.Monad.Fix      (MonadFix)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -62,7 +61,7 @@ import qualified Theta.Versions         as Versions
 -- | Convert an import into a /relative/ file path to the
 -- corresponding @.theta@ file.
 toPath :: Name.ModuleName -> FilePath
-toPath (Name.ModuleName { Name.baseName, Name.namespace }) =
+toPath Name.ModuleName { Name.baseName, Name.namespace } =
   joinPath (Text.unpack <$> namespace) </> Text.unpack baseName <.> "theta"
 
 -- | Convert a valid path into its corresponding 'Name'. The path has
@@ -171,9 +170,9 @@ getModuleDefinition loadPath moduleName = do
 
   pure (ModuleDefinition metadata body, path)
   where checkVersions Metadata.Metadata { Metadata.avroVersion, Metadata.languageVersion } = do
-          when (not $ Versions.inRange Versions.theta languageVersion) $
+          unless (Versions.inRange Versions.theta languageVersion) $
             throwError $ UnsupportedVersion moduleName Versions.theta languageVersion
-          when (not $ Versions.inRange Versions.avro avroVersion) $
+          unless (Versions.inRange Versions.avro avroVersion) $
             throwError $ UnsupportedVersion moduleName Versions.avro avroVersion
 
 -- ** Module load paths
@@ -224,7 +223,7 @@ findInPath (LoadPath paths) path = go paths
   where go []            = pure Nothing
         go (root : rest) =
           fetch (root </> path) `catch` \ (e :: IOException) -> do
-            when (not $ isDoesNotExistError e) $ do
+            unless (isDoesNotExistError e) $ do
               let err = displayException e
                   message =
                     printf "Warning: failed accessing %s \
@@ -288,7 +287,7 @@ resolveModule loadPath moduleName ModuleDefinition { header, body } = do
         go (module_, dependencies) (ImportStatement import_) = do
           (definition, importPath) <- getModuleDefinition loadPath import_
           (imported, _)            <- resolveModule loadPath import_ definition
-          pure $ (importModule imported module_, importPath : dependencies)
+          pure (importModule imported module_, importPath : dependencies)
 
 -- | Recursively collect errors about types (duplicate fields,
 -- missing references... etc)
@@ -299,9 +298,9 @@ validateType :: Type
              -> [(Name.ModuleName, ModuleError)]
              -- ^ A list of errors along with the module that caused
              -- them.
-validateType (Type { module_, baseType }) = case baseType of
+validateType Type { module_, baseType } = case baseType of
   Record' name Fields { fields } ->
-    duplicateFields name fields <> (validateType =<< fieldType <$> fields)
+    duplicateFields name fields <> (validateType . fieldType =<< fields)
   Variant' name cases            ->
     duplicateCases name (Foldable.toList cases) <> (validateType =<< caseTypes cases)
 

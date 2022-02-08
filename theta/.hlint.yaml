@@ -57,6 +57,9 @@
 
 # Ignore some builtin hints
 - ignore: {name: Parse error}
+- ignore: {name: Use infix }
+- ignore: {name: Use newtype instead of data}
+- ignore: {name: Use first}
 # - ignore: {name: Use let}
 # - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
 
