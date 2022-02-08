@@ -1,6 +1,6 @@
 { pkgs
 
-, compiler-version ? "ghc884"
+, compiler-version ? "ghc8107"
 
 , compiler ? pkgs.haskell.packages."${compiler-version}"
 
@@ -24,6 +24,7 @@
   compiler.stylish-haskell
   compiler.cabal-install
   compiler.haskell-language-server
+  compiler.hlint
   pkgs.stack
   pkgs.time-ghc-modules
 ]

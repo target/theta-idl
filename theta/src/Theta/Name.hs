@@ -109,8 +109,8 @@ data Reason = Unqualified
 -- a 'Reason' if the name doesn't parse.
 parse' :: Text -> Either Reason Name
 parse' (Text.splitOn "." -> components)
-  | any (not . valid) components = Left Invalid
-  | otherwise                    = case components of
+  | not (all valid components) = Left Invalid
+  | otherwise                  = case components of
       []  -> Left Invalid
       [_] -> Left Unqualified
       parts -> Right $ Name
