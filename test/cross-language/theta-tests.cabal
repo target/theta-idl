@@ -1,0 +1,20 @@
+cabal-version:  2.2
+name: theta-tests
+version: 1.0.0.0
+synopsis: Cross-language tests for Theta. See README.md for details.
+license: Apache-2.0
+build-type: Simple
+maintainer: Tikhon Jelvis <tikhon@jelv.is>
+data-files:
+  modules/*.theta
+
+executable theta-tests
+  hs-source-dirs: src/
+  build-depends: base >=4.13 && <4.15
+
+               , theta ==1.*
+               , QuickCheck
+
+  main-is: Main.hs
+  other-modules: Test.Everything
+               , Test.Primitives

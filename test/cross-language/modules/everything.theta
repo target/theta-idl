@@ -1,0 +1,10 @@
+// This module pulls in every kind of feature Theta has so that we can
+// test everything end-to-end.
+//
+// The module itself has a low language-version and avro-version, but
+// it imports modules with newer features.
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+import primitives
