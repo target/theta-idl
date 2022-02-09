@@ -521,6 +521,11 @@ instance HasDoc (Case t) where
 -- $ Primitive types are part of the @base@ module ('baseModule') and
 -- have canonical hashes.
 
+-- | Every single primitive type supported by this version of the
+-- Theta library.
+primitiveTypes :: [Type]
+primitiveTypes = [bool', bytes', int', long', float', double', string', date', datetime']
+
 bool' :: Type
 bool' = withModule baseModule $ BaseType' Bool'
 

@@ -74,6 +74,7 @@ library
                     , Theta.Pretty
                     , Theta.Types
                     , Theta.Value
+                    , Theta.Value.Generators
                     , Theta.Versions
 
                     , Theta.Target.Avro.Error
@@ -107,6 +108,8 @@ test-suite tests
                     , Test.Theta.Parser
                     , Test.Theta.Types
                     , Test.Theta.Versions
+
+                    , Test.Theta.Value.Generators
 
                     , Test.Theta.Target.Avro.Types
                     , Test.Theta.Target.Avro.Values

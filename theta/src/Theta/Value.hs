@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns   #-}
+{-# LANGUAGE ParallelListComp #-}
 -- | This module defines the 'Value' type which is a generic
 -- representation of values that satisfy some Theta schema. The
 -- 'Value' type gives us an intermediate representation that helps us
@@ -8,13 +10,16 @@
 -- Compare this to similar types in @avro@ and @aeson@.
 module Theta.Value where
 
+import           Data.Avro            (Schema (values))
 import           Data.ByteString.Lazy (ByteString)
 import           Data.HashMap.Strict  (HashMap)
 import           Data.Int             (Int32, Int64)
+import qualified Data.List.NonEmpty   as NonEmpty
 import           Data.Text            (Text)
 import           Data.Time.Calendar   (Day)
 import           Data.Time.Clock      (UTCTime)
 import           Data.Vector          (Vector)
+import qualified Data.Vector          as Vector
 
 import           Theta.Name           (Name)
 import qualified Theta.Types          as Theta
@@ -106,3 +111,55 @@ date = Value Theta.date' . Date
 
 datetime :: UTCTime -> Value
 datetime = Value Theta.datetime' . Datetime
+
+-- * Testing
+
+-- | Does the given type match the given base value?
+checkBaseValue :: Theta.Type -> BaseValue -> Bool
+checkBaseValue Theta.Type { Theta.baseType, Theta.module_ } baseValue =
+  case (baseType, baseValue) of
+    -- primitives
+    (Theta.Bool', Boolean{})      -> True
+    (Theta.Bytes', Bytes{})       -> True
+    (Theta.Int', Int{})           -> True
+    (Theta.Long', Long{})         -> True
+    (Theta.Float', Float{})       -> True
+    (Theta.Double', Double{})     -> True
+    (Theta.String', String{})     -> True
+    (Theta.Date', Date{})         -> True
+    (Theta.Datetime', Datetime{}) -> True
+
+    -- containers
+    (Theta.Array' item, Array values) ->
+      all (checkBaseValue item) (value <$> values)
+    (Theta.Map' item, Map hashmap) ->
+      all (checkBaseValue item) (value <$> hashmap)
+    (Theta.Optional' item, Optional x) ->
+      all (checkBaseValue item) (value <$> x)
+
+    -- named types
+    (Theta.Enum' _ symbols, Enum symbol) -> symbol `elem` symbols
+    (Theta.Record' _ fields, Record values) -> checkFields fields values
+    (Theta.Variant' _ cases, Variant caseName values) ->
+      case lookup caseName $ [(Theta.caseName c, c) | c <- NonEmpty.toList cases] of
+        Just case_ -> checkFields (Theta.caseParameters case_) values
+        Nothing    -> False
+
+    (Theta.Newtype' _ type_, baseValue) -> checkBaseValue type_ baseValue
+
+    (Theta.Reference' name, baseValue) -> case Theta.lookupName name module_ of
+      Right type_ -> checkBaseValue type_ baseValue
+      Left _      -> False
+
+    (_, _) -> False
+
+  where checkFields fields values =
+          and [ checkBaseValue (Theta.fieldType field) value
+              | field           <- Theta.fields fields
+              | Value { value } <- Vector.toList values
+              ]
+
+-- | Does the 'Theta.Type' set for this value match its underlying
+-- 'BaseValue'?
+checkValue :: Value -> Bool
+checkValue Value { value, type_ } = checkBaseValue type_ value
