@@ -29,7 +29,7 @@ import           Data.Vector          (Vector)
 import qualified Data.Vector          as Vector
 
 import           Test.QuickCheck      (Arbitrary (arbitrary), Gen, elements,
-                                       frequency, listOf)
+                                       frequency, listOf, scale)
 
 import           Theta.Name           (Name)
 import qualified Theta.Types          as Theta
@@ -179,73 +179,96 @@ checkValue Value { value, type_ } = checkBaseValue type_ value
 -- | Return a random generator that produces Theta values that match
 -- the given schema.
 --
--- Warning: The generator does not handle recursive types well: it
--- will generate prohibitively large values or even loop forever given
--- a recursive schema.
-genValue :: Theta.Type -> Gen Value
-genValue t = case Theta.baseType t of
-  Theta.Bool'          -> boolean <$> arbitrary
-  Theta.Bytes'         -> bytes . LBS.pack <$> arbitrary
-  Theta.Int'           -> int <$> arbitrary
-  Theta.Long'          -> long <$> arbitrary
-  Theta.Float'         -> float <$> arbitrary
-  Theta.Double'        -> double <$> arbitrary
-  Theta.String'        -> string . Text.pack <$> arbitrary
-  Theta.Date'          -> date <$> genDate
-  Theta.Datetime'      -> datetime <$> genDatetime
-
-  Theta.Array' item    -> Value t <$> genArray item
-  Theta.Map' item      -> Value t <$> genMap item
-  Theta.Optional' item -> Value t <$> genOptional item
-
-  Theta.Reference' name -> case Theta.lookupName name (Theta.module_ t) of
-    Right t' -> genValue t'
-    Left err -> error err -- should not happen for validly constructed
-                          -- Theta types
-
-  Theta.Enum' _ symbols  ->
-    Value t . Enum <$> elements (NonEmpty.toList symbols)
-  Theta.Record' _ fields ->
-    Value t . Record <$> genFields fields
-  Theta.Variant' _ cases -> do
-    case_ <- elements (NonEmpty.toList cases)
-    Value t . Variant (Theta.caseName case_) <$> genFields (Theta.caseParameters case_)
-
-  Theta.Newtype' _ t' -> Value t . value <$> genValue t'
-
--- | Given a list of fields, generate a vector of values with an
--- element corresponding to each field's type.
-genFields :: Theta.Fields Theta.Type -> Gen (Vector Value)
-genFields (Theta.fields -> f) =
-  Vector.fromList <$> mapM genValue (Theta.fieldType <$> f)
-
--- | Generate a random date.
-genDate :: Gen Time.Day
-genDate = Time.ModifiedJulianDay <$> arbitrary
-
--- | Generate a random timestamp.
-genDatetime :: Gen Time.UTCTime
-genDatetime = Time.UTCTime <$> genDate <*> (fromInteger <$> arbitrary)
-
--- | Generate an array with items of the given type.
+-- Warning: by default, this generator will produce prohibilitively
+-- large values or even loop forever.
 --
--- The number of elements depends on the generator's size
--- parameter. See 'listOf' for details.
-genArray :: Theta.Type -> Gen BaseValue
-genArray item = Array . Vector.fromList <$> listOf (genValue item)
+-- We can override the generator used for specific types—this is
+-- designed for dealing with recursive types, but can be used to
+-- customize the behavior in general. (Note: this does not handle
+-- changing overriding primitive types, but this might be fixed in the
+-- future.)
+--
+-- The size parameter is reduced by 10 each time an overridden
+-- generator is used. We can use this to write generators that recurse
+-- at first, but stop once the generated value has gotten too big:
+--
+-- @
+-- genRecursive = do
+--   size <- getSize
+--   if size <= 10
+--     then pure $ Value (theta @Recursive) $ Variant "recursive.Nil" []
+--     else ...
+-- @
+--
+-- We would then use this as an override for the
+-- @"recursive.Recursive"@ type:
+--
+-- @
+-- genValue' [("recursive.Recursive", genRecursive)] (theta @Recursive)
+-- @
+genValue' :: HashMap Name (Gen Value) -> Theta.Type -> Gen Value
+genValue' overrides = go
+  where go t = case Theta.baseType t of
+          Theta.Bool'          -> boolean <$> arbitrary
+          Theta.Bytes'         -> bytes . LBS.pack <$> arbitrary
+          Theta.Int'           -> int <$> arbitrary
+          Theta.Long'          -> long <$> arbitrary
+          Theta.Float'         -> float <$> arbitrary
+          Theta.Double'        -> double <$> arbitrary
+          Theta.String'        -> string . Text.pack <$> arbitrary
+          Theta.Date'          -> date <$> genDate
+          Theta.Datetime'      -> datetime <$> genDatetime
 
--- | Generate a map with unique keys and random values. The size of
--- the map scales with the size parameter.
-genMap :: Theta.Type -> Gen BaseValue
-genMap item = do
-  keys   <- HashSet.toList . HashSet.fromList <$> listOf (Text.pack <$> arbitrary)
-  values <- replicateM (length keys) (genValue item)
-  pure $ Map $ HashMap.fromList $ keys `zip` values
+          Theta.Array' item    -> Value t <$> genArray item
+          Theta.Map' item      -> Value t <$> genMap item
+          Theta.Optional' item -> Value t <$> genOptional item
 
--- | Generate an Optional with the given type. Generates nulls with a
--- 5% probability.
-genOptional :: Theta.Type -> Gen BaseValue
-genOptional item = frequency
-  [ (1, pure $ Optional Nothing)
-  , (19, Optional . Just <$> genValue item)
-  ]
+          Theta.Reference' name -> tryOverride name $
+            case Theta.lookupName name (Theta.module_ t) of
+              Right t' -> go t'
+              -- Error case should not trigger for validly
+              -- constructed Theta types
+              Left err -> error err
+
+          Theta.Enum' name symbols -> tryOverride name $
+            Value t . Enum <$> elements (NonEmpty.toList symbols)
+          Theta.Record' name fields -> tryOverride name $
+            Value t . Record <$> genFields fields
+          Theta.Variant' name cases -> tryOverride name $ do
+            case_ <- elements (NonEmpty.toList cases)
+            let toValue = Value t . Variant (Theta.caseName case_)
+            toValue <$> genFields (Theta.caseParameters case_)
+
+          Theta.Newtype' name t' -> tryOverride name $
+            Value t . value <$> go t'
+
+        tryOverride name normal = case HashMap.lookup name overrides of
+          Just gen -> scale (max 0 . subtract 10) gen
+          Nothing  -> normal
+
+        genFields (Theta.fields -> f) =
+          Vector.fromList <$> mapM go (Theta.fieldType <$> f)
+
+        genArray item = Array . Vector.fromList <$> listOf (go item)
+
+        genMap item = do
+          keys   <- HashSet.toList . HashSet.fromList <$> listOf (Text.pack <$> arbitrary)
+          values <- replicateM (length keys) (go item)
+          pure $ Map $ HashMap.fromList $ keys `zip` values
+
+            -- Generate null with a 5% probability
+        genOptional item = frequency
+          [ (1, pure $ Optional Nothing)
+          , (19, Optional . Just <$> go item)
+          ]
+
+        genDate = Time.ModifiedJulianDay <$> arbitrary
+        genDatetime = Time.UTCTime <$> genDate <*> (fromInteger <$> arbitrary)
+
+-- | Generate values with the given type.
+--
+-- Warning: this generator will generate arbitrarily large values or
+-- loop forever with recursive types. To handle recursive types, use
+-- 'genValue'' and override the generator for recursive types.
+genValue :: Theta.Type -> Gen Value
+genValue = genValue' HashMap.empty
