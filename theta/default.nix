@@ -14,6 +14,8 @@
   quickcheck-instances = "0.3.27";
   semialign = "1.2.0.1";
   stache = "2.3.1";
+  streamly = "0.8.1.1";
+  streamly-process = "0.2.0";
   text-short = "0.1.5";
   time-compat = "1.9.6.1";
   unordered-containers = "0.2.16.0";
@@ -35,6 +37,8 @@
 }:
 
 let
+  lib = pkgs.haskell.lib;
+  
   static-gmp = pkgs.gmp.override {
     stdenv = pkgs.makeStaticLibraries pkgs.stdenv;
   };
@@ -49,8 +53,8 @@ let
     }))
   ];
 
-  enable-static = p: pkgs.haskell.lib.overrideCabal
-    (pkgs.haskell.lib.justStaticExecutables p)
+  enable-static = p: lib.overrideCabal
+    (lib.justStaticExecutables p)
     ({ configureFlags ? [], extraLibraries ? [], ...}: {
       configureFlags = configureFlags ++ [ "-f" "isStatic" ];
       extraLibraries = extraLibraries ++ static-deps;
@@ -58,11 +62,10 @@ let
 
   enable-werror = p:
     if werror
-    then pkgs.haskell.lib.appendConfigureFlag p "--ghc-option=-Werror"
+    then lib.appendConfigureFlag p "--ghc-option=-Werror"
     else p;
 
-  add-build-tools = p:
-    pkgs.haskell.lib.addBuildTools p build-tools;
+  add-build-tools = p: lib.addBuildTools p build-tools;
 
   excluded = [
     "dist"
@@ -86,7 +89,8 @@ compiler.developPackage {
 
   inherit source-overrides;
   overrides = new: old: {
-    foldl = pkgs.haskell.lib.doJailbreak old.foldl;
+    foldl = lib.doJailbreak old.foldl;
+    streamly-process = lib.dontCheck old.streamly-process;
   };
 
   # Don't try to build static executables on Darwin systems

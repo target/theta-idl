@@ -48,6 +48,8 @@ common shared
                , prettyprinter
                , pureMD5
                , QuickCheck
+               , streamly ==0.8.1.*
+               , streamly-process ==0.2.*
                , string-interpolate >= 0.2.1
                , template-haskell
                , text
@@ -77,6 +79,7 @@ library
                     , Theta.Versions
 
                     , Theta.Target.Avro.Error
+                    , Theta.Target.Avro.Process
                     , Theta.Target.Avro.Types
                     , Theta.Target.Avro.Values
 
