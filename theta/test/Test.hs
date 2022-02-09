@@ -6,9 +6,8 @@ import qualified Test.Theta.Import                    as Import
 import qualified Test.Theta.Name                      as Name
 import qualified Test.Theta.Parser                    as Parser
 import qualified Test.Theta.Types                     as Types
+import qualified Test.Theta.Value                     as Value
 import qualified Test.Theta.Versions                  as Versions
-
-import qualified Test.Theta.Value.Generators          as Value.Generators
 
 import qualified Test.Theta.Target.Avro.Types         as Avro.Types
 import qualified Test.Theta.Target.Avro.Values        as Avro.Values
@@ -29,10 +28,8 @@ tests = testGroup "Theta"
   , Name.tests
   , Parser.tests
   , Types.tests
+  , Value.tests
   , Versions.tests
-
-  , testGroup "Value"
-    [ Value.Generators.tests ]
 
   , testGroup "Target"
     [ testGroup "Avro"

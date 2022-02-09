@@ -4,26 +4,25 @@
 {-# LANGUAGE ParallelListComp      #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
-module Test.Theta.Value.Generators where
+module Test.Theta.Value where
 
 import           Prelude                       hiding (map)
 
-import           Test.Tasty
-import           Test.Tasty.QuickCheck
+import           Test.Tasty                    (TestTree, testGroup)
+import           Test.Tasty.QuickCheck         (testProperty)
 
 import           Theta.Target.Haskell          (loadModule)
 import           Theta.Target.Haskell.HasTheta (HasTheta (theta))
 
 import           Theta.Types                   (primitiveTypes)
-import           Theta.Value                   (Value (type_), checkValue)
-import           Theta.Value.Generators
-
+import           Theta.Value                   (Value (type_), checkValue,
+                                                genValue)
 
 loadModule "test/data/modules" "primitives"
 loadModule "test/data/modules" "enums"
 
 tests :: TestTree
-tests = testGroup "Generators"
+tests = testGroup "Value"
   [ testProperty "primitive types" $ do
       values <- mapM genValue primitiveTypes
       pure $ and [ type_ v == prim | v <- values | prim <- primitiveTypes ]
