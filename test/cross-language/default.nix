@@ -7,11 +7,15 @@
 , extra-build-tools ? []               # extra tools available for nix develop
 }:
 let
+  haskell = compiler.extend (_: _: {
+    inherit (pkgs) theta;
+  });
+
   build-tools =
-    [ compiler.stylish-haskell
-      compiler.cabal-install
-      compiler.haskell-language-server
-      compiler.hlint
+    [ haskell.stylish-haskell
+      haskell.cabal-install
+      haskell.haskell-language-server
+      haskell.hlint
       pkgs.stack
       pkgs.time-ghc-modules
     ] ++ extra-build-tools;
@@ -28,7 +32,7 @@ let
   add-build-tools = p:
     pkgs.haskell.lib.addBuildTools p build-tools;
 in
-compiler.developPackage {
+haskell.developPackage {
   name = "theta-tests";
   root = (pkgs.lib.cleanSourceWith
     {

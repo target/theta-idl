@@ -30,6 +30,8 @@
 ]
 
 , werror ? true
+
+, static-executables-only ? false
 }:
 
 let
@@ -91,7 +93,9 @@ compiler.developPackage {
   modifier = let
     base = p: enable-werror (add-build-tools p);
   in
-    if pkgs.stdenv.isDarwin then base else p: enable-static (base p);
+    if pkgs.stdenv.isDarwin || (!static-executables-only)
+    then base
+    else p: enable-static (base p);
 
   # explicitly disable "smart" detection of nix-shell status
   #

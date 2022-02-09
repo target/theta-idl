@@ -30,6 +30,8 @@
         ];
         pkgs = import nixpkgs { inherit system overlays; };
       in rec {
+        inherit overlays;
+
         packages = {
           inherit theta rust python test;
         };
