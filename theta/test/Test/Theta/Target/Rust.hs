@@ -16,13 +16,14 @@ import           System.FilePath               ((<.>), (</>))
 
 import qualified Theta.Metadata                as Theta
 import           Theta.Target.Haskell          (loadModule)
-import           Theta.Target.LanguageQuoter   ((?=))
 import           Theta.Target.Rust
 import           Theta.Target.Rust.QuasiQuoter (normalize)
 import qualified Theta.Types                   as Theta
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
+
+import           Test.Assertions               ((?=))
 
 import qualified Paths_theta                   as Paths
 

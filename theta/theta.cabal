@@ -39,16 +39,17 @@ common shared
                , bytestring
                , containers
                , deepseq
-               , Diff
                , filepath
                , hashable
                , indexed-traversable
                , megaparsec
                , mtl
                , prettyprinter
+               , prettyprinter-ansi-terminal
                , pureMD5
                , QuickCheck
                , streamly ==0.8.1.*
+               , streamly-bytestring ==0.1.4
                , streamly-process ==0.2.*
                , string-interpolate >= 0.2.1
                , template-haskell
@@ -105,13 +106,16 @@ test-suite tests
   type:               exitcode-stdio-1.0
   main-is:            Test.hs
   hs-source-dirs:     test
-  other-modules:      Test.Theta.Import
+  other-modules:      Test.Assertions
+                      
+                    , Test.Theta.Import
                     , Test.Theta.Name
                     , Test.Theta.Parser
                     , Test.Theta.Types
                     , Test.Theta.Value
                     , Test.Theta.Versions
 
+                    , Test.Theta.Target.Avro.Process
                     , Test.Theta.Target.Avro.Types
                     , Test.Theta.Target.Avro.Values
 
@@ -132,8 +136,10 @@ test-suite tests
 
   build-depends:      theta
 
+                    , Diff
                     , directory
                     , stache >=2.3.1 && <3
+                    , tree-diff >=0.2 && <0.3
 
                     , tasty
                     , tasty-golden

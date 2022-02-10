@@ -8,6 +8,7 @@
 {-# LANGUAGE ParallelListComp      #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ViewPatterns          #-}
 
 -- | Conversions between Theta values and Avro. Theta schemas can be
@@ -48,7 +49,6 @@ import qualified Data.Set                    as Set
 import           Data.Text                   (Text)
 import qualified Data.Text                   as Text
 import qualified Data.Time                   as Time
-import           Data.Time.Clock.POSIX       as Time
 import           Data.Vector                 (Vector)
 import qualified Data.Vector                 as Vector
 
@@ -64,6 +64,7 @@ import           Theta.Target.Avro.Types
 import qualified Theta.Types                 as Theta
 import           Theta.Value
 
+import           Data.Time                   (picosecondsToDiffTime)
 import           Debug.Trace
 
 trace' :: Show a => String -> a -> a
@@ -390,7 +391,11 @@ fromDay day = fromIntegral $ Time.toModifiedJulianDay day - offset
 -- integer. This is the same as the logical @timestamp-micros@ type
 -- Avro offers.
 toUTCTime :: Int64 -> Time.UTCTime
-toUTCTime n = Time.posixSecondsToUTCTime $ fromIntegral n / 1e6
+toUTCTime (toInteger -> micro) =
+  Time.UTCTime (Time.addDays days epoch) (picosecondsToDiffTime $ inDay * 1e6)
+  where (days, inDay) = micro `divMod` dayLength
+        dayLength = 24 * 60 * 60 * 1e6 -- in μs
+        epoch = read @Time.Day "1970-01-01"
 {-# INLINE toUTCTime #-}
 
 -- | Convert from a Haskell 'Time.UTCTime' to an Avro-style
@@ -401,7 +406,12 @@ toUTCTime n = Time.posixSecondsToUTCTime $ fromIntegral n / 1e6
 -- integer. This is the same as the logical @timestamp-micros@ type
 -- Avro offers.
 fromUTCTime :: Time.UTCTime -> Int64
-fromUTCTime time = floor (Time.utcTimeToPOSIXSeconds time * 1e6)
+fromUTCTime (Time.UTCTime day inDay) = fromInteger $ days * dayLength + micros
+  where days = Time.diffDays day epoch
+        dayLength = 24 * 60 * 60 * 1e6 -- in μs
+        epoch = read @Time.Day "1970-01-01"
+
+        micros = Time.diffTimeToPicoseconds inDay `div` 1e6
 {-# INLINE fromUTCTime #-}
 
 

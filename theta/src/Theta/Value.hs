@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns   #-}
+{-# LANGUAGE NumDecimals      #-}
 {-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE ViewPatterns     #-}
 -- | This module defines the 'Value' type which is a generic
@@ -28,8 +29,8 @@ import           Data.Time.Clock      (UTCTime)
 import           Data.Vector          (Vector)
 import qualified Data.Vector          as Vector
 
-import           Test.QuickCheck      (Arbitrary (arbitrary), Gen, elements,
-                                       frequency, listOf, scale)
+import           Test.QuickCheck      (Arbitrary (arbitrary), Gen, choose,
+                                       elements, frequency, listOf, scale)
 
 import           Theta.Name           (Name)
 import qualified Theta.Types          as Theta
@@ -263,7 +264,10 @@ genValue' overrides = go
           ]
 
         genDate = Time.ModifiedJulianDay <$> arbitrary
-        genDatetime = Time.UTCTime <$> genDate <*> (fromInteger <$> arbitrary)
+        genDatetime = Time.UTCTime <$> genDate <*> inDay
+          where inDay = Time.picosecondsToDiffTime . toPico <$> choose (0, dayLength - 1)
+                dayLength = 24 * 60 * 60 * 1e6 - 1 -- in μs
+                toPico = (* 1e6)
 
 -- | Generate values with the given type.
 --

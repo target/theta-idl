@@ -48,7 +48,10 @@ import           Data.Word                     (Word64)
 
 import           GHC.Stack                     (HasCallStack)
 
+import           Test.QuickCheck               (Gen)
+
 import qualified Theta.Error                   as Theta
+import           Theta.Name                    (Name)
 import           Theta.Pretty                  (p)
 import qualified Theta.Pretty                  as Theta
 import           Theta.Types                   (prettyType)
@@ -57,7 +60,7 @@ import qualified Theta.Value                   as Theta
 
 import qualified Theta.Target.Avro.Values      as Values
 
-import           Theta.Target.Haskell.HasTheta (HasTheta)
+import           Theta.Target.Haskell.HasTheta (HasTheta (theta))
 import qualified Theta.Target.Haskell.HasTheta as HasTheta
 
 -- * Conversion classes
@@ -460,3 +463,30 @@ instance Theta.Pretty ConversionError where
 
        #{LBS.length remainder} bytes of the input remains unconsumed.
       |]
+
+-- * Testing
+
+-- | Generate random values of the given type, with overrides for
+-- specific Theta types by name.
+--
+-- By default, this generator may produce prohibitively large values
+-- or loop forever on recursive types, and overrides provide a method
+-- to handle this. See 'Theta.genValue'' for details.
+genTheta' :: forall a. (HasTheta a, FromTheta a)
+          => HashMap Name (Gen Theta.Value)
+          -- ^ Overrides for specific named types. See
+          -- 'Theta.genValue'' for details.
+          -> Gen a
+genTheta' overrides = convert <$> Theta.genValue' overrides (theta @a)
+  where convert a = case fromTheta a of
+          Left err  -> error $ Text.unpack $ Theta.pretty err
+          Right res -> res
+
+-- | Generate random values of the given type.
+--
+-- Warning: this generator may produce prhobitively large values or
+-- loop forever given recursive types. You can use 'genTheta'' with
+-- overrides to get around this; see 'Theta.genValue'' for more
+-- details.
+genTheta :: (HasTheta a, FromTheta a) => Gen a
+genTheta = genTheta' HashMap.empty

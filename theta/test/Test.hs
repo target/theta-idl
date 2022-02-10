@@ -9,6 +9,7 @@ import qualified Test.Theta.Types                     as Types
 import qualified Test.Theta.Value                     as Value
 import qualified Test.Theta.Versions                  as Versions
 
+import qualified Test.Theta.Target.Avro.Process       as Avro.Process
 import qualified Test.Theta.Target.Avro.Types         as Avro.Types
 import qualified Test.Theta.Target.Avro.Values        as Avro.Values
 
@@ -33,7 +34,8 @@ tests = testGroup "Theta"
 
   , testGroup "Target"
     [ testGroup "Avro"
-      [ Avro.Values.tests
+      [ Avro.Process.tests
+      , Avro.Values.tests
       , Avro.Types.tests
       ]
 

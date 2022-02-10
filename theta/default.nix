@@ -15,6 +15,7 @@
   semialign = "1.2.0.1";
   stache = "2.3.1";
   streamly = "0.8.1.1";
+  streamly-bytestring = "0.1.4";
   streamly-process = "0.2.0";
   text-short = "0.1.5";
   time-compat = "1.9.6.1";
