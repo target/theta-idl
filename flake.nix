@@ -32,6 +32,10 @@
       in rec {
         inherit overlays;
 
+        lib = {
+          theta-rust = import nix/lib/theta-rust.nix { inherit pkgs; };
+        };
+
         packages = {
           inherit theta rust python test;
         };

@@ -13,6 +13,8 @@ executable theta-tests
   build-depends: base >=4.13 && <4.15
 
                , theta ==1.*
+               , tasty
+               , tasty-quickcheck
                , QuickCheck
 
   main-is: Main.hs
