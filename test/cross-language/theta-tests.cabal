@@ -8,15 +8,27 @@ maintainer: Tikhon Jelvis <tikhon@jelv.is>
 data-files:
   modules/*.theta
 
-executable theta-tests
-  hs-source-dirs: src/
+common shared
+  default-language: Haskell2010
+  hs-source-dirs: test/
   build-depends: base >=4.13 && <4.15
+
+               , mtl
+               , text
 
                , theta ==1.*
                , tasty
                , tasty-quickcheck
                , QuickCheck
 
-  main-is: Main.hs
   other-modules: Test.Everything
                , Test.Primitives
+
+executable tests
+  import: shared
+  main-is: Main.hs
+
+test-suite theta-tests
+  import: shared
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
