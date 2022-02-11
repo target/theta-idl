@@ -8,9 +8,10 @@ import           Control.Monad.Except    (ExceptT, runExceptT)
 import           Data.String.Interpolate (i)
 import           Data.Text               (Text)
 import qualified Data.Text               as Text
+import qualified Data.Text.IO            as Text
 
 import           System.Exit             (exitFailure)
-import           System.IO               (hPutStr, stderr)
+import           System.IO               (stderr)
 
 import           Options.Applicative
 
@@ -23,13 +24,13 @@ import qualified Theta.Pretty            as Theta
 type Subcommand = Theta.LoadPath -> ExceptT Error IO ()
 
 -- | Run a Theta computation in IO, printing a user-formatted error
--- message if it fails.
+-- message to STDERR if it fails.
 runTheta :: ExceptT Error IO a -> IO a
 runTheta t = runExceptT t >>= \case
   Left err -> do
-    hPutStr stderr $ Text.unpack $ Theta.pretty err
+    Text.hPutStrLn stderr (Theta.pretty err)
     exitFailure
-  Right a  -> return a
+  Right a  -> pure a
 
 -- * Flags useful for different subcommands
 
