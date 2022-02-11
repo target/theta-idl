@@ -14,7 +14,7 @@
         theta = import ./theta { inherit pkgs; };
         rust = import ./rust { inherit pkgs; };
         python = import ./python { inherit pkgs; };
-        test = import ./test { inherit pkgs; };
+        test = import ./test { inherit pkgs lib; };
 
         theta-overlay = final: current: {
           inherit theta;
@@ -28,13 +28,14 @@
           (import nix/overlays/rust.nix { inherit naersk-flake; })
           (import nix/overlays/python.nix { python-version = "3.8"; })
         ];
+
         pkgs = import nixpkgs { inherit system overlays; };
-      in rec {
-        inherit overlays;
 
         lib = {
           theta-rust = import nix/lib/theta-rust.nix { inherit pkgs; };
         };
+      in rec {
+        inherit overlays lib;
 
         packages = {
           inherit theta rust python test;
@@ -45,7 +46,7 @@
           rust = pkgs.mkShell {
             nativeBuildInputs = pkgs.rust-dev-tools;
           };
-          test = import ./test/shell.nix { inherit pkgs; };
+          test = import ./test/shell.nix { inherit pkgs lib; };
         };
 
         defaultPackage = packages.theta;

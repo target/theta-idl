@@ -1,0 +1,9 @@
+[package]
+name = "theta_rust_test"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+chrono = "0.4.0"
+nom = "5.0.0"
+theta = { path = "./theta-rust" }

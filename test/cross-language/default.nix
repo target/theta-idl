@@ -1,5 +1,7 @@
 { pkgs
 
+, lib
+
 , compiler-version ? "ghc8107"
 
 , compiler ? pkgs.haskell.packages."${compiler-version}"
@@ -11,6 +13,8 @@ let
     inherit (pkgs) theta;
   });
 
+  rust-executable = import ./rust { inherit pkgs lib; };
+
   build-tools =
     [ haskell.stylish-haskell
       haskell.cabal-install
@@ -18,6 +22,8 @@ let
       haskell.hlint
       pkgs.stack
       pkgs.time-ghc-modules
+
+      rust-executable
     ] ++ extra-build-tools;
 
   excluded = [
