@@ -39,9 +39,11 @@ common shared
                , bytestring
                , containers
                , deepseq
+               , exceptions
                , filepath
                , hashable
                , indexed-traversable
+               , monad-control
                , megaparsec
                , mtl
                , prettyprinter

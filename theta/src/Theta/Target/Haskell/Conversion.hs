@@ -124,18 +124,30 @@ encodeAvro :: ToTheta a => a -> ByteString
 encodeAvro value = ByteString.toLazyByteString $ avroEncoding value
 
 -- | Convert an Avro-formatted bytestring directly to a Haskell
--- type. Currently throws exceptions on decoding errors.
+-- type. Returns the remainder of the bytestring input alongside the
+-- value.
+decodeAvro' :: forall m a. (MonadError Theta.Error m, FromTheta a)
+            => ByteString
+            -> m (a, ByteString)
+decodeAvro' input = case runGetOrFail avroDecoding input of
+  Left (_, _, message) ->
+    Theta.throw "Haskell" $ BinaryError (HasTheta.theta @a) $ Text.pack message
+  Right (remainder, _, result) -> pure (result, remainder)
+{-# SPECIALIZE decodeAvro' :: FromTheta a => ByteString -> Either Theta.Error (a, ByteString) #-}
+
+-- | Convert an Avro-formatted bytestring directly to a Haskell
+-- type.
+--
+-- Raises an error if there are any bytes left over after decoding a
+-- full value.
 decodeAvro :: forall m a. (MonadError Theta.Error m, FromTheta a)
            => ByteString
            -> m a
-decodeAvro input = case runGetOrFail avroDecoding input of
-  Left (_, _, message) ->
-    Theta.throw "Haskell" $ BinaryError (HasTheta.theta @a) $ Text.pack message
-
-  Right (remainder, _, result)
-    | LBS.length remainder == 0 -> pure $! result
-    | otherwise                 ->
-      Theta.throw "Haskell" $ LeftOver (HasTheta.theta @a) remainder
+decodeAvro input = do
+  (result, remainder) <- decodeAvro' input
+  if LBS.length remainder == 0
+    then pure result
+    else Theta.throw "Haskell" $ LeftOver (HasTheta.theta @a) remainder
 {-# SPECIALIZE decodeAvro :: FromTheta a => ByteString -> Either Theta.Error a #-}
 
 -- * Instances for primitive types
