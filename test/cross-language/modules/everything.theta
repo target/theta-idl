@@ -3,8 +3,43 @@
 //
 // The module itself has a low language-version and avro-version, but
 // it imports modules with newer features.
-language-version: 1.0.0
+language-version: 1.1.0
 avro-version: 1.0.0
 ---
 
 import primitives
+
+/// The top-level record we use for cross-language tests.
+///
+/// Add new types here for them to be included in the tests!
+type Everything = {
+    primitives : primitives.Primitives,
+    containers : primitives.Containers,
+    options    : Options,
+    var        : Var,
+    wrapper    : IntWrapper,
+    list       : List
+}
+
+/// Testing a relatively simple variant
+type Var = A | B { b_field: Int }
+
+/// Unlike variants, enums compile to Avro enums. Interestingly,
+/// thanks to how Avro works, the binary representation of an enum
+/// ends up the same as a variant with exactly the same contents, but
+/// the generated Avro schema is different.
+enum Options = One | Two | Three
+
+/// A newtype—doesn't affect the Avro schema at all, but might cause
+/// issues with code generation.
+type IntWrapper = Int
+
+/// A linked list of ints. Probably not something you'd use in a
+/// "real" schema, but recursive types *are* useful and this is a
+/// handy way to test them.
+///
+/// Note: this probably needs special casing in the random generation
+/// code! Without special handling, genTheta tends to produce *really
+/// large* inputs for recursive types like this...
+type List = Cons { x : Int, rest : List }
+          | Nil

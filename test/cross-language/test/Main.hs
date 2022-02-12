@@ -1,12 +1,17 @@
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedLists   #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
 module Main where
 
 import qualified Data.Text                       as Text
 
 import           Control.Monad.Except            (runExceptT)
 
-import           Test.QuickCheck                 (Gen, forAll)
+import           Data.Int                        (Int32)
+
+import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
+                                                  forAll, getSize)
 import           Test.QuickCheck.Monadic         (monadicIO)
 import           Test.Tasty
 import           Test.Tasty.QuickCheck           (testProperty)
@@ -16,21 +21,23 @@ import           Test.Primitives
 
 import           Theta.Pretty                    (pretty)
 import           Theta.Target.Avro.Process       (run)
-import           Theta.Target.Haskell.Conversion (genTheta)
+import           Theta.Target.Haskell.Conversion (genTheta', toTheta)
 import           Theta.Target.Haskell.HasTheta   (HasTheta (theta))
 import           Theta.Value                     (Value, genValue)
-
 
 main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Cross-Lanaugage Tests"
-  [ testProperty "[Primitives] Haskell ⇔ Rust" $
-      forAll (genTheta @[Primitives]) $ \ inputs -> handle $ do
+  [ testProperty "Haskell ⇔ Rust" $
+      forAll inputs $ \ inputs -> handle $ do
         outputs <- run "theta_rust_test" [] inputs
         pure $ outputs == inputs
   ]
   where handle action = monadicIO $ runExceptT action >>= \case
           Left err  -> fail $ Text.unpack $ pretty err
           Right res -> pure res
+
+        inputs = genTheta' @[Everything] [("everything.List", toList <$> arbitrary)]
+        toList = toTheta . foldr @[] Cons Nil

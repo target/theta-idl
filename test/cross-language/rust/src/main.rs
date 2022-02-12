@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use theta::avro::{FromAvro, ToAvro};
 
 mod test_modules;
-use test_modules::primitives::*;
+use test_modules::everything::*;
 
 fn main() -> io::Result<()> {
     let stdin = io::stdin();
@@ -12,7 +12,7 @@ fn main() -> io::Result<()> {
     let mut buffer = vec![];
 
     handle.read_to_end(&mut buffer)?;
-    let v = Vec::<Primitives>::from_avro(&buffer);
+    let v = Vec::<Everything>::from_avro(&buffer);
 
     match v {
         Ok((_, result)) => {
