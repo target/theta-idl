@@ -14,8 +14,18 @@ alias A = [Long]
 
 // A recursive type, which means the recursive field needs to be boxed
 // in Rust:
-type Recursive = { recurse: Recursive? }
+type RecursiveRecord = { recurse: RecursiveRecord? }
 
 // Same thing but with a variant rather than a struct:
 type RecursiveVariant = A { recurse: RecursiveVariant? }
                       | B { recurse: RecursiveVariant? }
+
+// Recursive variant *without* an optional type
+type RecursiveList = RCons { x : Int, rest : RecursiveList }
+                   | RNil
+
+// Including RecursiveList in another type caused an infinite loop at
+// one point :/
+type Record = { a : Int, b : RecursiveList }
+
+type RecursiveNewtype = RecursiveList

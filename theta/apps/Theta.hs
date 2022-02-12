@@ -1,15 +1,19 @@
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes    #-}
 module Main where
 
 import           Data.String.Interpolate (__i, i)
+import qualified Data.Text.IO            as Text
 
 import           GHC.Exts                (fromString)
 import qualified GHC.IO.Encoding         as Encoding
 
 import           Options.Applicative
 
-import           System.Environment      (getEnv)
+import           System.Environment      (lookupEnv)
+import           System.Exit             (exitFailure)
+import           System.IO               (stderr)
 
 import qualified Theta.Import            as Theta
 import           Theta.Versions          (packageVersion')
@@ -86,7 +90,14 @@ thetaOptions = ThetaOptions <$> optional loadPath <*> subcommands
 run :: ThetaOptions -> IO ()
 run Version = putStrLn [i|Theta #{packageVersion'}|]
 run ThetaOptions { loadPath, subcommand } = do
-  path <- case loadPath of
-    Just path -> pure path
-    Nothing   -> fromString <$> getEnv "THETA_LOAD_PATH"
+  path <- maybe lookupPath pure loadPath
   runTheta $ subcommand path
+  where lookupPath = lookupEnv "THETA_LOAD_PATH" >>= \case
+          Just path -> pure $ fromString path
+          Nothing   -> do
+            Text.hPutStrLn stderr [__i|
+              No Theta load path set. You can either:
+                • specify the load path on the command line with the (--path|-p) argument
+                • set the THETA_LOAD_PATH environment variable
+            |]
+            exitFailure
