@@ -28,7 +28,12 @@
   compiler.cabal-install
   compiler.haskell-language-server
   compiler.hlint
+
+  # for ci/stack-test
   pkgs.stack
+  pkgs.jq
+
+  # for bin/profile-compile-times
   pkgs.time-ghc-modules
 ]
 
