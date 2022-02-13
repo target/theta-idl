@@ -31,13 +31,18 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Cross-Lanaugage Tests"
   [ testProperty "Haskell ⇔ Rust" $
-      forAll inputs $ \ inputs -> handle $ do
-        outputs <- run "theta_rust_test" [] inputs
+      forAll everything $ \ inputs -> handle $ do
+        outputs <- run "cat_everything_rust" [] inputs
+        pure $ outputs == inputs
+
+  , testProperty "Haskell ⇔ Python" $
+      forAll everything $ \ inputs -> handle $ do
+        outputs <- run "cat_everything_python" [] inputs
         pure $ outputs == inputs
   ]
   where handle action = monadicIO $ runExceptT action >>= \case
           Left err  -> fail $ Text.unpack $ pretty err
           Right res -> pure res
 
-        inputs = genTheta' @[Everything] [("everything.List", toList <$> arbitrary)]
+        everything = genTheta' @[Everything] [("everything.List", toList <$> arbitrary)]
         toList = toTheta . foldr @[] Cons Nil

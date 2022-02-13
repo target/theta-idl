@@ -15,6 +15,8 @@ let
 
   rust-executable = import ./rust { inherit pkgs lib; };
 
+  python-executable = import ./python { inherit pkgs lib; };
+
   build-tools =
     [ haskell.stylish-haskell
       haskell.cabal-install
@@ -24,6 +26,7 @@ let
       pkgs.time-ghc-modules
 
       rust-executable
+      python-executable
     ] ++ extra-build-tools;
 
   excluded = [

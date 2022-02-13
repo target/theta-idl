@@ -33,6 +33,7 @@
 
         lib = {
           theta-rust = import nix/lib/theta-rust.nix { inherit pkgs; };
+          theta-python = import nix/lib/theta-python.nix { inherit pkgs; };
         };
       in rec {
         inherit overlays lib;

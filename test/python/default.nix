@@ -7,17 +7,17 @@
 # If it fails, the python error message should
 # printed with the call to nix build
 
-{ pkgs }:
+{ pkgs, lib }:
 let
   inherit (pkgs) pythonPackages theta theta-python;
 
-  theta-generated-python = pkgs.runCommand "theta-generated-python" {
-    THETA_LOAD_PATH = ./modules;
-    THETA = "${theta}/bin/theta";
-  } ''
-      mkdir -p $out
-      $THETA python -m python_tests -o $out --prefix theta_python_tests
-    '';
+  theta-generated-python = lib.theta-python {
+    name = "theta-generated-python";
+    src = ./.;
+    theta-paths = [./modules];
+    modules = ["python_tests"];
+    prefix = "theta_python_tests";
+  };
 in pythonPackages.pkgs.buildPythonPackage {
   pname = "theta-python-tests";
   version = "1.0.0";

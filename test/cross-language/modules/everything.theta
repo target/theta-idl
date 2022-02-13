@@ -18,7 +18,7 @@ type Everything = {
     options    : Options,
     var        : Var,
     wrapper    : IntWrapper,
-    list       : List
+    list       : RecursiveList
 }
 
 /// Testing a relatively simple variant
@@ -41,5 +41,5 @@ type IntWrapper = Int
 /// Note: this probably needs special casing in the random generation
 /// code! Without special handling, genTheta tends to produce *really
 /// large* inputs for recursive types like this...
-type List = Cons { x : Int, rest : List }
-          | Nil
+type RecursiveList = Cons { x : Int, rest : RecursiveList }
+                   | Nil
