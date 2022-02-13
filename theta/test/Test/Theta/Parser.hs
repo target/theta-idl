@@ -19,8 +19,8 @@ import           Text.Megaparsec         hiding (optional)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import qualified Theta.Metadata          as Metadata
 import           Theta.Metadata          (Version)
+import qualified Theta.Metadata          as Metadata
 import           Theta.Parser
 import           Theta.Types
 
@@ -419,7 +419,7 @@ test_doc = testGroup "doc comments"
       assertFails $ parse' "1.0.0" (moduleBody "foo") wrong
   ]
   where parseDoc doc = fromJust . getDoc <$>
-          parse' "1.0.0" definition (doc <> "\ntype Foo = Int")
+          parse' "1.0.0" (withDoc definition) (doc <> "\ntype Foo = Int")
 
 -- test how documentation is parsed and included in type definitions
 test_docTypes :: TestTree
@@ -442,6 +442,16 @@ test_docTypes = testGroup "docs on types"
       parse' "1.0.0" (moduleBody "test") alias ?=
         [DefinitionStatement
          (Definition "test.Foo" (Just $ Doc "Foo is an Int!") (BaseType' Int'))]
+
+  , testCase "enums" $ do
+      let enum = wrapModule [__i|
+            /// Foo is an enum!
+            enum Foo = Bar | Baz
+          |]
+          type_ = BaseType' (Enum' "test.Foo" ["Bar", "Baz"])
+      parse' "1.1.0" (moduleBody "test") enum ?=
+        [DefinitionStatement
+         (Definition "test.Foo" (Just $ Doc "Foo is an enum!") type_)]
 
   , testGroup "records"
     [ testCase "definitions" $ do
@@ -517,8 +527,9 @@ test_docTypes = testGroup "docs on types"
 test_backwardsCompatibility :: TestTree
 test_backwardsCompatibility = testGroup "backwards compatibility"
   [ testCase "enum <1.1.0" $ do
-      let enum = "enum Foo = Bar | Baz"
-      assertFails $ parse' "1.0.0" statement enum
+      let enum = "enums Foo = Bar | Baz"
+          expectedError = versionError "enum" "1.1.0" "1.0.0"
+      assertFailsWith expectedError $ parse' "1.0.0" statement enum
   ]
 
 -- * Utilities
@@ -553,6 +564,22 @@ wrapModule body = [__i|
 assertFails :: Show b => Either a b -> Assertion
 assertFails = \case
   Left _    -> pure ()
+  Right res -> assertFailure [__i|
+      expected: parser to fail with error
+      but got: #{show res}
+    |]
+
+-- | Assert that a parser fails with a fancy error that has the given
+-- message.
+assertFailsWith :: (Show a) => String -> Either (ParseErrorBundle Text Void) a -> Assertion
+assertFailsWith expectedMessage = \case
+  Left (ParseErrorBundle [FancyError _ [ErrorFail message]] _) ->
+    message @?= expectedMessage
+  Left unexpected ->
+    assertFailure [__i|
+      Expected a single fancy error from fail but got:
+      #{errorBundlePretty unexpected}
+    |]
   Right res -> assertFailure [__i|
       expected: parser to fail with error
       but got: #{show res}

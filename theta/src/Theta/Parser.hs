@@ -89,11 +89,21 @@ requireVersion :: Version
                -> Parser ()
 requireVersion minVersion feature = do
   v <- version
-  when (v < minVersion) $
-    fail [p|
-      Support for #{feature} requires language-version ≥ #{minVersion}
-      Current module being parsed has language-version = #{v}
-    |]
+  when (v < minVersion) $ fail $ versionError feature minVersion v
+
+-- | Returns a human-readable error message when a feature is not
+-- supported by the language-version of the module being parsed.
+versionError :: Text
+             -- ^ The name of the feature that isn't supported.
+             -> Version
+             -- ^ The minimum version the feature requries.
+             -> Version
+             -- ^ The version of the current module.
+             -> String
+versionError feature minVersion v = [p|
+    Support for #{feature} requires language-version ≥ #{minVersion}
+    Current module being parsed has language-version = #{v}
+  |]
 
 -- * Metadata
 
@@ -477,8 +487,8 @@ variantBody = try cases <|> singleCase
 -- type TCIN = String
 -- @
 definition :: Parser (Definition BaseType')
-definition = withDoc $ do
-  void $ try (symbol "type")
+definition = do
+  void $ symbol "type"
   definitionName <- name
 
   void $ symbol "="
@@ -509,8 +519,8 @@ definition = withDoc $ do
 --
 -- Enums are supported with language-version ≥ 1.1.0
 enumDefinition :: Parser (Definition BaseType')
-enumDefinition = withDoc $ do
-  void $ try (symbol "enum")
+enumDefinition = do
+  void $ symbol "enum"
   requireVersion "1.1.0" "enum"
   definitionName <- name
   void $ symbol "="
@@ -549,8 +559,8 @@ enumDefinition = withDoc $ do
 -- alias Bar = A {} | B {}
 -- @
 alias :: Parser (Definition BaseType')
-alias = withDoc $ do
-  void $ try (symbol "alias")
+alias = do
+  void $ symbol "alias"
   definitionName <- name
   void $ symbol "="
   definitionType <- signature'
@@ -559,7 +569,7 @@ alias = withDoc $ do
 statement :: Parser Statement
 statement = definitionStatement <|> importStatement
   where definitionStatement =
-          DefinitionStatement <$> (try definition <|> try enumDefinition <|> alias)
+          DefinitionStatement <$> withDoc (definition <|> alias <|> enumDefinition)
         importStatement =
           ImportStatement <$> import_
 
