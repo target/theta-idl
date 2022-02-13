@@ -6,18 +6,18 @@ module Apps.Rust where
 
 import           Control.Monad.Except
 
-import           Data.String.Interpolate        (__i)
-import qualified Data.Text.IO as Text
+import           Data.String.Interpolate       (__i)
+import qualified Data.Text.IO                  as Text
 
 
 import           Options.Applicative
 
-import qualified Theta.Import                   as Theta
-import qualified Theta.Name                     as Theta
-import qualified Theta.Types                    as Theta
+import qualified Theta.Import                  as Theta
+import qualified Theta.Name                    as Theta
+import qualified Theta.Types                   as Theta
 
-import           Theta.Target.Rust              (toFile)
-import           Theta.Target.Rust.QuasiQuoter  (Rust (..))
+import           Theta.Target.Rust             (toFile)
+import           Theta.Target.Rust.QuasiQuoter (Rust (..))
 
 import           Apps.Subcommand
 

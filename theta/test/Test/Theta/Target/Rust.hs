@@ -10,13 +10,14 @@ module Test.Theta.Target.Rust where
 
 import           Prelude                       hiding (toEnum)
 
+import qualified Data.Text                     as Text
 import qualified Data.Text.IO                  as Text
 
 import           System.FilePath               ((<.>), (</>))
 
 import qualified Theta.Metadata                as Theta
 import           Theta.Target.Haskell          (loadModule)
-import           Theta.Target.LanguageQuoter   ((?=))
+import           Theta.Target.Haskell.HasTheta (theta)
 import           Theta.Target.Rust
 import           Theta.Target.Rust.QuasiQuoter (normalize)
 import qualified Theta.Types                   as Theta
@@ -24,9 +25,10 @@ import qualified Theta.Types                   as Theta
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import qualified Data.Text                     as Text
+
+import           Test.Assertions               ((?=))
+
 import qualified Paths_theta                   as Paths
-import           Theta.Target.Haskell.HasTheta (theta)
 
 loadModule "test/data/modules" "newtype"
 loadModule "test/data/modules" "recursive"

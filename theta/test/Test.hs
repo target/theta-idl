@@ -6,8 +6,10 @@ import qualified Test.Theta.Import                    as Import
 import qualified Test.Theta.Name                      as Name
 import qualified Test.Theta.Parser                    as Parser
 import qualified Test.Theta.Types                     as Types
+import qualified Test.Theta.Value                     as Value
 import qualified Test.Theta.Versions                  as Versions
 
+import qualified Test.Theta.Target.Avro.Process       as Avro.Process
 import qualified Test.Theta.Target.Avro.Types         as Avro.Types
 import qualified Test.Theta.Target.Avro.Values        as Avro.Values
 
@@ -27,11 +29,13 @@ tests = testGroup "Theta"
   , Name.tests
   , Parser.tests
   , Types.tests
+  , Value.tests
   , Versions.tests
 
   , testGroup "Target"
     [ testGroup "Avro"
-      [ Avro.Values.tests
+      [ Avro.Process.tests
+      , Avro.Values.tests
       , Avro.Types.tests
       ]
 
@@ -49,5 +53,3 @@ tests = testGroup "Theta"
 
 main :: IO ()
 main = defaultMain tests
-
-

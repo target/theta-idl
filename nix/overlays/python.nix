@@ -1,5 +1,5 @@
 # Overlay setting up the right version of Python to use.
-{ python-version ? "3.8" }:
+{ python-version }:
 pkgs:
 _:
 let

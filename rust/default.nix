@@ -8,4 +8,5 @@ pkgs.naersk.buildPackage {
 
   remapPathPrefix = true;
   doCheck = true;
+  copyLibs = true;
 }

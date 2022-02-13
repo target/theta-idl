@@ -299,7 +299,7 @@ Theta's primitive types directly match up with Avro's primitive types:
   * `Double`: `"double"`
   * `String`: `"string"`
   * `Date`: logical type `"date"`, physical type `"int"`
-  * `Datetime`: logical type `"time-micros"`, physical type `"long"`
+  * `Datetime`: logical type `"timestamp-micros"`, physical type `"long"`
 
 #### Containers
 
