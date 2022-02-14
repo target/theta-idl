@@ -79,7 +79,7 @@ version = flag' Version
 
 thetaOptions :: Parser ThetaOptions
 thetaOptions = ThetaOptions <$> (mconcat <$> loadPath) <*> subcommands
-  where loadPath = some $ Just <$> strOption
+  where loadPath = many $ Just <$> strOption
           (  long "path"
           <> short 'p'
           <> metavar "THETA_LOAD_PATH"
