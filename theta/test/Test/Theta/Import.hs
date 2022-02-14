@@ -247,7 +247,7 @@ test_findInPath = testGroup "findInPath"
       a <- findInPath loadPath ("blarg" </> "foo.theta")
       a @?= Nothing
 
-      b <- findInPath "" "a.theta"
+      b <- findInPath "nope" "a.theta"
       b @?= Nothing
 
       c <- findInPath (LoadPath [dir </> root1]) "b.theta"
