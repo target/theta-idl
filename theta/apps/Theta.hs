@@ -29,7 +29,7 @@ main :: IO ()
 main = do
   Encoding.setLocaleEncoding Encoding.utf8
 
-  options <- execParser parser
+  options <- customExecParser (prefs subparserInline) parser
   run options
   where parser =
           info ((version <|> thetaOptions) <**> helper)
@@ -78,8 +78,8 @@ version = flag' Version
   )
 
 thetaOptions :: Parser ThetaOptions
-thetaOptions = ThetaOptions <$> optional loadPath <*> subcommands
-  where loadPath = fromString <$> strOption
+thetaOptions = ThetaOptions <$> (mconcat <$> loadPath) <*> subcommands
+  where loadPath = some $ Just <$> strOption
           (  long "path"
           <> short 'p'
           <> metavar "THETA_LOAD_PATH"

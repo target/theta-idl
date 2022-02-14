@@ -1,12 +1,16 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE RecursiveDo           #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE RecursiveDo                #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 -- | This module defines how we resolve and import Theta modules.
 --
@@ -28,6 +32,7 @@ import           Data.Either            (isLeft, isRight)
 import qualified Data.Foldable          as Foldable
 import qualified Data.List              as List
 import           Data.List.NonEmpty     (NonEmpty)
+import qualified Data.List.NonEmpty     as NonEmpty
 import qualified Data.Map               as Map
 import           Data.Text              (Text)
 import qualified Data.Text              as Text
@@ -187,25 +192,36 @@ getModuleDefinition loadPath moduleName = do
 --
 -- Theta's load path can be specified as a string containing multiple
 -- paths separated by colons (like a Unix-style PATH variable).
-newtype LoadPath = LoadPath [FilePath]
-  deriving (Eq)
+--
+-- Example (with @OverloadedStrings@):
+--
+-- @
+-- "specs:types" :: LoadPath
+-- @
+newtype LoadPath = LoadPath (NonEmpty FilePath)
+  deriving stock (Eq)
+  deriving newtype (Semigroup)
 
 instance Show LoadPath where
-  show (LoadPath paths) = "\"" <> List.intercalate ":" paths <> "\""
+  show (LoadPath (NonEmpty.toList -> paths)) = "\"" <> List.intercalate ":" paths <> "\""
 
 instance IsList LoadPath where
   type Item LoadPath = FilePath
 
-  toList (LoadPath paths) = paths
-  fromList                = LoadPath
+  toList (LoadPath paths) = NonEmpty.toList paths
+  fromList = \case
+    []    -> error "Cannot construct an empty LoadPath."
+    paths -> LoadPath $ NonEmpty.fromList paths
 
 instance Pretty LoadPath where
-  pretty (LoadPath paths) = Text.pack $ List.intercalate ":" paths
+  pretty = Text.pack . List.intercalate ":" . toList
 
 -- | A 'LoadPath' is represented as a string with any number of paths
 -- separated by @':'@. Example: @"/foo:/home/bob/specs:types@.
 instance IsString LoadPath where
-  fromString = LoadPath . go
+  fromString str = case go str of
+    []    -> error "Cannot construct an empty LoadPath."
+    paths -> fromList paths
     where go ""  = []
           go str = takeWhile (/= ':') str : go (drop 1 $ dropWhile (/= ':') str)
 
@@ -219,7 +235,7 @@ instance IsString LoadPath where
 -- Think of this as a version of 'readFile' that tries each directory
 -- in the Theta load path until it finds one that works.
 findInPath :: LoadPath -> FilePath -> IO (Maybe (Text, FilePath))
-findInPath (LoadPath paths) path = go paths
+findInPath (LoadPath paths) path = go $ NonEmpty.toList paths
   where go []            = pure Nothing
         go (root : rest) =
           fetch (root </> path) `catch` \ (e :: IOException) -> do
