@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DerivingVia       #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -11,8 +12,8 @@ module Theta.Name where
 
 import qualified Data.Char       as Char
 import           Data.Hashable   (Hashable)
-import           Data.Maybe      (fromMaybe)
 import qualified Data.Map        as Map
+import           Data.Maybe      (fromMaybe)
 import           Data.Text       (Text)
 import qualified Data.Text       as Text
 import           Data.Tree       (Tree (..))
@@ -23,7 +24,7 @@ import           GHC.Generics    (Generic)
 import           Test.QuickCheck (Arbitrary (..))
 import qualified Test.QuickCheck as QuickCheck
 
-import           Theta.Pretty    (Pretty (..))
+import           Theta.Pretty    (Pretty (..), ShowPretty (..))
 
 -- * Definitions
 
@@ -42,7 +43,10 @@ import           Theta.Pretty    (Pretty (..))
 -- worrying.
 data Name = Name { moduleName :: ModuleName
                  , name       :: Text
-                 } deriving (Show, Eq, Ord, Generic, Hashable)
+                 }
+  deriving stock (Eq, Ord, Generic)
+  deriving anyclass (Hashable)
+  deriving Show via ShowPretty Name
 
 -- | Parses string literals as dot-sperated names.
 --
@@ -154,7 +158,10 @@ render = pretty
 data ModuleName = ModuleName
   { namespace :: [Text]
   , baseName  :: Text
-  } deriving (Show, Eq, Ord, Generic, Hashable)
+  }
+  deriving stock (Eq, Ord, Generic)
+  deriving anyclass (Hashable)
+  deriving Show via ShowPretty ModuleName
 
 instance Pretty ModuleName where
   pretty = renderModuleName

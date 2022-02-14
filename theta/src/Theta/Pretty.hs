@@ -5,6 +5,7 @@
 -- display values in a consistent way.
 module Theta.Pretty
   ( Pretty(..)
+  , ShowPretty(..)
   , showPretty
   , p
   )
@@ -30,3 +31,17 @@ p = __i
 -- | The same as 'pretty' but returns a 'String'.
 showPretty :: Pretty a => a -> String
 showPretty = Text.unpack . pretty
+
+-- | A newtype that has a Show instance using 'showPretty' on the
+-- underlying type.
+--
+-- This is primarily designed for @DerivingVia@:
+--
+-- @
+-- data MyType = MyType {...}
+--   deriving Show via ShowPretty
+-- @
+newtype ShowPretty a = ShowPretty a
+
+instance Pretty a => Show (ShowPretty a) where
+  show (ShowPretty x) = showPretty x
