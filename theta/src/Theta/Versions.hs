@@ -20,8 +20,6 @@ import qualified Test.QuickCheck as QuickCheck
 
 import           Theta.Metadata (Version)
 
-import qualified Paths_theta
-
 -- * Language Versions
 
 -- | A version range with an /inclusive/ lower bound and an
@@ -71,9 +69,17 @@ avro = Range { name = "avro-version", lower = "1.0.0", upper = "1.2.0" }
 
 -- * Package Version
 
+-- Having the @theta@ library component depend on @Paths_theta@ caused
+-- unnecessary rebuilds with Stack (see GitHub issue[1]). To fix this,
+-- we hardcode the packageVersion in this module, then have a unit
+-- test that checks that it is up to date with the version in
+-- @Paths_theta@.
+--
+-- [1]: https://github.com/target/theta-idl/issues/37
+
 -- | Which version of the Theta package this is.
 packageVersion :: Cabal.Version
-packageVersion = Paths_theta.version
+packageVersion = Cabal.makeVersion [1, 0, 0, 0]
 
 -- | Which version of the Theta package this is as 'Text'.
 packageVersion' :: Text
