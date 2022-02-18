@@ -127,6 +127,12 @@ toSchema Definition { definitionType, definitionDoc } =
         , Avro.doc     = annotation doc
         , Avro.fields  = fields
         }
+      Avro.Enum {..} -> Avro.Enum
+        { Avro.name    = name
+        , Avro.aliases = aliases
+        , Avro.doc     = annotation doc
+        , Avro.symbols = symbols
+        }
       _ -> error "Top-level Avro schema has to be a record.\n\
                  \This is probably a bug in Theta."
 
@@ -146,6 +152,8 @@ toSchema Definition { definitionType, definitionDoc } =
       case lookupDefinition name module_ of
         Right type_ -> toSchema type_
         Left _      -> throw $ NonExistentType name
+    toSchema' Type { baseType = Enum' name symbols } =
+      evalStateT (enum name definitionDoc symbols) Set.empty
     toSchema' invalid                          =
       throw $ InvalidExport invalid
 
