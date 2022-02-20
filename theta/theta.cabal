@@ -100,8 +100,6 @@ library
 
                     , Theta.Target.Rust
                     , Theta.Target.Rust.QuasiQuoter
-  other-modules:      Paths_theta
-  autogen-modules:    Paths_theta
 
 test-suite tests
   import:             shared
@@ -163,9 +161,6 @@ executable theta
                     , Apps.Python
                     , Apps.Rust
                     , Apps.Subcommand
-
-                    , Paths_theta
-  autogen-modules:    Paths_theta
 
   if flag(isStatic)
     ghc-options: -optl=-static -optl=-pthread -static
