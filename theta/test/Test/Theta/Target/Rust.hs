@@ -10,13 +10,14 @@ module Test.Theta.Target.Rust where
 
 import           Prelude                       hiding (toEnum)
 
+import qualified Data.Text                     as Text
 import qualified Data.Text.IO                  as Text
 
 import           System.FilePath               ((<.>), (</>))
 
 import qualified Theta.Metadata                as Theta
 import           Theta.Target.Haskell          (loadModule)
-import           Theta.Target.LanguageQuoter   ((?=))
+import           Theta.Target.Haskell.HasTheta (theta)
 import           Theta.Target.Rust
 import           Theta.Target.Rust.QuasiQuoter (normalize)
 import qualified Theta.Types                   as Theta
@@ -24,11 +25,15 @@ import qualified Theta.Types                   as Theta
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
+
+import           Test.Assertions               ((?=))
+
 import qualified Paths_theta                   as Paths
 
 loadModule "test/data/modules" "newtype"
 loadModule "test/data/modules" "recursive"
 loadModule "test/data/modules" "enums"
+loadModule "test/data/modules" "rust"
 
 tests :: TestTree
 tests = testGroup "Rust"
@@ -40,12 +45,21 @@ tests = testGroup "Rust"
   , test_toVariant
   , test_toNewtype
   , test_alias
+  , test_refersTo
   ]
 
 test_toFile :: TestTree
-test_toFile = testCase "toFile" $ do
-  expected <- loadRust "single_file"
-  toFile [theta'newtype, theta'recursive] ??= expected
+test_toFile = testGroup "toFile"
+  [ testCase "newtype.theta + recursive.theta" $ do
+      expected <- loadRust "single_file"
+      toFile [theta'newtype, theta'recursive] ??= expected
+
+  , testCase "rust.theta" $ do
+      let Rust rs = toFile [theta'rust]
+
+      -- regression test to make sure this doesn't loop forever
+      Text.length rs > 100 @? "Reasonble output length?"
+  ]
 
 test_toModule :: TestTree
 test_toModule = testGroup "toModule"
@@ -462,6 +476,18 @@ test_alias = testGroup "alias"
           , Theta.imports    = []
           , Theta.metadata   = Theta.Metadata "1.0.0" "1.0.0" "foo"
           }
+
+test_refersTo :: TestTree
+test_refersTo = testGroup "refersTo"
+  [ testCase "rust.RecursiveList" $ do
+      theta @RecursiveList `refersTo` "rust.RecursiveList" @?= True
+
+      -- Used to cause an infinite loop
+      theta @RecursiveList `refersTo` "rust.Record" @?= False
+
+  , testCase "rust.RecursiveNewtype" $ do
+      theta @RecursiveNewtype `refersTo` "rust.RecursiveList" @?= True
+  ]
 
 -- | Load a @.rs@ file with the given base name (adding the @.rs@
 -- extension) from @test/data/rust@.

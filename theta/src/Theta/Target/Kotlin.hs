@@ -289,7 +289,7 @@ isValidIdentifier :: Kotlin -> Bool
 isValidIdentifier (Kotlin identifier) = case Text.uncons identifier of
   Nothing            -> False
   Just (first, rest) -> (Char.isAlpha first || first == '_')
-                     && (Text.all (\ x -> Char.isAlphaNum x || x == '_') rest)
+                     && Text.all (\ x -> Char.isAlphaNum x || x == '_') rest
 
 -- | Convert a 'Theta.FieldName' to the corresponding 'Kotlin' field
 -- name.

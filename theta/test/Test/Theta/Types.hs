@@ -131,14 +131,14 @@ test_lookupName = testCase "lookupName" $ do
   assertPresent "c.C" theta'd
   assertPresent "d.D" theta'd
   where assertPresent name module_ = case Theta.lookupName name module_ of
-          Left _ -> assertFailure $
+          Left _ -> assertFailure
             [i|Could not find #{pretty name} in #{pretty $ Theta.moduleName module_}.|]
           Right _  -> pure ()
 
 test_underlyingType :: TestTree
 test_underlyingType = testCase "underlyingType" $ do
   Theta.underlyingType Theta.int'                @?= Theta.int'
-  Theta.underlyingType (Theta.array' Theta.int') @?= (Theta.array' Theta.int')
+  Theta.underlyingType (Theta.array' Theta.int') @?= Theta.array' Theta.int'
 
   check "nested_newtypes.Newtype_0" @?= Theta.int'
   check "nested_newtypes.Newtype_1" @?= Theta.int'
@@ -151,7 +151,7 @@ test_HasDoc :: TestTree
 test_HasDoc = testGroup "HasDoc"
   [ testCase "modifyDoc" $ do
       let foo (Just d) = Just $ d <> " foo"
-          foo Nothing  = Just $ "foo"
+          foo Nothing  = Just "foo"
 
       Theta.modifyDoc foo withDoc @?=
         Theta.Definition "test.Foo" (Just "some docs foo") Theta.int'

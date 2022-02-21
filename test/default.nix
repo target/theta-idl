@@ -1,11 +1,9 @@
-{ pkgs ? import ../nix/nixpkgs.nix {}
-, theta ? import ../theta {}
-}:
-
-{
-  avro   = import ./avro   { inherit pkgs theta; };
-  hash   = import ./hash   { inherit pkgs theta; };
-  kotlin = import ./kotlin { inherit pkgs theta; };
-  python = import ./python { inherit pkgs theta; };
-  rust   = import ./rust   { inherit pkgs theta; };
-}
+{ pkgs, lib }:
+pkgs.linkFarmFromDrvs "theta-tests" [
+  (import ./avro           { inherit pkgs; })
+  (import ./hash           { inherit pkgs; })
+  (import ./kotlin         { inherit pkgs; })
+  (import ./python         { inherit pkgs lib; })
+  (import ./rust           { inherit pkgs; })
+  (import ./cross-language { inherit pkgs lib; })
+]

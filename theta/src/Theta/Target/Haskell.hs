@@ -260,8 +260,8 @@ generateMetadata Metadata { languageVersion, avroVersion, moduleName } =
     , moduleName      = $(generateModuleName moduleName)
     }
     |]
-  where generateVersion (Version (SemVer { _svMajor, _svMinor, _svPatch
-                                        , _svPreRel, _svMeta })) =
+  where generateVersion (Version SemVer { _svMajor, _svMinor, _svPatch
+                                        , _svPreRel, _svMeta }) =
           [e| SemVer { _svMajor  = $(litE $ integerL $ fromIntegral _svMajor)
                      , _svMinor  = $(litE $ integerL $ fromIntegral _svMinor)
                      , _svPatch  = $(litE $ integerL $ fromIntegral _svPatch)
@@ -486,7 +486,7 @@ recordFields (toName -> name) fields =
 --
 -- This is awkward, but I couldn't find a better solution within
 -- Haskell.
-generateVariant :: Name.Name -> (NonEmpty (Theta.Case Theta.Type)) -> Q Dec
+generateVariant :: Name.Name -> NonEmpty (Theta.Case Theta.Type) -> Q Dec
 generateVariant (toName -> name) (toList -> cases) =
   dataD (pure []) name [] Nothing (generateCase <$> disambiguate cases) [defaultClasses]
   where generateCase (caseName, fields) = recordFields caseName fields
@@ -496,7 +496,7 @@ generateVariant (toName -> name) (toList -> cases) =
         disambiguate cases =
           [ (caseName, rename caseName <$> Theta.fields caseParameters)
           | Theta.Case { caseName, caseParameters } <- cases ]
-          where rename (Name.Name _ caseName) (Theta.Field {..})
+          where rename (Name.Name _ caseName) Theta.Field {..}
                   | Set.member fieldName duplicated = (renamed, fieldType)
                   | otherwise                       = (fieldName, fieldType)
                   where renamed =
@@ -982,7 +982,7 @@ enumFromTheta name symbols =
         message = stringE $ "Invalid enum tag. Expected [0.."
                          <> show (length symbols - 1)
                          <> "] but got"
-                         
+
     constructors = [ (Text.unpack name, conE constructor)
                    | Theta.EnumSymbol name <- NonEmpty.toList symbols
                    | constructor <- enumConstructors name symbols
@@ -1054,7 +1054,7 @@ recordFromTheta name Theta.Fields { Theta.fields } = do
 
         binding :: (Name, Theta.Field Theta.Type) -> Q (Name, Exp)
         binding (bindingName, Theta.Field { Theta.fieldName }) =
-          (toFieldName fieldName,) <$> (varE bindingName)
+          (toFieldName fieldName,) <$> varE bindingName
 
         fieldMap = mkName "fields"
 
@@ -1123,7 +1123,7 @@ variantFromTheta name (toList -> cases) =
             indices = [i | i <- [0..] | _ <- Theta.fields caseParameters]
             getValue index =
               let i = litE $ integerL index in
-              [e| Conversion.fromTheta' $ ($(varE parameters) ! $(i)) |]
+              [e| Conversion.fromTheta' ($(varE parameters) ! $(i)) |]
 
         baseCase = match (varP invalid) (normalB errorCall) []
         errorCall = [e| error $ "Invalid case name '"
@@ -1247,7 +1247,7 @@ generateType type_ = case Theta.baseType type_ of
 -- TODO: how to support namespaces here?
 -- | Wrap a 'Name.Name' into a Template Haskell identifier.
 toName :: Name.Name -> Name
-toName (Name.Name { Name.name }) = mkName $ Text.unpack name
+toName Name.Name { Name.name } = mkName $ Text.unpack name
 
 -- | Wrap a 'Theta.FieldName' into a Template Haskell identifier.
 toFieldName :: Theta.FieldName -> Name
@@ -1265,7 +1265,7 @@ typeSynonym (toName -> name) type_ = pure <$> tySynD name [] type_
 
 -- | Generate an expression that evaluates to the given 'Name.Name'.
 generateName :: Name.Name -> Q Exp
-generateName (Name.Name { Name.name, Name.moduleName }) =
+generateName Name.Name { Name.name, Name.moduleName } =
   [e| Name.Name { Name.name       = $(textExp name)
                 , Name.moduleName = $(generateModuleName moduleName)
                 }

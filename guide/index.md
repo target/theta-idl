@@ -19,9 +19,13 @@ Theta lets you define protocols as algebraic data types and reuse those types wi
 
 # Theta Type Language
 
+A Theta schema is defined as a set of [type](#types) definitions grouped into [modules](#modules), with each module in its own `*.theta` file. The [example](example/) directory shows this in action with two files (`ids.theta` and `music.theta`) defining Theta modules named `ids` and `music` respectively.
+
+A set of Theta modules can then be used with different [**targets**](#targets)—either generating schemas for serialization formats like [Avro](#avro) or generating code in programming languages like [Haskell](#haskell).
+
 ## Versioning
 
-Each Theta module starts with a metadata section with two version specifications:
+Each Theta module file starts with a metadata section with two version specifications:
 
   1.  `language-version`: controls the features supported by the Theta language itself
   2. `avro-version`: controls how Theta gets encoded and decoded as Avro
@@ -76,6 +80,58 @@ Modules can import other modules, which will expose *every* type defined in the 
 
 ```
 import com.example.foo
+```
+
+### Comments and Documentation
+
+You can use C/Java-style syntax for leaving comments in Theta files:
+
+```
+// This is a line comment
+
+/* This is a block comment
+   which can span over multiple lines
+ */
+
+type UserId = /* can be inline too */ Int
+```
+
+Comments that start with `///` or `/**` are **documentation comments** that have to appear directly before a type definition, variant case or record field. Using `///` or `/**` anywhere else is a parse error.
+
+```
+/** Documentation for the User type definition. */
+type User = {
+  /// Documentation for the user_id field
+  user_id: UserId
+}
+```
+
+Documentation comments will be preserved in the `doc` property of Avro schemas. In the future, we will have additional tool support like generating human-readable documentation from the `theta` command-line tool.
+
+### Example Module
+
+Here is a full module definition which would be saved in a `*.theta` file:
+
+```
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+/// User IDs are ints, but do not have to be contiguous
+type UserId = Int
+
+type User = {
+  /// The user's globally unique id
+  user_id: UserId,
+
+  /// A user's display name—does not have to be unique
+  display_name: String
+
+  /** Users are marked as inactive after 30 days
+    * of inactivity.
+    */
+  active: Bool
+}
 ```
 
 ### Load Path
@@ -243,7 +299,7 @@ Theta's primitive types directly match up with Avro's primitive types:
   * `Double`: `"double"`
   * `String`: `"string"`
   * `Date`: logical type `"date"`, physical type `"int"`
-  * `Datetime`: logical type `"time-micros"`, physical type `"long"`
+  * `Datetime`: logical type `"timestamp-micros"`, physical type `"long"`
 
 #### Containers
 

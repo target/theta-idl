@@ -237,8 +237,8 @@ enums = [ (simple "Simple", simpleType, Avro.Enum simpleAvro 0 "Simple")
 
 records :: [(Theta.Value, Theta.Type, Avro.Value)]
 records = [ (emptyValue, emptyType, Avro.Record emptySchema [])
-          , (value, type_, Avro.Record schema [ (Avro.Record emptySchema [])
-                                              , (avroInt 42)
+          , (value, type_, Avro.Record schema [ Avro.Record emptySchema []
+                                              , avroInt 42
                                               ])
 
           -- Test date and datetime handling with logical types (avro-version ≥ 1.1.0)
@@ -410,7 +410,7 @@ avroString :: Text -> Avro.Value
 avroString = Avro.String schemaString
 
 avroUnion :: Vector ReadSchema.ReadSchema -> Int -> Avro.Value -> Avro.Value
-avroUnion options i v = Avro.Union (schemaUnion options) i v
+avroUnion = Avro.Union . schemaUnion
 
 schemaUnion :: Vector ReadSchema.ReadSchema -> ReadSchema.ReadSchema
 schemaUnion = ReadSchema.Union . Vector.indexed

@@ -1,0 +1,34 @@
+cabal-version:  2.2
+name: theta-tests
+version: 1.0.0.0
+synopsis: Cross-language tests for Theta. See README.md for details.
+license: Apache-2.0
+build-type: Simple
+maintainer: Tikhon Jelvis <tikhon@jelv.is>
+data-files:
+  modules/*.theta
+
+common shared
+  default-language: Haskell2010
+  hs-source-dirs: test/
+  build-depends: base >=4.13 && <4.15
+
+               , mtl
+               , text
+
+               , theta ==1.*
+               , tasty
+               , tasty-quickcheck
+               , QuickCheck
+
+  other-modules: Test.Everything
+               , Test.Primitives
+
+executable tests
+  import: shared
+  main-is: Main.hs
+
+test-suite theta-tests
+  import: shared
+  type: exitcode-stdio-1.0
+  main-is: Main.hs

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+cabal clean
+cabal build all \
+      --enable-tests \
+      --ghc-options='-ddump-to-file -ddump-timings' \
+      2> /dev/null
+time-ghc-modules

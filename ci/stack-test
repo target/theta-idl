@@ -7,11 +7,16 @@
 #
 # ci/stack-test theta
 
-expr='"nixpkgs=${(import nix/sources.nix).nixpkgs}"'
-nix_path="$(eval echo "$(nix-instantiate --eval -E "$expr")")"
+# Slightly fiddly way to get the path to the version of Nixpkgs pinned
+# by the top-level Theta Flake
+function get_metadata {
+    eval echo "$(nix flake metadata $1 --json | jq $2)"
+}
+nixpkgs_rev=$(get_metadata . .locks.nodes.nixpkgs.locked.rev)
+nixpkgs_path=$(get_metadata "github:NixOS/nixpkgs/$nixpkgs_rev" .path)
 
 cd $1
 stack --nix \
       --nix-shell-file stack-shell.nix \
-      --nix-path="$nix_path" \
+      --nix-path="nixpkgs=$nixpkgs_path" \
       test

@@ -7,7 +7,7 @@
 
 module Apps.Hash where
 
-import           Control.Monad           (forM_, when)
+import           Control.Monad           (forM_, unless)
 import           Control.Monad.IO.Class  (liftIO)
 
 import           Data.String.Interpolate (i)
@@ -38,8 +38,8 @@ hashOpts = HashOptions <$> many typeName
 
 runHash :: HashOptions -> Subcommand
 runHash HashOptions { typeNames, moduleNames } loadPath = do
-  when (not $ null typeNames) $ hashTypes typeNames loadPath
-  when (not $ null moduleNames) $ hashModules moduleNames loadPath
+  unless (null typeNames) $ hashTypes typeNames loadPath
+  unless (null moduleNames) $ hashModules moduleNames loadPath
 
 
 hashTypes :: [Name] -> Subcommand
@@ -54,9 +54,9 @@ hashModules :: [ModuleName] -> Subcommand
 hashModules moduleNames loadPath = do
   modules <- traverse (Theta.getModule loadPath) moduleNames
 
-  forM_ (Theta.transitiveImports modules) $ \ module_ -> do
+  forM_ (Theta.transitiveImports modules) $ \ module_ -> 
     forM_ (Theta.types module_) $ \ Theta.Definition
-      { Theta.definitionType = type_, Theta.definitionName = name } ->
-           -- Note the tab character
-      liftIO $ putStrLn [i|#{Name.render name}	#{Theta.hash type_}|]
-  
+    { Theta.definitionType = type_, Theta.definitionName = name } ->
+         -- Note the tab character
+    liftIO $ putStrLn [i|#{Name.render name}	#{Theta.hash type_}|]
+

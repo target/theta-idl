@@ -43,7 +43,7 @@ avroDescription :: String
 avroDescription = [__i|
   Commands for working with Avro schemas generate from Theta types.
 |]
-  
+
 -- * avro type
 
 typeCommand :: Mod CommandFields Subcommand
@@ -116,15 +116,15 @@ runAll AllOptions { target, moduleNames } loadPath = do
   modules <- traverse (Theta.getModule loadPath) moduleNames
 
   liftIO $ createDirectoryIfMissing True (target </> "avro")
-  
+
   forM_ (Theta.transitiveImports modules) $ \ module_ -> do
     forM_ (Theta.types module_) $ \ definition ->
       when (isExportable $ Theta.definitionType definition) $
         export (Theta.moduleName module_) definition
 
-  where isExportable (Theta.Type { Theta.baseType = Theta.Record' {} })  = True
-        isExportable (Theta.Type { Theta.baseType = Theta.Variant' {} }) = True
-        isExportable _                                                   = False
+  where isExportable Theta.Type { Theta.baseType = Theta.Record' {} }  = True
+        isExportable Theta.Type { Theta.baseType = Theta.Variant' {} } = True
+        isExportable _                                                 = False
 
         export moduleName definition = do
           schema <- toSchema definition

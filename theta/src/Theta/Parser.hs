@@ -22,15 +22,26 @@ import           GHC.Exts                   (fromList)
 
 import           Prelude                    hiding (map)
 
-import           Text.Megaparsec
-import           Text.Megaparsec.Char
+import           Text.Megaparsec            (MonadParsec (eof, lookAhead, notFollowedBy, takeWhileP, try),
+                                             Parsec, anySingle, anySingleBut,
+                                             between, many, manyTill, option,
+                                             optional, sepBy, sepBy1, skipMany,
+                                             some, (<|>))
+import           Text.Megaparsec.Char       (alphaNumChar, char, letterChar,
+                                             space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import           Theta.Metadata             (Metadata, Version (..))
 import qualified Theta.Metadata             as Metadata
 import qualified Theta.Name                 as Name
 import           Theta.Pretty               (p)
-import           Theta.Types
+import           Theta.Types                (BaseType (Array', Bool', Bytes', Date', Datetime', Double', Enum', Float', Int', Long', Map', Newtype', Optional', Record', Reference', String', Variant'),
+                                             BaseType' (..), Case (..),
+                                             Definition (..), Doc (Doc),
+                                             EnumSymbol (EnumSymbol),
+                                             Field (..), FieldName (FieldName),
+                                             Fields, HasDoc, Statement (..),
+                                             setDoc, wrapFields)
 
 -- | Parsers for the Theta syntax outside the metadata section take
 -- the 'Metadata' for the module as an input. This allows parsing
@@ -61,7 +72,7 @@ type Parser = ReaderT Metadata (Parsec Void Text)
 -- | Return the language-version set for the current module in the
 -- module's metadata section.
 version :: Parser Version
-version = Metadata.languageVersion <$> Reader.ask
+version = Reader.asks Metadata.languageVersion
 
 -- | Check whether the version of the module is at least the specified
 -- minimum version.
@@ -78,11 +89,21 @@ requireVersion :: Version
                -> Parser ()
 requireVersion minVersion feature = do
   v <- version
-  when (v < minVersion) $
-    fail [p|
-      Support for #{feature} requires language-version ≥ #{minVersion}
-      Current module being parsed has language-version = #{v}
-    |]
+  when (v < minVersion) $ fail $ versionError feature minVersion v
+
+-- | Returns a human-readable error message when a feature is not
+-- supported by the language-version of the module being parsed.
+versionError :: Text
+             -- ^ The name of the feature that isn't supported.
+             -> Version
+             -- ^ The minimum version the feature requries.
+             -> Version
+             -- ^ The version of the current module.
+             -> String
+versionError feature minVersion v = [p|
+    Support for #{feature} requires language-version ≥ #{minVersion}
+    Current module being parsed has language-version = #{v}
+  |]
 
 -- * Metadata
 
@@ -106,22 +127,21 @@ data MetadataEntry = LanguageVersion Version
 -- @
 metadataSection :: Name.ModuleName -> Parsec Void Text Metadata
 metadataSection moduleName = do
+  void whitespace
   first    <- languageVersion <|> avroVersion
-  metadata <- case first of
+  case first of
     LanguageVersion language -> do
       AvroVersion avro <- avroVersion
       pure $ Metadata.Metadata language avro moduleName
     AvroVersion avro         -> do
       LanguageVersion language <- languageVersion
       pure $ Metadata.Metadata language avro moduleName
-
-  pure metadata
   where avroVersion     =
           symbol "avro-version" *> symbol ":" *> (AvroVersion <$> version)
         languageVersion =
           symbol "language-version" *> symbol ":" *> (LanguageVersion <$> version)
 
-        version = Version <$> semver'
+        version = (Version <$> semver') <* whitespace
 
         symbol     = L.symbol whitespace
         whitespace =
@@ -223,7 +243,7 @@ name = do
   components <- identifier `sepBy1` symbol "."
   moduleName <- case components of
     []  -> error "sepBy1 returned an empty list!"
-    [_] -> Metadata.moduleName <$> Reader.ask
+    [_] -> Reader.asks Metadata.moduleName
     xs  -> pure $ fromList $ init xs
   pure $ Name.Name { Name.moduleName, Name.name = last components }
 
@@ -467,8 +487,8 @@ variantBody = try cases <|> singleCase
 -- type TCIN = String
 -- @
 definition :: Parser (Definition BaseType')
-definition = withDoc $ do
-  void $ try (symbol "type")
+definition = do
+  void $ symbol "type"
   definitionName <- name
 
   void $ symbol "="
@@ -499,8 +519,8 @@ definition = withDoc $ do
 --
 -- Enums are supported with language-version ≥ 1.1.0
 enumDefinition :: Parser (Definition BaseType')
-enumDefinition = withDoc $ do
-  void $ try (symbol "enum")
+enumDefinition = do
+  void $ symbol "enum"
   requireVersion "1.1.0" "enum"
   definitionName <- name
   void $ symbol "="
@@ -539,8 +559,8 @@ enumDefinition = withDoc $ do
 -- alias Bar = A {} | B {}
 -- @
 alias :: Parser (Definition BaseType')
-alias = withDoc $ do
-  void $ try (symbol "alias")
+alias = do
+  void $ symbol "alias"
   definitionName <- name
   void $ symbol "="
   definitionType <- signature'
@@ -549,7 +569,7 @@ alias = withDoc $ do
 statement :: Parser Statement
 statement = definitionStatement <|> importStatement
   where definitionStatement =
-          DefinitionStatement <$> (try definition <|> try enumDefinition <|> alias)
+          DefinitionStatement <$> withDoc (definition <|> alias <|> enumDefinition)
         importStatement =
           ImportStatement <$> import_
 

@@ -129,7 +129,7 @@ test_importModule = testGroup "importModule"
 
       case Theta.lookupName "test.Foo" combined1 of
         Left err                              -> assertFailure err
-        Right (Theta.Type { Theta.baseType }) -> case baseType of
+        Right Theta.Type { Theta.baseType }   -> case baseType of
           Theta.Long' -> pure ()
           Theta.Int'  ->
             assertFailure "Wrong type shadowed: should be ‘Long’, not ‘Int’."
@@ -139,7 +139,7 @@ test_importModule = testGroup "importModule"
 
       case Theta.lookupName "test.Foo" combined2 of
         Left err                              -> assertFailure err
-        Right (Theta.Type { Theta.baseType }) -> case baseType of
+        Right Theta.Type { Theta.baseType }   -> case baseType of
           Theta.Long' -> pure ()
           Theta.Int'  ->
             assertFailure "Wrong type shadowed: should be ‘Long’, not ‘Int’."
@@ -247,7 +247,7 @@ test_findInPath = testGroup "findInPath"
       a <- findInPath loadPath ("blarg" </> "foo.theta")
       a @?= Nothing
 
-      b <- findInPath "" "a.theta"
+      b <- findInPath "nope" "a.theta"
       b @?= Nothing
 
       c <- findInPath (LoadPath [dir </> root1]) "b.theta"
@@ -294,7 +294,7 @@ test_getModuleDefinition = testGroup "getModuleDefinition"
         assertFailure "Did not raise an error as expected."
 
     assertValid Right{}    = pure ()
-    assertValid (Left err) = assertFailure $ [__i|
+    assertValid (Left err) = assertFailure [__i|
       Expected module to load without errors, but got:
 
       #{pretty err}

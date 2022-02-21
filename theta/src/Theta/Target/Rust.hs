@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -20,10 +22,14 @@ module Theta.Target.Rust
   , toRecord
   , toVariant
   , toNewtype
+
+  , refersTo
   )
 where
 
 import           Prelude                       hiding (toEnum)
+
+import           Control.Monad.State           (evalState, get, modify)
 
 import           Data.List.NonEmpty            (NonEmpty)
 import qualified Data.List.NonEmpty            as NonEmpty
@@ -72,9 +78,7 @@ toFile modules = definitionLines $ attrs : (go [] <$> hierarchy)
                 moduleRoots = map Rust $ Set.toList $ Set.fromList
                   [ Name.moduleRoot $ Theta.moduleName m | m <- modules ]
 
-                content = case Map.lookup name moduleMap of
-                  Just module_ -> toModule module_
-                  Nothing      -> ""
+                content = maybe "" toModule (Map.lookup name moduleMap)
 
                 name     = Name.fromModuleParts $ soFar <> [part]
                 baseName = Rust $ Name.baseName name
@@ -135,9 +139,9 @@ toDefinition Theta.Definition {..} = case Theta.baseType definitionType of
 toReference :: Theta.Type -> Rust
 toReference type_@Theta.Type { Theta.baseType } = case baseType of
   -- primitive types
-  Theta.Bytes'    -> [rust|Vec<u8>|]
-  Theta.Date'     -> [rust|Date<Utc>|]
-  Theta.Datetime' -> [rust|DateTime<Utc>|]
+  Theta.Bytes'      -> [rust|Vec<u8>|]
+  Theta.Date'       -> [rust|Date<Utc>|]
+  Theta.Datetime'   -> [rust|DateTime<Utc>|]
 
   -- containers
   Theta.Array' a    -> let ref = toReference a in [rust|Vec<$ref>|]
@@ -145,7 +149,7 @@ toReference type_@Theta.Type { Theta.baseType } = case baseType of
   Theta.Optional' a -> let ref = toReference a in [rust|Option<$ref>|]
 
   -- all other types are referenced directly by name
-  _   -> path $ typeIdentifier type_
+  _                 -> path $ typeIdentifier type_
 
 -- | Return a list of identifiers that corresponds to the "base" Rust
 -- type for a Theta type.
@@ -258,7 +262,7 @@ toEnum name symbols = [rust|
         |]
           where i = Rust $ Text.pack $ printf "%di64" i_
 
-        implFromAvro = fromAvro typeName $ wrapContext name $ [rust|
+        implFromAvro = fromAvro typeName $ wrapContext name [rust|
           let (input, tag) = i64::from_avro(input)?;
           match tag {
             $fromAvroBranches
@@ -913,46 +917,55 @@ definitionLines = Rust . Text.intercalate "\n\n" . map fromRust
 --
 -- Note how cases 3–5 are recursive, traversing down the entire type.
 refersTo :: Theta.Type -> Name -> Bool
-refersTo Theta.Type { Theta.baseType, Theta.module_ } name = case baseType of
-  -- references and newtypes
-  Theta.Reference' name'
-    | name' == name -> True
-    | otherwise     -> case Theta.lookupName name' module_ of
-        Right type_ -> refersTo type_ name
-        Left _err   -> False
-  Theta.Newtype' _ type_ -> refersTo type_ name
+refersTo t@Theta.Type { Theta.module_ } name =
+  evalState (go t) Set.empty
+  where go t = case Theta.baseType t of
+          -- references and newtypes
+          Theta.Reference' name'
+            | name' == name -> pure True
+            | otherwise     -> case Theta.lookupName name' module_ of
+                Right type_ -> go type_
+                Left _err   -> pure False
+          Theta.Newtype' _ type_ -> go type_
 
-  -- containers
-  Theta.Array' _        -> False -- already on heap
-  Theta.Map' _          -> False -- already on heap
-  Theta.Optional' type_ -> refersTo type_ name
+          -- containers
+          Theta.Array' _        -> pure False -- already on heap
+          Theta.Map' _          -> pure False -- already on heap
+          Theta.Optional' type_ -> go type_
 
-  -- structured types
-  Theta.Enum' name' _ -> name == name'
+          -- structured types
+          Theta.Enum' name' _ -> whenUnseen name' $ pure (name == name')
 
-  Theta.Record' name' fields
-    | name' == name -> True
-    | otherwise     -> fieldsReference fields
+          Theta.Record' name' fields
+            | name' == name -> pure True
+            | otherwise     -> whenUnseen name' $ fieldsReference fields
 
-  Theta.Variant' name' cases
-    | name' == name           -> True
-    | name `elem` names cases -> True
-    | otherwise               -> any fieldsReference $ Theta.caseParameters <$> cases
+          Theta.Variant' name' cases
+            | name' == name           -> pure True
+            | name `elem` names cases -> pure True
+            | otherwise               -> whenUnseen name' $
+              or <$> mapM fieldsReference (Theta.caseParameters <$> cases)
 
-  -- primitive types
-  -- (listed explicitly to raise a warning if we add new kinds of
-  -- types to Theta)
-  Theta.Bool'     -> False
-  Theta.Bytes'    -> False
-  Theta.Int'      -> False
-  Theta.Long'     -> False
-  Theta.Float'    -> False
-  Theta.Double'   -> False
-  Theta.String'   -> False
-  Theta.Date'     -> False
-  Theta.Datetime' -> False
+          -- primitive types
+          -- (listed explicitly to raise a warning if we add new kinds of
+          -- types to Theta)
+          Theta.Bool'     -> pure False
+          Theta.Bytes'    -> pure False
+          Theta.Int'      -> pure False
+          Theta.Long'     -> pure False
+          Theta.Float'    -> pure False
+          Theta.Double'   -> pure False
+          Theta.String'   -> pure False
+          Theta.Date'     -> pure False
+          Theta.Datetime' -> pure False
 
-  where names cases = Theta.caseName <$> cases
+        names cases = Theta.caseName <$> cases
 
         fieldsReference Theta.Fields { Theta.fields } =
-          any (`refersTo` name) $ Theta.fieldType <$> fields
+          or <$> mapM go (Theta.fieldType <$> fields)
+
+        whenUnseen name doThis = do
+          seen <- get
+          if Set.member name seen
+            then pure False
+            else modify (Set.insert name) *> doThis

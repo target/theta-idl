@@ -1,19 +1,20 @@
-name: CI
+# Additional tests run on merge into stage
+name: Stage Tests
 
 on:
-  pull_request:
   push:
-  workflow_dispatch:
+    branches:
+      - 'stage'
 
 jobs:
-  build:
+  stack-test:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v12
+        uses: cachix/install-nix-action@v15
 
       - name: Cachix
         uses: cachix/cachix-action@v10
@@ -21,21 +22,13 @@ jobs:
           name: theta-idl
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-      - name: Build Theta
-        run: nix-build theta
-
       - name: Cache Stack Dependencies
         uses: actions/cache@v2
         with:
           path: |
             ~/.stack
             .stack-work
-          key: ${{ runner.os }}-stack-${{ hashFiles('theta/stack.yaml.lock', 'theta/theta.cabal') }}
-          restore-keys: |
-            ${{ runner.os }}-stack
+          key: ${{ runner.os }}-stack-work-${{ hashFiles('theta/stack.yaml.lock', 'theta/theta.cabal') }}
 
       - name: Stack Test
         run: ci/stack-test ./theta
-
-      - name: Cross-Language Tests
-        run: nix-build test

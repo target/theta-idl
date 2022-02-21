@@ -2,7 +2,7 @@ cabal-version:  2.2
 name:           theta
 version:        1.0.0.0
 synopsis:       Share algebraic data types across different languages with Avro.
-description:    Use algebraic data types to define data formats that work across different languages. Theta is an interface description language (IDL) designed around Avro.
+description:    Use algebraic data types to define data formats that work across different languages. Theta lets you use a single set of types to generate Avro schemas as well as types that serialize and deserialize to those schemas in Python, Haskell and Rust.
 license:        Apache-2.0
 category:       Language
 build-type:     Simple
@@ -39,15 +39,20 @@ common shared
                , bytestring
                , containers
                , deepseq
-               , Diff
+               , exceptions
                , filepath
                , hashable
                , indexed-traversable
+               , monad-control
                , megaparsec
                , mtl
                , prettyprinter
+               , prettyprinter-ansi-terminal
                , pureMD5
                , QuickCheck
+               , streamly ==0.8.1.*
+               , streamly-bytestring ==0.1.4
+               , streamly-process ==0.2.*
                , string-interpolate >= 0.2.1
                , template-haskell
                , text
@@ -77,6 +82,7 @@ library
                     , Theta.Versions
 
                     , Theta.Target.Avro.Error
+                    , Theta.Target.Avro.Process
                     , Theta.Target.Avro.Types
                     , Theta.Target.Avro.Values
 
@@ -102,12 +108,16 @@ test-suite tests
   type:               exitcode-stdio-1.0
   main-is:            Test.hs
   hs-source-dirs:     test
-  other-modules:      Test.Theta.Import
+  other-modules:      Test.Assertions
+                      
+                    , Test.Theta.Import
                     , Test.Theta.Name
                     , Test.Theta.Parser
                     , Test.Theta.Types
+                    , Test.Theta.Value
                     , Test.Theta.Versions
 
+                    , Test.Theta.Target.Avro.Process
                     , Test.Theta.Target.Avro.Types
                     , Test.Theta.Target.Avro.Values
 
@@ -128,8 +138,10 @@ test-suite tests
 
   build-depends:      theta
 
+                    , Diff
                     , directory
                     , stache >=2.3.1 && <3
+                    , tree-diff >=0.2 && <0.3
 
                     , tasty
                     , tasty-golden

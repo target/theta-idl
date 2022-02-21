@@ -163,7 +163,7 @@ test_enum = testGroup "enum"
 
   , testCase "three cases" $ do
       check (typeToAvro "1.0.0" $ get "test.EnumThree") $
-        Avro.Enum "test.EnumThree" [] Nothing ["one", "Two", "two"]      
+        Avro.Enum "test.EnumThree" [] Nothing ["one", "Two", "two"]
   ]
 
 test_record :: TestTree
@@ -406,7 +406,7 @@ check :: (Show a, Eq a)
       => StateT (Set Name) (Either Theta.Error) a
       -> a
       -> Assertion
-check result expected = assertSuccess (evalStateT result Set.empty) expected
+check result = assertSuccess $ evalStateT result Set.empty
 
 assertSuccess :: (Theta.Pretty err, Eq a, Show a)
               => Either err a

@@ -19,14 +19,19 @@ import           Text.Megaparsec         hiding (optional)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import qualified Theta.Metadata          as Metadata
 import           Theta.Metadata          (Version)
+import qualified Theta.Metadata          as Metadata
 import           Theta.Parser
 import           Theta.Types
 
 tests :: TestTree
 tests = testGroup "Parser"
-  [ testGroup "primitive types"
+  [ testGroup "metadata"
+    [ test_metadata
+    , test_metadataComments
+    ]
+
+  , testGroup "primitive types"
     [ test_bool
     , test_bytes
     , test_int
@@ -51,7 +56,7 @@ tests = testGroup "Parser"
     , test_newtype
     , test_reference
     ]
-    
+
   , testGroup "documentation"
     [ test_doc
     , test_docTypes
@@ -59,6 +64,49 @@ tests = testGroup "Parser"
 
   , test_backwardsCompatibility
   ]
+
+-- * Metadata
+
+test_metadata :: TestTree
+test_metadata = testCase "Metadata" $
+  go (metadataSection "test") testMetadataSection ?= testMetadata "1.0.0"
+  where go parser input = parse parser "<test>" input
+
+test_metadataComments :: TestTree
+test_metadataComments = testGroup "Metadata with comments"
+  [ testCase "end-of-line" $ check [__i|
+      language-version: 1.0.0 // some language version
+      avro-version: 1.0.0 /* yay */
+      ---
+    |]
+
+  , testCase "before" $ check [__i|
+      // Comments before
+      /* More comments before
+       */
+      language-version: 1.0.0
+      avro-version: 1.0.0
+      ---
+    |]
+
+   , testCase "after" $ check [__i|
+       language-version: 1.0.0
+       avro-version: 1.0.0
+       /* after */
+       // after
+       ---
+       // also after?
+     |]
+
+    , testCase "interspersed" $ check [__i|
+        language-version: /* blarg? */ 1.0.0
+        // stuff
+        avro-version: /* yep */ 1.0.0
+        ---
+      |]
+  ]
+  where check input =
+          parse (metadataSection "test") "<test>" input ?= testMetadata "1.0.0"
 
 -- * Primitive Types
 
@@ -305,12 +353,12 @@ test_newtype = testCase "Newtype" $ do
 
 test_reference :: TestTree
 test_reference = testCase "Reference" $ do
-  parse' "1.0.0" reference "test.Foo" ?= (BaseType' $ Reference' "test.Foo")
-  parse' "1.0.0" atom "test.Bar"      ?= (BaseType' $ Reference' "test.Bar")
+  parse' "1.0.0" reference "test.Foo" ?= BaseType' (Reference' "test.Foo")
+  parse' "1.0.0" atom "test.Bar"      ?= BaseType' (Reference' "test.Bar")
 
   -- "Long" is a substring of "Longs"
-  parse' "1.0.0" reference "test.Longs" ?= (BaseType' $ Reference' "test.Longs")
-  parse' "1.0.0" atom "test.Longs"      ?= (BaseType' $ Reference' "test.Longs")
+  parse' "1.0.0" reference "test.Longs" ?= BaseType' (Reference' "test.Longs")
+  parse' "1.0.0" atom "test.Longs"      ?= BaseType' (Reference' "test.Longs")
 
 -- * Documentation
 
@@ -371,7 +419,7 @@ test_doc = testGroup "doc comments"
       assertFails $ parse' "1.0.0" (moduleBody "foo") wrong
   ]
   where parseDoc doc = fromJust . getDoc <$>
-          parse' "1.0.0" definition (doc <> "\ntype Foo = Int")
+          parse' "1.0.0" (withDoc definition) (doc <> "\ntype Foo = Int")
 
 -- test how documentation is parsed and included in type definitions
 test_docTypes :: TestTree
@@ -394,6 +442,16 @@ test_docTypes = testGroup "docs on types"
       parse' "1.0.0" (moduleBody "test") alias ?=
         [DefinitionStatement
          (Definition "test.Foo" (Just $ Doc "Foo is an Int!") (BaseType' Int'))]
+
+  , testCase "enums" $ do
+      let enum = wrapModule [__i|
+            /// Foo is an enum!
+            enum Foo = Bar | Baz
+          |]
+          type_ = BaseType' (Enum' "test.Foo" ["Bar", "Baz"])
+      parse' "1.1.0" (moduleBody "test") enum ?=
+        [DefinitionStatement
+         (Definition "test.Foo" (Just $ Doc "Foo is an enum!") type_)]
 
   , testGroup "records"
     [ testCase "definitions" $ do
@@ -469,28 +527,35 @@ test_docTypes = testGroup "docs on types"
 test_backwardsCompatibility :: TestTree
 test_backwardsCompatibility = testGroup "backwards compatibility"
   [ testCase "enum <1.1.0" $ do
-      let enum = "enum Foo = Bar | Baz"
-      assertFails $ parse' "1.0.0" statement enum
+      let enum = "enums Foo = Bar | Baz"
+          expectedError = versionError "enum" "1.1.0" "1.0.0"
+      assertFailsWith expectedError $ parse' "1.0.0" statement enum
   ]
 
 -- * Utilities
 
 parse' :: Version -> Parser a -> Text -> Either (ParseErrorBundle Text Void) a
-parse' languageVersion parser input =
-  parse (runReaderT parser testMetadata) "<tests>" input
-  where testMetadata = Metadata.Metadata
-          { Metadata.languageVersion
-          , Metadata.avroVersion = "1.0.0"
-          , Metadata.moduleName  = "test"
-          }
+parse' languageVersion parser = parse (runReaderT parser $ testMetadata languageVersion) "<tests>"
+
+testMetadata :: Version -> Metadata.Metadata
+testMetadata languageVersion = Metadata.Metadata
+  { Metadata.languageVersion
+  , Metadata.avroVersion = "1.0.0"
+  , Metadata.moduleName  = "test"
+  }
+
+testMetadataSection :: Text
+testMetadataSection = [__i|
+    language-version: 1.0.0
+    avro-version: 1.0.0
+    ---
+  |]
 
 -- | Add version metadata on top of the given module body so that it
 -- can be parsed with moduleBody.
 wrapModule :: Text -> Text
 wrapModule body = [__i|
-    language-version: 1.0.0
-    avro-version: 1.0.0
-    ---
+    #{testMetadataSection}
     #{body}
   |]
 
@@ -499,6 +564,22 @@ wrapModule body = [__i|
 assertFails :: Show b => Either a b -> Assertion
 assertFails = \case
   Left _    -> pure ()
+  Right res -> assertFailure [__i|
+      expected: parser to fail with error
+      but got: #{show res}
+    |]
+
+-- | Assert that a parser fails with a fancy error that has the given
+-- message.
+assertFailsWith :: (Show a) => String -> Either (ParseErrorBundle Text Void) a -> Assertion
+assertFailsWith expectedMessage = \case
+  Left (ParseErrorBundle [FancyError _ [ErrorFail message]] _) ->
+    message @?= expectedMessage
+  Left unexpected ->
+    assertFailure [__i|
+      Expected a single fancy error from fail but got:
+      #{errorBundlePretty unexpected}
+    |]
   Right res -> assertFailure [__i|
       expected: parser to fail with error
       but got: #{show res}
@@ -529,4 +610,3 @@ Left err ?= expected     = assertFailure [__i|
     but got parse error:
     #{errorBundlePretty err}
   |]
-

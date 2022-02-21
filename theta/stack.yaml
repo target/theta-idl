@@ -5,9 +5,13 @@ extra-deps:
 - git: https://github.com/stackbuilders/stache.git
   commit: f4e3b3f39efcdbb31588dd2a3f2fa73717094baf
 - aeson-2.0.3.0
-- OneTuple-0.3.1
 - attoparsec-0.14.4
 - hashable-1.4.0.2
+- OneTuple-0.3.1
 - semialign-1.2.0.1
+- streamly-0.8.1.1
+- streamly-bytestring-0.1.4
+- streamly-process-0.2.0
 - text-short-0.1.5
 - time-compat-1.9.6.1
+- unicode-data-0.3.0
