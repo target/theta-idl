@@ -15,6 +15,9 @@ from theta_python_tests.newtype import NewtypeRecord
 
 import theta_python_tests.shadowing as shadowing
 
+import theta_python_tests.com.example.nested as nested
+import theta_python_tests.com.example.importing_nested as importing_nested
+
 ints = integers(min_value=-0x80000000, max_value=0x7FFFFFFF)
 longs = integers(min_value=-0x8000000000000000, max_value=0x7FFFFFFFFFFFFFFF)
 
@@ -100,6 +103,14 @@ class TestShadowing(unittest.TestCase):
     def test_primitives(self, record):
         wrapped = shadowing.Primitives(underlying=record)
         round_trip(wrapped, shadowing.Primitives)
+
+
+class TestImportingNested(unittest.TestCase):
+    @given(ints)
+    def test_importing_nested(self, i):
+        nested_record = nested.TestRecord(i)
+        wrapped = importing_nested.ImportingNested(nested_record)
+        round_trip(wrapped, importing_nested.ImportingNested)
 
 
 class TestFixedContainers(unittest.TestCase):

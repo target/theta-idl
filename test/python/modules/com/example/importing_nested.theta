@@ -1,0 +1,13 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+// This import would break older versions of the Python code generator
+// when used with an explicit prefix
+//
+// See: https://github.com/target/theta-idl/issues/43
+import com.example.nested
+
+type ImportingNested = {
+    test_field : com.example.nested.TestRecord
+}
