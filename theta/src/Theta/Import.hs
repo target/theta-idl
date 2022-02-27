@@ -1,16 +1,13 @@
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NamedFieldPuns             #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE RecursiveDo                #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE RecursiveDo           #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 -- | This module defines how we resolve and import Theta modules.
 --
@@ -18,9 +15,21 @@
 -- import other modules and be imported itself. Circular imports will
 -- not work. Naming conflicts are handled by deferring to the
 -- /importing/ module.
-module Theta.Import where
+module Theta.Import
+  ( module Theta.LoadPath
 
-import           Control.Exception      (IOException, catch, displayException)
+  , importModule
+  , resolveModule
+
+  , toPath
+  , fromPath
+
+  , getDefinition
+  , getModule
+  , getModuleDefinition
+  )
+where
+
 import           Control.Monad          (foldM, unless, when)
 import           Control.Monad.Except   (MonadError, throwError)
 import           Control.Monad.Fix      (MonadFix)
@@ -30,27 +39,22 @@ import           Control.Monad.State    (modify, runStateT)
 
 import           Data.Either            (isLeft, isRight)
 import qualified Data.Foldable          as Foldable
-import qualified Data.List              as List
 import           Data.List.NonEmpty     (NonEmpty)
-import qualified Data.List.NonEmpty     as NonEmpty
 import qualified Data.Map               as Map
 import           Data.Text              (Text)
 import qualified Data.Text              as Text
-import qualified Data.Text.IO           as Text
 import           Data.Void              (Void)
 
-import           GHC.Exts               (IsList (..), IsString (..))
+import           GHC.Exts               (IsList (..))
 
 import           System.FilePath        (joinPath, splitDirectories,
                                          takeBaseName, takeDirectory, (<.>),
                                          (</>))
-import           System.IO              (hPutStrLn, stderr)
-import           System.IO.Error        (isDoesNotExistError)
 
 import qualified Text.Megaparsec        as Megaparsec
-import           Text.Printf            (printf)
 
 import           Theta.Error            (Error (..), ModuleError (..))
+import           Theta.LoadPath
 import qualified Theta.Metadata         as Metadata
 import           Theta.Name             (Name)
 import qualified Theta.Name             as Name
@@ -179,76 +183,6 @@ getModuleDefinition loadPath moduleName = do
             throwError $ UnsupportedVersion metadata Versions.theta languageVersion
           unless (Versions.inRange Versions.avro avroVersion) $
             throwError $ UnsupportedVersion metadata Versions.avro avroVersion
-
--- ** Module load paths
-
--- | The Theta load path determines which root directories Theta
--- searches through to find module files.
---
--- When finding a module called @com.example.foo@ with a load path
--- containing @["specs", "types"]@, Theta will first try to look up
--- @specs/com/example/foo.theta@ and, if that doesn't exist, it will
--- try @types/com/example/foo.theta@.
---
--- Theta's load path can be specified as a string containing multiple
--- paths separated by colons (like a Unix-style PATH variable).
---
--- Example (with @OverloadedStrings@):
---
--- @
--- "specs:types" :: LoadPath
--- @
-newtype LoadPath = LoadPath (NonEmpty FilePath)
-  deriving stock (Eq)
-  deriving newtype (Semigroup)
-
-instance Show LoadPath where
-  show (LoadPath (NonEmpty.toList -> paths)) = "\"" <> List.intercalate ":" paths <> "\""
-
-instance IsList LoadPath where
-  type Item LoadPath = FilePath
-
-  toList (LoadPath paths) = NonEmpty.toList paths
-  fromList = \case
-    []    -> error "Cannot construct an empty LoadPath."
-    paths -> LoadPath $ NonEmpty.fromList paths
-
-instance Pretty LoadPath where
-  pretty = Text.pack . List.intercalate ":" . toList
-
--- | A 'LoadPath' is represented as a string with any number of paths
--- separated by @':'@. Example: @"/foo:/home/bob/specs:types@.
-instance IsString LoadPath where
-  fromString str = case go str of
-    []    -> error "Cannot construct an empty LoadPath."
-    paths -> fromList paths
-    where go ""  = []
-          go str = takeWhile (/= ':') str : go (drop 1 $ dropWhile (/= ':') str)
-
--- | This function tries to find the given path using every entry in
--- the load path as a root. It will lazily read the /first/ valid file
--- it finds or will throw an error.
---
--- If the file is successfully found in the load path, this also
--- returns the path the file was loaded from.
---
--- Think of this as a version of 'readFile' that tries each directory
--- in the Theta load path until it finds one that works.
-findInPath :: LoadPath -> FilePath -> IO (Maybe (Text, FilePath))
-findInPath (LoadPath paths) path = go $ NonEmpty.toList paths
-  where go []            = pure Nothing
-        go (root : rest) =
-          fetch (root </> path) `catch` \ (e :: IOException) -> do
-            unless (isDoesNotExistError e) $ do
-              let err = displayException e
-                  message =
-                    printf "Warning: failed accessing %s \
-                           \while loading path %s \
-                           \with unexpected error:\n %s" root path err
-              hPutStrLn stderr message
-            go rest
-
-        fetch path = Just . (,path) <$> Text.readFile path
 
 -- * Module resolution
 

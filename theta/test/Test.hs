@@ -3,6 +3,7 @@ module Main where
 import           Test.Tasty
 
 import qualified Test.Theta.Import                    as Import
+import qualified Test.Theta.LoadPath                  as LoadPath
 import qualified Test.Theta.Name                      as Name
 import qualified Test.Theta.Parser                    as Parser
 import qualified Test.Theta.Types                     as Types
@@ -26,6 +27,7 @@ import qualified Test.Theta.Target.Rust               as Rust
 tests :: TestTree
 tests = testGroup "Theta"
   [ Import.tests
+  , LoadPath.tests
   , Name.tests
   , Parser.tests
   , Types.tests

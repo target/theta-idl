@@ -73,6 +73,7 @@ library
 
   exposed-modules:    Theta.Error
                     , Theta.Import
+                    , Theta.LoadPath
                     , Theta.Metadata
                     , Theta.Name
                     , Theta.Parser
@@ -109,6 +110,7 @@ test-suite tests
   other-modules:      Test.Assertions
                       
                     , Test.Theta.Import
+                    , Test.Theta.LoadPath
                     , Test.Theta.Name
                     , Test.Theta.Parser
                     , Test.Theta.Types

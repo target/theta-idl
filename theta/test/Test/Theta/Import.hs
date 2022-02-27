@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
@@ -9,6 +7,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
+
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Testing how we find, load and resolve Theta modules. This covers
 -- a few distinct areas:
@@ -22,14 +22,9 @@ import           Control.Monad.Except          (runExceptT)
 
 import           Data.String.Interpolate       (__i)
 import qualified Data.Text                     as Text
-import qualified Data.Text.IO                  as Text
 
-import           System.Directory              (canonicalizePath,
-                                                withCurrentDirectory)
-import           System.FilePath               (equalFilePath, joinPath,
-                                                takeExtension, (<.>), (</>))
-
-import           Text.Printf                   (printf)
+import           System.FilePath               (joinPath, takeExtension, (<.>),
+                                                (</>))
 
 import           Theta.Error
 import           Theta.Import
@@ -55,7 +50,6 @@ tests :: TestTree
 tests = testGroup "Imports"
   [ test_toFromPath
   , test_importModule
-  , test_findInPath
   , test_getModuleDefinition
   , test_getDefinition
   ]
@@ -158,109 +152,6 @@ test_importModule = testGroup "importModule"
           (definitionName, Theta.Definition { Theta.definitionName
                                             , Theta.definitionDoc
                                             , Theta.definitionType })
-
-test_findInPath :: TestTree
-test_findInPath = testGroup "findInPath"
-  [ testCase "relative paths" $ do
-      dir <- Paths.getDataDir
-      withCurrentDirectory dir $ do
-        let loadPath = LoadPath [root1, root2]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-
-        let pathB = dir </> "test" </> "data" </> "root-2" </> "b.theta"
-        fileB <- Text.readFile pathB
-        Just (fileB', pathB') <- findInPath loadPath "b.theta"
-        assertEqualPath pathB' pathB
-        fileB' @?= fileB
-
-  , testCase "absolute paths" $ do
-      dir <- Paths.getDataDir
-      let loadPath = LoadPath [dir </> root1, dir </> root2]
-
-      let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-      fileA <- Text.readFile pathA
-      Just (fileA', pathA') <- findInPath loadPath "a.theta"
-      assertEqualPath pathA' pathA
-      fileA' @?= fileA
-
-      let pathB = dir </> "test" </> "data" </> "root-2" </> "b.theta"
-      fileB <- Text.readFile pathB
-      Just (fileB', pathB') <- findInPath loadPath "b.theta"
-      assertEqualPath pathB' pathB
-      fileB' @?= fileB
-
-  -- What if we have a .. or . in the middle of a load path?
-  --
-  -- This has caused problems in the past, for uncertain reasons.
-  , testGroup ".. and ."
-    [ testCase ".. in start" $ do
-        dir <- Paths.getDataDir
-        withCurrentDirectory (dir </> "test") $ do
-          let loadPath = LoadPath [".." </> root1]
-
-          let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-          fileA <- Text.readFile pathA
-          Just (fileA', pathA') <- findInPath loadPath "a.theta"
-          assertEqualPath pathA' pathA
-          fileA' @?= fileA
-
-    , testCase ".. in middle" $ do
-        dir <- Paths.getDataDir
-        let loadPath = LoadPath [dir </> "test" </> ".." </> root1]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-
-    , testCase ". in start" $ do
-        dir <- Paths.getDataDir
-        let loadPath = LoadPath ["." </> dir </> root1]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-
-    , testCase ". in middle" $ do
-        dir <- Paths.getDataDir
-        let loadPath = LoadPath [dir </> "." </> root1]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-    ]
-
-  , testCase "missing files" $ do
-      dir <- Paths.getDataDir
-      let loadPath = LoadPath [dir </> root1, dir </> root2]
-
-      a <- findInPath loadPath ("blarg" </> "foo.theta")
-      a @?= Nothing
-
-      b <- findInPath "nope" "a.theta"
-      b @?= Nothing
-
-      c <- findInPath (LoadPath [dir </> root1]) "b.theta"
-      c @?= Nothing
-  ]
-  where root1 = "test" </> "data" </> "root-1"
-        root2 = "test" </> "data" </> "root-2"
-
-        assertEqualPath got expected = do
-          got'      <- canonicalizePath got
-          expected' <- canonicalizePath expected
-          assertBool (printf "expected: %s\n but got: %s" expected' got') $
-            equalFilePath got' expected'
 
 test_getModuleDefinition :: TestTree
 test_getModuleDefinition = testGroup "getModuleDefinition"
