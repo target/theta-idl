@@ -174,11 +174,11 @@ getModuleDefinition loadPath moduleName = do
   body     <- parse' $ runReaderT (Parser.moduleBody moduleName) metadata
 
   pure (ModuleDefinition metadata body, path)
-  where checkVersions Metadata.Metadata { Metadata.avroVersion, Metadata.languageVersion } = do
+  where checkVersions metadata@Metadata.Metadata { Metadata.avroVersion, Metadata.languageVersion } = do
           unless (Versions.inRange Versions.theta languageVersion) $
-            throwError $ UnsupportedVersion moduleName Versions.theta languageVersion
+            throwError $ UnsupportedVersion metadata Versions.theta languageVersion
           unless (Versions.inRange Versions.avro avroVersion) $
-            throwError $ UnsupportedVersion moduleName Versions.avro avroVersion
+            throwError $ UnsupportedVersion metadata Versions.avro avroVersion
 
 -- ** Module load paths
 

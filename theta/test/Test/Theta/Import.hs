@@ -284,10 +284,10 @@ test_getModuleDefinition = testGroup "getModuleDefinition"
   ]
   where
     unsupported (name, range, version) = \case
-      Left (UnsupportedVersion name' range' version') -> do
-        name'    @?= name
-        range'   @?= range
-        version' @?= version
+      Left (UnsupportedVersion metadata range' version') -> do
+        Metadata.moduleName metadata @?= name
+        range'                       @?= range
+        version'                     @?= version
       Left err ->
         assertFailure $ "Raised wrong kind of error. Expected UnsupportedVersion, got:\n" <> show err
       Right _  ->

@@ -21,7 +21,8 @@ import           Data.Void              (Void)
 
 import qualified Text.Megaparsec        as Megaparsec
 
-import           Theta.Metadata         (Version)
+import           Theta.Metadata         (Metadata, Version)
+import qualified Theta.Metadata         as Metadata
 import           Theta.Name             (ModuleName, Name)
 import qualified Theta.Name             as Name
 import           Theta.Pretty           (Pretty (..), p)
@@ -40,7 +41,7 @@ data Error = ParseError ParseError
            | IOError IOError
              -- ^ An error in reading or writing files
              -- (including importing modules).
-           | UnsupportedVersion ModuleName Range Version
+           | UnsupportedVersion Metadata Range Version
              -- ^ A module requires a language or encoding version
              -- that is not supported by this release of Theta.
            | InvalidModule [(ModuleName, ModuleError)]
@@ -150,9 +151,15 @@ instance Pretty Error where
     ParseError err -> Text.pack $ Megaparsec.errorBundlePretty err
     IOError err    -> Text.pack $ displayException err
 
-    UnsupportedVersion moduleName range version ->
+    UnsupportedVersion metadata range version ->
       [p|
-        The ‘#{pretty moduleName}’ module requires #{name range} = #{pretty version}, but this release of Theta only supports #{name range} ≥ #{pretty $ lower range} and < #{pretty $ upper range}.
+        The ‘#{pretty $ Metadata.moduleName metadata}’ module requires
+
+          #{name range} = #{pretty version}
+
+        but this release of Theta only supports
+
+          #{name range} ≥ #{pretty $ lower range} and < #{pretty $ upper range}
         |]
     InvalidModule errs ->
       [p|
