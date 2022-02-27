@@ -133,7 +133,7 @@ getModule :: forall m. (MonadIO m, MonadError Error m, MonadFix m)
           -> m Module
 getModule loadPath moduleName = do
   (definition, _) <- getModuleDefinition loadPath moduleName
-  (module_, _)    <- resolveModule loadPath moduleName definition
+  (module_, _)    <- resolveModule loadPath definition
   pure module_
 
 -- | Fetches and parses a module, searching through the set of paths
@@ -265,15 +265,11 @@ findInPath (LoadPath paths) path = go $ NonEmpty.toList paths
 resolveModule :: (MonadFix m, MonadIO m, MonadError Error m)
               => LoadPath
               -- ^ The load path to search for imported modules.
-              -> Name.ModuleName
-              -- ^ The name of the module being resolved. The final
-              -- result of this function will be a module with this
-              -- name.
               -> ModuleDefinition
               -- ^ The header and body of the module as parsed from a
               -- file.
               -> m (Module, [FilePath])
-resolveModule loadPath moduleName ModuleDefinition { header, body } = do
+resolveModule loadPath moduleDefinition@ModuleDefinition { header, body } = do
   -- recursive do here is used to validate names because named types
   -- can be defined lexically *after* they are used
   --
@@ -285,48 +281,54 @@ resolveModule loadPath moduleName ModuleDefinition { header, body } = do
     []   -> pure (finalModule, paths)
     errs -> throwError $ InvalidModule errs
   where
+    moduleName = moduleDefinitionName moduleDefinition
+
     resolve finalModule = foldM go (Module moduleName Map.empty [] header, []) body
       where
         go (module_, dependencies) (DefinitionStatement definition)  = do
           let Definition {..} = definition
           when (isRight $ lookupName definitionName module_) $
-            modify ((moduleName, DuplicateTypeName definitionName) :)
+            modify ((moduleDefinition, DuplicateTypeName definitionName) :)
 
           let type_       = withModule finalModule definitionType
               definition' = definition { definitionType = type_ }
               module'     =
                 module_ { types = Map.insert definitionName definition' $ types module_ }
 
-          modify (validateType type_ <>)
+          modify (validateType moduleDefinition type_ <>)
           pure (module', dependencies)
 
         go (module_, dependencies) (ImportStatement import_) = do
           (definition, importPath) <- getModuleDefinition loadPath import_
-          (imported, _)            <- resolveModule loadPath import_ definition
+          (imported, _)            <- resolveModule loadPath definition
           pure (importModule imported module_, importPath : dependencies)
 
 -- | Recursively collect errors about types (duplicate fields,
 -- missing references... etc)
-validateType :: Type
+validateType :: ModuleDefinition
+             -- ^ The definition of the module we're validating.
+             -> Type
              -- ^ The type to validate. If the type has other types
              -- (ie it's a container, record or variant), those types
              -- will also be validated.
-             -> [(Name.ModuleName, ModuleError)]
+             -> [(ModuleDefinition, ModuleError)]
              -- ^ A list of errors along with the module that caused
              -- them.
-validateType Type { module_, baseType } = case baseType of
+validateType moduleDefinition Type { module_, baseType } = case baseType of
   Record' name Fields { fields } ->
-    duplicateFields name fields <> (validateType . fieldType =<< fields)
+    duplicateFields name fields <>
+    (validateType moduleDefinition . fieldType =<< fields)
   Variant' name cases            ->
-    duplicateCases name (Foldable.toList cases) <> (validateType =<< caseTypes cases)
+    duplicateCases name (Foldable.toList cases) <>
+    (validateType moduleDefinition =<< caseTypes cases)
 
   Reference' name     ->
-    [(moduleName module_, UndefinedType name) | isLeft $ lookupName name module_]
+    [(moduleDefinition, UndefinedType name) | isLeft $ lookupName name module_]
 
-  Array' type_        -> validateType type_
-  Map' type_          -> validateType type_
-  Optional' type_     -> validateType type_
-  Newtype' _ type_    -> validateType type_
+  Array' type_        -> validateType moduleDefinition type_
+  Map' type_          -> validateType moduleDefinition type_
+  Optional' type_     -> validateType moduleDefinition type_
+  Newtype' _ type_    -> validateType moduleDefinition type_
   _                   -> []
 
   where caseTypes :: NonEmpty (Case Type) -> [Type]
@@ -334,16 +336,16 @@ validateType Type { module_, baseType } = case baseType of
           map fieldType . fields . caseParameters =<< cases
 
         duplicateFields recordName fields =
-          [ (moduleName module_, DuplicateRecordField recordName fieldName)
+          [ (moduleDefinition, DuplicateRecordField recordName fieldName)
           | (fieldName, quantity) <- count $ fieldName <$> fields, quantity > 1 ]
 
         duplicateCases variantName cases = duplicateCases <> duplicateFields
           where
             duplicateCases =
-              [ (moduleName module_, DuplicateCaseName variantName caseName)
+              [ (moduleDefinition, DuplicateCaseName variantName caseName)
               | (caseName, quantity) <- count $ caseName <$> cases, quantity > 1 ]
             duplicateFields =
-              [ (moduleName module_, DuplicateCaseField variantName caseName fieldName)
+              [ (moduleDefinition, DuplicateCaseField variantName caseName fieldName)
               | Case { caseName, caseParameters } <- cases
               , (fieldName, quantity) <- count $ fieldName <$> fields caseParameters
               , quantity > 1

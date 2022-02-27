@@ -742,6 +742,10 @@ data ModuleDefinition = ModuleDefinition
   , body   :: ![Statement]
   } deriving (Show)
 
+-- | The name of the module for this definition.
+moduleDefinitionName :: ModuleDefinition -> ModuleName
+moduleDefinitionName ModuleDefinition { header } = Metadata.moduleName header
+
 -- | A Theta statement is either a definition or an import. A Theta
 -- file is a sequence of statements; the imports need to be imported
 -- before it represents a module.

@@ -155,7 +155,7 @@ loadModule :: Import.LoadPath
 loadModule loadPath moduleName = do
   (module_, moduleFiles) <- runTheta $ do
     (definition, path) <- Import.getModuleDefinition loadPath moduleName
-    (module_, paths)   <- Import.resolveModule loadPath moduleName definition
+    (module_, paths)   <- Import.resolveModule loadPath definition
     pure (module_, path : paths)
 
   -- tells GHC it needs to recompile the module if any of the loaded
