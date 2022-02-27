@@ -59,7 +59,6 @@ import qualified Theta.Metadata         as Metadata
 import           Theta.Name             (Name)
 import qualified Theta.Name             as Name
 import qualified Theta.Parser           as Parser
-import           Theta.Pretty           (Pretty (..))
 import           Theta.Types
 import qualified Theta.Versions         as Versions
 
@@ -166,7 +165,7 @@ getModuleDefinition loadPath moduleName = do
 
   (contents, path) <- case loaded of
     Just success -> pure success
-    Nothing      -> throwError $ MissingModule (pretty loadPath) moduleName
+    Nothing      -> throwError $ MissingModule loadPath moduleName
 
   let parse' :: Megaparsec.Parsec Void Text a -> m a
       parse' parser = case Megaparsec.parse parser path contents of

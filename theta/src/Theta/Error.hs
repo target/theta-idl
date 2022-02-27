@@ -22,6 +22,7 @@ import           Data.Void              (Void)
 
 import qualified Text.Megaparsec        as Megaparsec
 
+import           Theta.LoadPath         (LoadPath)
 import           Theta.Metadata         (Metadata, Version)
 import qualified Theta.Metadata         as Metadata
 import           Theta.Name             (ModuleName, Name)
@@ -56,7 +57,7 @@ data Error = ParseError ParseError
            | UnqualifiedName Text
              -- ^ The given name does not have a namespace where a
              -- namespace is required.
-           | MissingModule Text ModuleName
+           | MissingModule LoadPath ModuleName
              -- ^ The given module was not found.
            | MissingName Name
              -- ^ The given fully-qualified name was not found.
@@ -180,7 +181,7 @@ instance Pretty Error where
         |]
     MissingModule loadPath moduleName ->
       [p|
-        The module ‘#{moduleName}’ was not found in ‘#{loadPath}’.
+        The module ‘#{moduleName}’ was not found in load path ‘#{pretty loadPath}’.
         |]
     MissingName Name.Name { Name.name, Name.moduleName } ->
       [p|
