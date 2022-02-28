@@ -221,14 +221,14 @@ resolveModule loadPath moduleDefinition@ModuleDefinition { header, body } = do
         go (module_, dependencies) (DefinitionStatement definition)  = do
           let Definition {..} = definition
           when (isRight $ lookupName definitionName module_) $
-            modify ((moduleDefinition, DuplicateTypeName definitionName) :)
+            modify ((finalModule, DuplicateTypeName definitionName) :)
 
           let type_       = withModule finalModule definitionType
               definition' = definition { definitionType = type_ }
               module'     =
                 module_ { types = Map.insert definitionName definition' $ types module_ }
 
-          modify (validateType moduleDefinition type_ <>)
+          modify (validateType type_ <>)
           pure (module', dependencies)
 
         go (module_, dependencies) (ImportStatement import_) = do
@@ -238,30 +238,28 @@ resolveModule loadPath moduleDefinition@ModuleDefinition { header, body } = do
 
 -- | Recursively collect errors about types (duplicate fields,
 -- missing references... etc)
-validateType :: ModuleDefinition
-             -- ^ The definition of the module we're validating.
-             -> Type
+validateType :: Type
              -- ^ The type to validate. If the type has other types
              -- (ie it's a container, record or variant), those types
              -- will also be validated.
-             -> [(ModuleDefinition, ModuleError)]
+             -> [(Module, ModuleError)]
              -- ^ A list of errors along with the module that caused
              -- them.
-validateType moduleDefinition Type { module_, baseType } = case baseType of
+validateType Type { module_, baseType } = case baseType of
   Record' name Fields { fields } ->
     duplicateFields name fields <>
-    (validateType moduleDefinition . fieldType =<< fields)
+    (validateType . fieldType =<< fields)
   Variant' name cases            ->
     duplicateCases name (Foldable.toList cases) <>
-    (validateType moduleDefinition =<< caseTypes cases)
+    (validateType =<< caseTypes cases)
 
   Reference' name     ->
-    [(moduleDefinition, UndefinedType name) | isLeft $ lookupName name module_]
+    [(module_, UndefinedType name) | isLeft $ lookupName name module_]
 
-  Array' type_        -> validateType moduleDefinition type_
-  Map' type_          -> validateType moduleDefinition type_
-  Optional' type_     -> validateType moduleDefinition type_
-  Newtype' _ type_    -> validateType moduleDefinition type_
+  Array' type_        -> validateType type_
+  Map' type_          -> validateType type_
+  Optional' type_     -> validateType type_
+  Newtype' _ type_    -> validateType type_
   _                   -> []
 
   where caseTypes :: NonEmpty (Case Type) -> [Type]
@@ -269,16 +267,16 @@ validateType moduleDefinition Type { module_, baseType } = case baseType of
           map fieldType . fields . caseParameters =<< cases
 
         duplicateFields recordName fields =
-          [ (moduleDefinition, DuplicateRecordField recordName fieldName)
+          [ (module_, DuplicateRecordField recordName fieldName)
           | (fieldName, quantity) <- count $ fieldName <$> fields, quantity > 1 ]
 
         duplicateCases variantName cases = duplicateCases <> duplicateFields
           where
             duplicateCases =
-              [ (moduleDefinition, DuplicateCaseName variantName caseName)
+              [ (module_, DuplicateCaseName variantName caseName)
               | (caseName, quantity) <- count $ caseName <$> cases, quantity > 1 ]
             duplicateFields =
-              [ (moduleDefinition, DuplicateCaseField variantName caseName fieldName)
+              [ (module_, DuplicateCaseField variantName caseName fieldName)
               | Case { caseName, caseParameters } <- cases
               , (fieldName, quantity) <- count $ fieldName <$> fields caseParameters
               , quantity > 1
