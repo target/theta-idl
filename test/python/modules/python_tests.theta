@@ -19,3 +19,5 @@ import variant
 import newtype
 
 import shadowing
+
+import com.example.importing_nested
