@@ -100,9 +100,11 @@
       (version-separator (version "---" statement))
       (version-number)
 
-      (statement ("import" id)
-                 ("type" type-definition)
-                 ("alias" alias-definition))
+      (statement
+       ("import" id)
+       ("type" type-definition)
+       ("enum" type-definition)
+       ("alias" alias-definition))
 
       (type-definition (id "=" type-body))
       (alias-definition (id "=" id))
@@ -136,6 +138,7 @@
     ;; Top-level keywords never need to be indented (declarations like
     ;; `type Foo = ...` always start at the beginning of the line)
     (`(:before . "type") '(column . 0))
+    (`(:before . "enum") '(column . 0))
     (`(:before . "alias") '(column . 0))
     (`(:before . "import") '(column . 0))
 
