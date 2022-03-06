@@ -32,6 +32,16 @@
   "Types that are built into Theta, indexed by the version of
   Theta they were introduced in.")
 
+(defconst theta-doc-line-comment
+  '(: "///" (0+ not-newline) line-end)
+  "`rx' expression for Theta line documentation comments ('///
+...')")
+
+(defconst theta-doc-block-comment
+  '(: "/**" (0+ (| (not "*") (: "*" (not "/")))) (| "*/" string-end))
+  "`rx' expression for Theta block documentation comments ('/**
+... */').")
+
 (defconst theta-font-lock-version-constraints
   (list
    (rx-to-string
@@ -75,12 +85,19 @@
     `(: word-start (or ,@theta-primitive-types) word-end))
    '(0 font-lock-builtin-face)))
 
+(defconst theta-font-lock-doc
+  (list
+   (rx-to-string
+    `(| ,theta-doc-line-comment ,theta-doc-block-comment))
+   '(0 font-lock-doc-face t)))
+
 (defconst theta-font-lock-keywords
   (list theta-font-lock-version-constraints
         theta-font-lock-definitions
         theta-font-lock-field-definitions
         theta-font-lock-imports
-        theta-font-lock-builtin))
+        theta-font-lock-builtin
+        theta-font-lock-doc))
 
                                         ; Indentation
 (defcustom theta-indent-level 4
