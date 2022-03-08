@@ -7,7 +7,7 @@
 
 module Apps.Avro where
 
-import           Control.Monad           (forM_, when)
+import           Control.Monad           (forM_)
 import           Control.Monad.IO.Class  (liftIO)
 
 import qualified Data.Aeson              as Aeson
@@ -119,21 +119,17 @@ runAll AllOptions { target, moduleNames } loadPath = do
 
   forM_ (Theta.transitiveImports modules) $ \ module_ -> do
     forM_ (Theta.types module_) $ \ definition ->
-      when (isExportable $ Theta.definitionType definition) $
-        export (Theta.moduleName module_) definition
+      export (Theta.moduleName module_) definition
 
-  where isExportable Theta.Type { Theta.baseType = Theta.Record' {} }  = True
-        isExportable Theta.Type { Theta.baseType = Theta.Variant' {} } = True
-        isExportable _                                                 = False
+  where 
+      export moduleName definition = do
+        schema <- toSchema definition
+        liftIO $ do
+          let path = Text.unpack <$> Name.moduleParts moduleName
+              out  = target </> "avro" </> joinPath path
+          createDirectoryIfMissing True out
 
-        export moduleName definition = do
-          schema <- toSchema definition
-          liftIO $ do
-            let path = Text.unpack <$> Name.moduleParts moduleName
-                out  = target </> "avro" </> joinPath path
-            createDirectoryIfMissing True out
-
-            let filename =
-                  Text.unpack $ Name.name $ Theta.definitionName definition
-            LBS.writeFile (out </> filename <.> "avsc") $ Aeson.encode schema
+          let filename =
+                Text.unpack $ Name.name $ Theta.definitionName definition
+          LBS.writeFile (out </> filename <.> "avsc") $ Aeson.encode schema
 

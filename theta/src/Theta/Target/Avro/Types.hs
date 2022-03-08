@@ -61,8 +61,7 @@ import           Theta.Target.Avro.Error
 import           Theta.Types
 import qualified Theta.Versions             as Versions
 
--- | Transform a compatible Theta type into a full Avro schema. This
--- will only work with Theta records and variants.
+-- | Transform a Theta type into a full Avro schema.
 --
 -- The resulting Avro schema is /self-contained/. This means that any
 -- referenced type (record, variant... etc) is included in the schema
@@ -116,7 +115,7 @@ import qualified Theta.Versions             as Versions
 toSchema :: (MonadError Theta.Error m)
          => Definition Type
          -> m Schema
-toSchema Definition { definitionType, definitionDoc } =
+toSchema Definition { definitionType } =
   annotateVersion <$> toSchema' definitionType
   where
     annotateVersion = \case
@@ -127,8 +126,14 @@ toSchema Definition { definitionType, definitionDoc } =
         , Avro.doc     = annotation doc
         , Avro.fields  = fields
         }
-      _ -> error "Top-level Avro schema has to be a record.\n\
-                 \This is probably a bug in Theta."
+      Avro.Enum {..} -> Avro.Enum
+        { Avro.name    = name
+        , Avro.aliases = aliases
+        , Avro.doc     = annotation doc
+        , Avro.symbols  = symbols
+        }
+      -- No doc field to annotate
+      schema -> schema
 
     annotation Nothing    = Just message
     annotation (Just doc) = Just $ message <> "\\n" <> doc
@@ -138,16 +143,7 @@ toSchema Definition { definitionType, definitionDoc } =
       Type hash: #{hash definitionType}
     |]
 
-    toSchema' Type { baseType = Record' name fields } =
-      evalStateT (record name avroVersion definitionDoc fields) Set.empty
-    toSchema' Type { baseType = Variant' name cases } =
-      evalStateT (variant name avroVersion definitionDoc cases) Set.empty
-    toSchema' Type { baseType = Reference' name, module_ } =
-      case lookupDefinition name module_ of
-        Right type_ -> toSchema type_
-        Left _      -> throw $ NonExistentType name
-    toSchema' invalid                          =
-      throw $ InvalidExport invalid
+    toSchema' t = evalStateT (typeToAvro avroVersion t) Set.empty
 
     avroVersion = Metadata.avroVersion $ metadata $ module_ definitionType
 {-# SPECIALIZE toSchema :: Definition Type -> Either Theta.Error Schema #-}
