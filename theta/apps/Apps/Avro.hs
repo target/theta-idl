@@ -7,7 +7,7 @@
 
 module Apps.Avro where
 
-import           Control.Monad           (forM_, when)
+import           Control.Monad           (forM_)
 import           Control.Monad.IO.Class  (liftIO)
 
 import qualified Data.Aeson              as Aeson
