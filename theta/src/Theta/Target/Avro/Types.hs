@@ -61,8 +61,7 @@ import           Theta.Target.Avro.Error
 import           Theta.Types
 import qualified Theta.Versions             as Versions
 
--- | Transform a compatible Theta type into a full Avro schema. This
--- will only work with Theta records and variants.
+-- | Transform a Theta type into a full Avro schema.
 --
 -- The resulting Avro schema is /self-contained/. This means that any
 -- referenced type (record, variant... etc) is included in the schema
