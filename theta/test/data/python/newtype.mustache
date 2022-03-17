@@ -13,7 +13,7 @@ Newtype = 'int'
 
 @dataclass
 class NewtypeRecord:
-    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"aliases":[],"doc":"Generated with Theta {{version}}\\nType hash: 38cea8f7c32e301f5430960b45092ebf","fields":[{"aliases":[],"name":"foo","type":"int"}],"name":"newtype.NewtypeRecord","type":"record"}''')
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"aliases":[],"doc":"Generated with Theta {{version}}\\nType hash: ba7a235e5b8ce0ecfe1458f23efef65f","fields":[{"aliases":[],"name":"foo","type":"int"}],"name":"newtype.NewtypeRecord","type":"record"}''')
 
     foo: 'Newtype'
 

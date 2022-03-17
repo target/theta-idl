@@ -54,13 +54,14 @@
 module Theta.Target.Haskell where
 
 import           Control.Monad.Except
-import           Control.Monad.State             (evalState, evalStateT, get, put)
+import           Control.Monad.State             (evalState, evalStateT, get,
+                                                  put)
 
 import qualified Data.Avro                       as Avro
-import qualified Data.Avro.Encoding.ToAvro       as Avro
 import qualified Data.Avro.Encoding.FromAvro     as Avro
-import qualified Data.Avro.Internal.Get          as Avro
+import qualified Data.Avro.Encoding.ToAvro       as Avro
 import           Data.Avro.HasAvroSchema         (HasAvroSchema (..))
+import qualified Data.Avro.Internal.Get          as Avro
 import           Data.ByteString.Lazy            (ByteString)
 import qualified Data.Char                       as Char
 import           Data.Foldable                   (toList, traverse_)
@@ -74,11 +75,11 @@ import qualified Data.Set                        as Set
 import           Data.Tagged                     (Tagged (..))
 import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
-import           Data.Time.Clock                 (UTCTime)
 import           Data.Time.Calendar              (Day)
+import           Data.Time.Clock                 (UTCTime)
 import           Data.Vector                     ((!))
 import qualified Data.Vector                     as Vector
-import           Data.Versions                   (SemVer(..), VUnit(..))
+import           Data.Versions                   (SemVer (..), VUnit (..))
 
 import qualified GHC.Exts                        as Exts
 import           GHC.Generics                    (Generic)
@@ -88,7 +89,7 @@ import           Language.Haskell.TH.Syntax
 
 import           Theta.Error                     (Error)
 import qualified Theta.Import                    as Import
-import           Theta.Metadata                  (Metadata (..), Version(..))
+import           Theta.Metadata                  (Metadata (..), Version (..))
 import qualified Theta.Name                      as Name
 import qualified Theta.Pretty                    as Theta
 import qualified Theta.Types                     as Theta
@@ -97,6 +98,7 @@ import qualified Theta.Value                     as Theta
 import           Theta.Target.Avro.Types         (typeToAvro)
 import qualified Theta.Target.Avro.Values        as Theta
 
+import qualified Theta.Primitive                 as Primitive
 import qualified Theta.Target.Haskell.Conversion as Conversion
 import           Theta.Target.Haskell.HasTheta   (HasTheta (..))
 
@@ -1160,15 +1162,16 @@ variantFromTheta name (toList -> cases) =
 -- values to runtime.
 generateThetaExp :: Theta.Type -> Q Exp
 generateThetaExp type_ = case Theta.baseType type_ of
-  Theta.Bool'               -> [e| Theta.bool' |]
-  Theta.Bytes'              -> [e| Theta.bytes' |]
-  Theta.Int'                -> [e| Theta.int' |]
-  Theta.Long'               -> [e| Theta.long' |]
-  Theta.Float'              -> [e| Theta.float' |]
-  Theta.Double'             -> [e| Theta.double' |]
-  Theta.String'             -> [e| Theta.string' |]
-  Theta.Date'               -> [e| Theta.date' |]
-  Theta.Datetime'           -> [e| Theta.datetime' |]
+  Theta.Primitive' p -> case p of
+    Primitive.Bool     -> [e| Theta.bool' |]
+    Primitive.Bytes    -> [e| Theta.bytes' |]
+    Primitive.Int      -> [e| Theta.int' |]
+    Primitive.Long     -> [e| Theta.long' |]
+    Primitive.Float    -> [e| Theta.float' |]
+    Primitive.Double   -> [e| Theta.double' |]
+    Primitive.String   -> [e| Theta.string' |]
+    Primitive.Date     -> [e| Theta.date' |]
+    Primitive.Datetime -> [e| Theta.datetime' |]
 
   Theta.Array' type_        -> [e| Theta.array' $(generateThetaExp type_) |]
   Theta.Map' type_          -> [e| Theta.map' $(generateThetaExp type_) |]
@@ -1221,15 +1224,16 @@ generateThetaExp type_ = case Theta.baseType type_ of
 -- reference to their name.
 generateType :: Theta.Type -> Q Type
 generateType type_ = case Theta.baseType type_ of
-  Theta.Bool'           -> [t| Bool |]
-  Theta.Bytes'          -> [t| ByteString |]
-  Theta.Int'            -> [t| Int32 |]
-  Theta.Long'           -> [t| Int64 |]
-  Theta.Float'          -> [t| Float |]
-  Theta.Double'         -> [t| Double |]
-  Theta.String'         -> [t| Text |]
-  Theta.Date'           -> [t| Day |]
-  Theta.Datetime'       -> [t| UTCTime |]
+  Theta.Primitive' p    -> case p of
+    Primitive.Bool     -> [t| Bool |]
+    Primitive.Bytes    -> [t| ByteString |]
+    Primitive.Int      -> [t| Int32 |]
+    Primitive.Long     -> [t| Int64 |]
+    Primitive.Float    -> [t| Float |]
+    Primitive.Double   -> [t| Double |]
+    Primitive.String   -> [t| Text |]
+    Primitive.Date     -> [t| Day |]
+    Primitive.Datetime -> [t| UTCTime |]
 
   Theta.Array' items    -> [t| [$(generateType items)] |]
   Theta.Map' values     -> [t| HashMap Text $(generateType values) |]

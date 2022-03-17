@@ -112,7 +112,8 @@ test_toReference = testGroup "toReference"
       toReference variant   ??= "base::FooVariant"
       toReference newtype_  ??= "base::FooNewtype"
   ]
-  where wrap = Theta.withModule' Theta.baseModule
+  where wrap = Theta.withModule' (Theta.emptyModule "base" metadata)
+        metadata = Theta.Metadata "1.0.0" "1.0.0" "base"
 
 test_toEnum :: TestTree
 test_toEnum = testGroup "toEnum"
@@ -281,7 +282,9 @@ test_toRecord = testGroup "toRecord"
           }
         |]
   ]
-  where reference = Theta.withModule' Theta.baseModule . Theta.Reference'
+  where reference = Theta.withModule' baseModule . Theta.Reference'
+        baseModule = Theta.emptyModule "base" metadata
+        metadata = Theta.Metadata "1.0.0" "1.0.0" "base"
 
 test_toVariant :: TestTree
 test_toVariant = testGroup "toVariant"

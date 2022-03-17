@@ -320,7 +320,7 @@ test_toSchema = testCase "toSchema" $ do
       docs     = Just
         [__i|
           Generated with Theta #{Theta.packageVersion'}
-          Type hash: 9bea6d3431cc3238ff611c832dfcd4d9
+          Type hash: 00c870b76a493aaac9709ea3b9968cc5
             |]
 
   case toSchema $ getDefinition "test.OneField" of

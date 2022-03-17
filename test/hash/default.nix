@@ -9,23 +9,23 @@ let
   expected-1 = pkgs.writeTextFile {
     name = "theta-hash-expected-1";
     text = ''
-      foo.Bar	4297466238902a227cd7992783897452
-      foo.Baz	74aa1ef0f5de1b09a4eec622127f42d5
+      foo.Bar	acbc45ad628ebccf04ec52d0d275a57c
+      foo.Baz	261517de3a75f9f11bbdb3b496e08381
     '';
   };
   expected-2 = pkgs.writeTextFile {
     name = "theta-hash-expected-2";
     text = ''
-      other.Other	06d2243dbfaeca8808608638d9c05d23
-      other.OtherThing	20211f5221e58b43230122e99f51b6e4
-      foo.Bar	4297466238902a227cd7992783897452
-      foo.Baz	74aa1ef0f5de1b09a4eec622127f42d5
+      other.Other	a6fd63eefd826a232fb8bfc551200c1e
+      other.OtherThing	814fc5791e3990d5f55d07e48f560889
+      foo.Bar	acbc45ad628ebccf04ec52d0d275a57c
+      foo.Baz	261517de3a75f9f11bbdb3b496e08381
     '';
   };
   expected-enum = pkgs.writeTextFile {
     name = "theta-hash-expected-enum";
     text = ''
-      enum.Foo	10ac7250eaaf54a514d6a7789ec45570
+      enum.Foo	c8cf29e0b679d8fd4878ff397292ca56
     '';
   };
 in

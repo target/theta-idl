@@ -57,6 +57,7 @@ import           Theta.Metadata             (Version)
 import qualified Theta.Metadata             as Metadata
 import           Theta.Name                 (Name)
 import qualified Theta.Name                 as Name
+import qualified Theta.Primitive            as Theta
 import           Theta.Target.Avro.Error
 import           Theta.Types
 import qualified Theta.Versions             as Versions
@@ -309,6 +310,31 @@ nameToAvro Name.Name { Name.name, Name.moduleName } =
 namedType :: Name.Name -> Avro.Schema
 namedType = Avro.NamedType . nameToAvro
 
+-- | Convert a primitive Theta type to its corresponding Avro type.
+primitiveType :: Version
+                 -- ^ The Avro version of the *context* for this type.
+                 --
+                 -- This is the version of the module where the
+                 -- primitive type is *referenced*, either directly or
+                 -- through an alias.
+              -> Theta.Primitive
+              -> Avro.Schema
+primitiveType contextAvroVersion = \case
+  Theta.Bool     -> Avro.Boolean
+  Theta.Bytes    -> Avro.Bytes Nothing
+  Theta.Int      -> Avro.Int Nothing
+  Theta.Long     -> Avro.Long Nothing
+  Theta.Float    -> Avro.Float
+  Theta.Double   -> Avro.Double
+  Theta.String   -> Avro.String Nothing
+
+  Theta.Date
+    | contextAvroVersion < "1.1.0" -> Avro.Int Nothing
+    | otherwise                    -> Avro.Int (Just Avro.Date)
+  Theta.Datetime
+    | contextAvroVersion < "1.1.0" -> Avro.Long Nothing
+    | otherwise                    -> Avro.Long (Just Avro.TimestampMicros)
+
 -- | Transforms any Theta expression into a fragment of an Avro
 -- schema. This schema might not stand alone—for example, it could
 -- just be a reference to a named or built-in Avro type.
@@ -335,20 +361,7 @@ typeToAvro :: (MonadError Theta.Error m, MonadState (Set Name) m)
            -> Type
            -> m Schema
 typeToAvro contextAvroVersion Type { baseType, module_ } = case baseType of
-  Bool'   -> pure Avro.Boolean
-  Bytes'  -> pure $ Avro.Bytes Nothing
-  Int'    -> pure $ Avro.Int Nothing
-  Long'   -> pure $ Avro.Long Nothing
-  Float'  -> pure Avro.Float
-  Double' -> pure Avro.Double
-  String' -> pure $ Avro.String Nothing
-
-  Date'
-    | contextAvroVersion < "1.1.0" -> pure $! Avro.Int Nothing
-    | otherwise                    -> pure $! Avro.Int (Just Avro.Date)
-  Datetime'
-    | contextAvroVersion < "1.1.0" -> pure $! Avro.Long Nothing
-    | otherwise                    -> pure $! Avro.Long (Just Avro.TimestampMicros)
+  Primitive' primitive -> pure $ primitiveType contextAvroVersion primitive
 
   Array' item     -> Avro.Array <$!> typeToAvro contextAvroVersion item
   Map' value      -> Avro.Map   <$!> typeToAvro contextAvroVersion value

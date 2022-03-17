@@ -20,16 +20,13 @@ module Theta.Types where
 
 import           Control.Monad.State     (evalState, get, modify)
 
-import           Data.Binary             (Binary, encode)
-import qualified Data.ByteString.Lazy    as LBS
-import           Data.Digest.Pure.MD5    (MD5Digest, md5)
 import           Data.Either             (isRight)
 import qualified Data.Foldable           as Foldable
 import           Data.Functor.Const      (Const (..))
 import           Data.Functor.Identity   (Identity (..))
-import           Data.Hashable           (Hashable)
 import           Data.HashMap.Strict     (HashMap)
 import qualified Data.HashMap.Strict     as HashMap
+import           Data.Hashable           (Hashable)
 import           Data.List               (sortOn)
 import           Data.List.NonEmpty      (NonEmpty)
 import           Data.Map                (Map)
@@ -42,16 +39,18 @@ import qualified Data.Set                as Set
 import           Data.String.Interpolate (__i)
 import           Data.Text               (Text)
 import qualified Data.Text               as Text
-import qualified Data.Text.Encoding      as Text
 
 import           GHC.Exts                (IsList (..), IsString)
 import           GHC.Generics            (Generic)
 
+import           Theta.Hash              (Hash, hashList, hashText)
 import           Theta.Metadata          (Metadata)
 import qualified Theta.Metadata          as Metadata
 import           Theta.Name              (ModuleName, Name)
 import qualified Theta.Name              as Name
 import           Theta.Pretty            (Pretty (..), p)
+import           Theta.Primitive         (Primitive (..), hashPrimitive,
+                                          primitiveName, primitives)
 
 -- * Types
 
@@ -107,21 +106,6 @@ withModule' module_ baseType = type_
 
 -- ** Hashing
 
--- | The output of our hashing function.
---
--- Currently uses MD5 under the hood, but this might change in the
--- future—don't rely on the hashing implementation directly.
-newtype Hash = Hash MD5Digest
-  deriving newtype (Binary, Show, Eq, Ord)
-
-instance Semigroup Hash where
-  Hash a <> Hash b = toHash $ encode a <> encode b
-
--- | The hashing function we're using. Designed to be easy to
--- change—just change this function + the type underneath 'Hash'.
-toHash :: LBS.ByteString -> Hash
-toHash = Hash . md5
-
 -- | Calculate the hash of the given 'BaseType''.
 --
 -- This function calculates hash of a type based on its
@@ -161,15 +145,7 @@ hashType module_ type_ = evalState (go type_) Set.empty
     go (BaseType' baseType) = do
       case baseType of
         -- primitive types
-        Bool'     -> pure $ hashName "base.Bool"
-        Bytes'    -> pure $ hashName "base.Bytes"
-        Int'      -> pure $ hashName "base.Int"
-        Long'     -> pure $ hashName "base.Long"
-        Float'    -> pure $ hashName "base.Float"
-        Double'   -> pure $ hashName "base.Double"
-        String'   -> pure $ hashName "base.String"
-        Date'     -> pure $ hashName "base.Date"
-        Datetime' -> pure $ hashName "base.Datetime"
+        Primitive' t -> pure $ hashPrimitive t
 
         -- containers
         Array' t    -> hashArray <$> go t
@@ -177,7 +153,7 @@ hashType module_ type_ = evalState (go type_) Set.empty
         Optional' t -> hashOptional <$> go t
 
         Enum' n symbols ->
-          pure $ foldr (<>) (hashName n) $ hashText . enumSymbol <$> symbols
+          pure $ foldr (<>) (Name.hashName n) $ hashText . enumSymbol <$> symbols
 
         -- Special handling to avoid infinite recursion:
         --
@@ -187,16 +163,16 @@ hashType module_ type_ = evalState (go type_) Set.empty
         -- types.
         Record' n fields -> whenUnseen n $ do
           fieldHashes <- mapM hashField (toList fields)
-          pure $ hashName n <> hashList fieldHashes
+          pure $ Name.hashName n <> hashList fieldHashes
 
         Variant' n cases -> whenUnseen n $ do
           let caseList = sortOn caseName $ toList cases
           caseHashes <- mapM hashCase caseList
-          pure $ hashName n <> hashList (toList caseHashes)
+          pure $ Name.hashName n <> hashList (toList caseHashes)
 
         Newtype' n type_ -> do
           typeHash <- go type_
-          pure $ hashName n <> typeHash
+          pure $ Name.hashName n <> typeHash
 
         Reference' n -> case lookupName n module_ of
           Right type_ -> go $ toBaseType' type_
@@ -208,7 +184,7 @@ hashType module_ type_ = evalState (go type_) Set.empty
     whenUnseen name doThis = do
       seen <- get
       if Set.member name seen
-        then pure $ hashName name
+        then pure $ Name.hashName name
         else modify (Set.insert name) *> doThis
 
     hashArray hash    = hashText "[" <> hash <> hashText "]"
@@ -220,11 +196,7 @@ hashType module_ type_ = evalState (go type_) Set.empty
       pure $ hashText (textName fieldName) <> fieldHash
     hashCase Case { caseName, caseParameters } = do
       parameterHash <- mapM hashField (toList caseParameters)
-      pure $ hashName caseName <> hashList parameterHash
-
-    hashName = hashText . Name.render
-    hashText = toHash . LBS.fromStrict . Text.encodeUtf8
-    hashList = foldr (<>) (hashText "")
+      pure $ Name.hashName caseName <> hashList parameterHash
 
 -- ** Base Types
 
@@ -251,16 +223,7 @@ toBaseType' Type { baseType } = BaseType' $ toBaseType' <$> baseType
 -- instance is mostly meant for testing purposes.
 instance Eq BaseType' where
   (BaseType' s) == (BaseType' t) = case (s, t) of
-            -- primitive types
-            (Bool', Bool')                         -> True
-            (Bytes', Bytes')                       -> True
-            (Int', Int')                           -> True
-            (Long', Long')                         -> True
-            (Float', Float')                       -> True
-            (Double', Double')                     -> True
-            (String', String')                     -> True
-            (Date', Date')                         -> True
-            (Datetime', Datetime')                 -> True
+            (Primitive' s, Primitive' t)           -> s == t
 
             -- containers
             (Array' s, Array' t)                   -> s == t
@@ -292,19 +255,8 @@ instance Eq BaseType' where
 --  * @BaseType Type@ means that all the types /inside/ the base type
 --    have modules attached—this is what we get /after/ we've built a
 --    Theta module.
-data BaseType t = Bool'
-                | Bytes'
-                  -- ^ An array of bytes. Handy for storing arbitrary
-                  -- binary blobs.
-                | Int'
-                | Long'
-                | Float'
-                | Double'
-                | String'
-                | Date'
-                  -- ^ An absolute date, with no time attached.
-                | Datetime'
-                  -- ^ An absolute timestamp.
+data BaseType t = Primitive' Primitive
+                  -- ^ Int, String... etc
 
                 | Array' !t
                   -- ^ Arrays which have a specified type as elements
@@ -378,15 +330,7 @@ underlyingType t@Type { module_, baseType } = case baseType of
 isPrimitive :: Type -> Bool
 isPrimitive Type { baseType } = case baseType of
   -- primitive types
-  Bool'            -> True
-  Bytes'           -> True
-  Int'             -> True
-  Long'            -> True
-  Float'           -> True
-  Double'          -> True
-  String'          -> True
-  Date'            -> True
-  Datetime'        -> True
+  Primitive' {}    -> True
 
   -- non-primitive types
   Array' {}        -> False
@@ -421,15 +365,7 @@ isPrimitive Type { baseType } = case baseType of
 prettyType :: Type -> Text
 prettyType Type { baseType } = case baseType of
   -- primitive types
-  Bool'        -> "Bool"
-  Bytes'       -> "Bytes"
-  Int'         -> "Int"
-  Long'        -> "Long"
-  Float'       -> "Float"
-  Double'      -> "Double"
-  String'      -> "String"
-  Date'        -> "Date"
-  Datetime'    -> "Datetime"
+  Primitive' t -> pretty t
 
   -- containers
   Array' t     -> "[" <> prettyType t <> "]"
@@ -518,40 +454,42 @@ instance HasDoc (Case t) where
 
 -- ** Wrapped Types
 
--- $ Primitive types are part of the @base@ module ('baseModule') and
--- have canonical hashes.
-
 -- | Every single primitive type supported by this version of the
 -- Theta library.
 primitiveTypes :: [Type]
-primitiveTypes = [bool', bytes', int', long', float', double', string', date', datetime']
+primitiveTypes = wrapPrimitive <$> primitives
+
+-- | Wrap a primitive type into a type associated with the
+-- @theta.primitive@ module.
+wrapPrimitive :: Primitive -> Type
+wrapPrimitive = withModule primitiveModule . BaseType' . Primitive'
 
 bool' :: Type
-bool' = withModule baseModule $ BaseType' Bool'
+bool' = wrapPrimitive Bool
 
 bytes' :: Type
-bytes' = withModule baseModule $ BaseType' Bytes'
+bytes' = wrapPrimitive Bytes
 
 int' :: Type
-int' = withModule baseModule $ BaseType' Int'
+int' = wrapPrimitive Int
 
 long' :: Type
-long' = withModule baseModule $ BaseType' Long'
+long' = wrapPrimitive Long
 
 float' :: Type
-float' = withModule baseModule $ BaseType' Float'
+float' = wrapPrimitive Float
 
 double' :: Type
-double' = withModule baseModule $ BaseType' Double'
+double' = wrapPrimitive Double
 
 string' :: Type
-string' = withModule baseModule $ BaseType' String'
+string' = wrapPrimitive String
 
 date' :: Type
-date' = withModule baseModule $ BaseType' Date'
+date' = wrapPrimitive Date
 
 datetime' :: Type
-datetime' = withModule baseModule $ BaseType' Datetime'
+datetime' = wrapPrimitive Datetime
 
 array' :: Type -> Type
 array' t = Type
@@ -635,6 +573,17 @@ data Module = Module
     -- encoding it expects.
   } deriving (Show)
 
+-- | Create an empty module with the given name and metadata.
+--
+-- This module does not define any types or import any modules.
+emptyModule :: Name.ModuleName -> Metadata -> Module
+emptyModule moduleName metadata = Module
+  { moduleName = moduleName
+  , types      = []
+  , imports    = []
+  , metadata   = metadata
+  }
+
 data Definition t = Definition
   { definitionName :: Name
     -- ^ The name of the /definition/. If the definition is an alias,
@@ -650,27 +599,20 @@ instance HasDoc (Definition t) where
   doc f definition = setDoc <$> f (definitionDoc definition)
     where setDoc doc = definition { definitionDoc = doc }
 
--- | A module with the name @base@ that contains all the primitive
--- types. Useful if you need an empty module for something.
---
--- This is the module to which all built-in types belong.
-baseModule :: Module
-baseModule = Module
-  { moduleName = "base"
+-- | A module named @theta.primitive@ that contains all the primitive
+-- types.
+primitiveModule :: Module
+primitiveModule = Module
+  { moduleName = "theta.primitive"
   , types
   , imports    = []
-  , metadata   = Metadata.Metadata "1.0.0" "1.0.0" "base"
+  , metadata   = Metadata.Metadata "1.0.0" "1.0.0" "theta.primitive"
   }
-  where types = [ ("base.Bool",     Definition "base.Bool"     Nothing bool')
-                , ("base.Bytes",    Definition "base.Bytes"    Nothing bytes')
-                , ("base.Int",      Definition "base.Int"      Nothing int')
-                , ("base.Long",     Definition "base.Long"     Nothing long')
-                , ("base.Float",    Definition "base.Float"    Nothing float')
-                , ("base.Double",   Definition "base.Double"   Nothing double')
-                , ("base.String",   Definition "base.String"   Nothing string')
-                , ("base.Date",     Definition "base.Date"     Nothing date')
-                , ("base.Datetime", Definition "base.Datetime" Nothing datetime')
-                ]
+  where types = Map.fromList
+          [ (name, Definition name Nothing $ wrapPrimitive type_)
+          | type_ <- primitives
+          , let name = primitiveName type_
+          ]
 
 -- | Does the given module define the given name?
 defines :: Name -> Module -> Bool

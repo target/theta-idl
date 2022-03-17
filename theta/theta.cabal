@@ -72,11 +72,13 @@ library
   hs-source-dirs:     src/
 
   exposed-modules:    Theta.Error
+                    , Theta.Hash
                     , Theta.Import
                     , Theta.Metadata
                     , Theta.Name
                     , Theta.Parser
                     , Theta.Pretty
+                    , Theta.Primitive
                     , Theta.Types
                     , Theta.Value
                     , Theta.Versions

@@ -137,7 +137,9 @@ test_toReference = testGroup "toReference"
         toReference (Just "prefix") "foo" reference ?= [python|prefix.base.FooReference|]
     ]
   ]
-  where wrap baseType = Theta.withModule' Theta.baseModule baseType
+  where wrap = Theta.withModule' (Theta.emptyModule "base" metadata)
+        metadata = Metadata "1.0.0" "1.0.0" "base"
+
         toReference' = toReference Nothing
 
 test_toEnum :: TestTree
@@ -154,22 +156,28 @@ test_toRecord = testGroup "toRecord"
       expected <- loadPython "empty_record"
       toRecord' "test.Empty" [] ??= expected
 
-  , testCase "simple types" $ do
+  , testGroup "simple types" $
       let foo = Theta.Field "foo" Nothing Theta.int'
           bar = Theta.Field "bar" Nothing Theta.string'
+      in
+      [ testCase "one_field" $ do
+          expected <- loadPython "one_field"
+          toRecord' "test.OneField" [foo] ??= expected
 
-      expected <- loadPython "one_field"
-      toRecord' "test.OneField" [foo] ??= expected
+      , testCase "two_fields" $ do
+          expected <- loadPython "two_fields"
+          toRecord' "test.TwoFields" [foo, bar] ??= expected
+      ]
 
-      expected <- loadPython "two_fields"
-      toRecord' "test.TwoFields" [foo, bar] ??= expected
+  , testGroup "local references"
+    [ testCase "foo_reference" $ do
+        expected <- loadPython "foo_reference"
+        toRecord' "test.Foo" [fooField] ??= expected
 
-  , testCase "local references" $ do
-      expected <- loadPython "foo_reference"
-      toRecord' "test.Foo" [fooField] ??= expected
-
-      expected <- loadPython "bar_reference"
-      toRecord' "test.Bar" [fooField] ??= expected
+    , testCase "bar_reference" $ do
+        expected <- loadPython "bar_reference"
+        toRecord' "test.Bar" [fooField] ??= expected
+    ]
 
   , testCase "imported references" $ do
       expected <- loadPython "importing_reference"

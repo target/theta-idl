@@ -1,5 +1,5 @@
 class Variant(ABC):
-    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"aliases":[],"doc":"Generated with Theta {{version}}\\nType hash: 0f3c222bbed476de54b4617234f058b5","fields":[{"aliases":[],"name":"constructor","type":[{"aliases":[],"fields":[{"aliases":[],"name":"importing","type":{"aliases":[],"fields":[],"name":"imported.Foo","type":"record"}}],"name":"Case","type":"record"}]}],"name":"test.Variant","type":"record"}''')
+    avro_schema: ClassVar[Dict[str, Any]] = json.loads('''{"aliases":[],"doc":"Generated with Theta {{version}}\\nType hash: 97da494b4facc6ba36b096de1904ab9e","fields":[{"aliases":[],"name":"constructor","type":[{"aliases":[],"fields":[{"aliases":[],"name":"importing","type":{"aliases":[],"fields":[],"name":"imported.Foo","type":"record"}}],"name":"Case","type":"record"}]}],"name":"test.Variant","type":"record"}''')
 
     @staticmethod
     def decode_avro(decoder: avro.Decoder):

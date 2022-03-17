@@ -44,6 +44,7 @@ import           Theta.Pretty                    (p)
 import qualified Theta.Pretty                    as Theta
 import qualified Theta.Types                     as Theta
 
+import qualified Theta.Primitive                 as Theta
 import           Theta.Target.Avro.Types         (toSchema)
 import           Theta.Target.Python.QuasiQuoter (Python (..), python)
 
@@ -87,7 +88,19 @@ toModule Theta.Module {..} prefix = do
                        [python|import $prefixed|]
           where qualified = Python $ Name.renderModuleName moduleName
 
--- | Return a Python snippet that /refers/ to the given Theta type.
+-- | The Python type that corresponds to each primitive Theta type.
+primitive :: Theta.Primitive -> Python
+primitive Theta.Bool     = "bool"
+primitive Theta.Bytes    = "bytes"
+primitive Theta.Int      = "int"
+primitive Theta.Long     = "int"
+primitive Theta.Float    = "float"
+primitive Theta.Double   = "float"
+primitive Theta.String   = "str"
+primitive Theta.Date     = "date"
+primitive Theta.Datetime = "datetime"
+
+-- | Return a Python snippet that /refers/ to the given Theta"a"
 --
 -- For primitive types, this returns the equivalent Python type.
 --
@@ -98,17 +111,8 @@ toModule Theta.Module {..} prefix = do
 -- referred to by name, ignoring namespaces.
 toReference :: Maybe Python -> Name.ModuleName -> Theta.Type -> Python
 toReference prefix currentModule Theta.Type { Theta.baseType } = case baseType of
-
-  -- primitive types
-  Theta.Bool'           -> [python|bool|]
-  Theta.Bytes'          -> [python|bytes|]
-  Theta.Int'            -> [python|int|]
-  Theta.Long'           -> [python|int|]
-  Theta.Float'          -> [python|float|]
-  Theta.Double'         -> [python|float|]
-  Theta.String'         -> [python|str|]
-  Theta.Date'           -> [python|date|]
-  Theta.Datetime'       -> [python|datetime|]
+  -- primitive
+  Theta.Primitive' t -> primitive t
 
   -- containers
   Theta.Array' a        ->
@@ -460,15 +464,16 @@ encodingFunction :: MonadError Theta.Error m => Theta.Type ->  m Python
 encodingFunction Theta.Type { Theta.baseType, Theta.module_ } = case baseType of
 
   -- Primitive Types
-  Theta.Bool'     -> pure [python|encoder.bool|]
-  Theta.Bytes'    -> pure [python|encoder.bytes|]
-  Theta.Int'      -> pure [python|encoder.integral|]
-  Theta.Long'     -> pure [python|encoder.integral|]
-  Theta.Float'    -> pure [python|encoder.float|]
-  Theta.Double'   -> pure [python|encoder.double|]
-  Theta.String'   -> pure [python|encoder.string|]
-  Theta.Date'     -> pure [python|encoder.date|]
-  Theta.Datetime' -> pure [python|encoder.datetime|]
+  Theta.Primitive' t -> pure $ case t of
+    Theta.Bool     -> "encoder.bool"
+    Theta.Bytes    -> "encoder.bytes"
+    Theta.Int      -> "encoder.integral"
+    Theta.Long     -> "encoder.integral"
+    Theta.Float    -> "encoder.float"
+    Theta.Double   -> "encoder.double"
+    Theta.String   -> "encoder.string"
+    Theta.Date     -> "encoder.date"
+    Theta.Datetime -> "encoder.datetime"
 
   -- Containers
   Theta.Array' type_    -> do
@@ -522,15 +527,16 @@ decodingFunction :: MonadError Theta.Error m
 decodingFunction prefix currentModule Theta.Type { Theta.baseType, Theta.module_ } =
   case baseType of
     -- Primitive Types
-    Theta.Bool'     -> pure [python|decoder.bool()|]
-    Theta.Bytes'    -> pure [python|decoder.bytes()|]
-    Theta.Int'      -> pure [python|decoder.integral()|]
-    Theta.Long'     -> pure [python|decoder.integral()|]
-    Theta.Float'    -> pure [python|decoder.float()|]
-    Theta.Double'   -> pure [python|decoder.double()|]
-    Theta.String'   -> pure [python|decoder.string()|]
-    Theta.Date'     -> pure [python|decoder.date()|]
-    Theta.Datetime' -> pure [python|decoder.datetime()|]
+    Theta.Primitive' t -> pure $ case t of
+      Theta.Bool     -> "decoder.bool()"
+      Theta.Bytes    -> "decoder.bytes()"
+      Theta.Int      -> "decoder.integral()"
+      Theta.Long     -> "decoder.integral()"
+      Theta.Float    -> "decoder.float()"
+      Theta.Double   -> "decoder.double()"
+      Theta.String   -> "decoder.string()"
+      Theta.Date     -> "decoder.date()"
+      Theta.Datetime -> "decoder.datetime()"
 
     -- Containers
     Theta.Array' type_ -> do

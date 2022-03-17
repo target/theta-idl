@@ -82,7 +82,8 @@ test_toReference = testGroup "toReference"
       toReference variant   @?= [kotlin|FooVariant|]
       toReference newtype_  @?= [kotlin|FooNewtype|]
   ]
-  where wrap baseType = Theta.withModule' Theta.baseModule baseType
+  where wrap = Theta.withModule' (Theta.emptyModule "base" metadata)
+        metadata = Metadata "1.0.0" "1.0.0" "base"
 
 test_toRecord :: TestTree
 test_toRecord = testGroup "toRecord"

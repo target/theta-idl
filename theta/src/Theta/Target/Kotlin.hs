@@ -28,6 +28,7 @@ import           Theta.Name                      (ModuleName, Name)
 import qualified Theta.Name                      as Name
 import qualified Theta.Types                     as Theta
 
+import qualified Theta.Primitive                 as Theta
 import           Theta.Target.Kotlin.QuasiQuoter (Kotlin (..), kotlin)
 
 -- | Compile a Theta module to a single Kotlin file.
@@ -172,15 +173,16 @@ toReference :: Theta.Type -> Kotlin
 toReference Theta.Type { Theta.baseType } = case baseType of
 
   -- primitive types
-  Theta.Bool'           -> [kotlin|Boolean|]
-  Theta.Bytes'          -> [kotlin|ByteArray|]
-  Theta.Int'            -> [kotlin|Int|]
-  Theta.Long'           -> [kotlin|Long|]
-  Theta.Float'          -> [kotlin|Float|]
-  Theta.Double'         -> [kotlin|Double|]
-  Theta.String'         -> [kotlin|String|]
-  Theta.Date'           -> [kotlin|LocalDate|]
-  Theta.Datetime'       -> [kotlin|LocalDateTime|]
+  Theta.Primitive' t -> case t of
+    Theta.Bool     -> [kotlin|Boolean|]
+    Theta.Bytes    -> [kotlin|ByteArray|]
+    Theta.Int      -> [kotlin|Int|]
+    Theta.Long     -> [kotlin|Long|]
+    Theta.Float    -> [kotlin|Float|]
+    Theta.Double   -> [kotlin|Double|]
+    Theta.String   -> [kotlin|String|]
+    Theta.Date     -> [kotlin|LocalDate|]
+    Theta.Datetime -> [kotlin|LocalDateTime|]
 
   -- containers
   Theta.Array' a        -> let items = toReference a in [kotlin|Array<$items>|]
