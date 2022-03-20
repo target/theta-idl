@@ -1,4 +1,4 @@
-language-version: 1.0.0
+language-version: 1.1.0
 avro-version: 1.0.0
 ---
 
@@ -12,8 +12,9 @@ type Primitives = {
   float    : Float,
   double   : Double,
   string   : String,
-  date     : Date,    // since 1.2.0
-  datetime : Datetime // since 1.2.0
+  date     : Date,
+  datetime : Datetime,
+  uuid : UUID // language-version ≥ 1.1.0
 }
 
 // A record with the various kinds of containers Theta supports.

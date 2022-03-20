@@ -2,6 +2,7 @@ use chrono::{Date, DateTime, Utc};
 use std::collections::HashMap;
 use theta::avro::{FromAvro, ToAvro};
 use nom::{IResult, Err, error::{context, ErrorKind}};
+use uuid::{Uuid};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AMutual(pub recursive::MutualA);

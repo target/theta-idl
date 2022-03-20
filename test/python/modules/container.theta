@@ -1,10 +1,10 @@
-language-version: 1.1.0
+language-version: 1.0.0
 avro-version: 1.0.0
 ---
 
 // A record that has a field for every primitive type supported in
 // Theta.
-type Primitives = {
+type ContainerRecord = {
   bool     : Bool,
   bytes    : Bytes,
   int      : Int,
@@ -13,13 +13,5 @@ type Primitives = {
   double   : Double,
   string   : String,
   date     : Date,
-  datetime : Datetime,
-  uuid : UUID
-}
-
-type Containers = {
-    array    : [Bool],
-    map      : {Bool},
-    optional : Bool?,
-    nested   : {[Bool?]}
+  datetime : Datetime
 }

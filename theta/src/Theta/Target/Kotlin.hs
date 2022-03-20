@@ -56,6 +56,8 @@ toModule prefix Theta.Module {..} =
     import java.time.LocalDate
     import java.time.LocalDateTime
 
+    import java.util.UUID
+
     import kotlin.ByteArray
 
     import kotlin.collections.HashMap
@@ -183,6 +185,7 @@ toReference Theta.Type { Theta.baseType } = case baseType of
     Theta.String   -> [kotlin|String|]
     Theta.Date     -> [kotlin|LocalDate|]
     Theta.Datetime -> [kotlin|LocalDateTime|]
+    Theta.UUID     -> [kotlin|UUID|]
 
   -- containers
   Theta.Array' a        -> let items = toReference a in [kotlin|Array<$items>|]

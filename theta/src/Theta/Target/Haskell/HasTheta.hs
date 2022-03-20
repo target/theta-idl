@@ -16,6 +16,7 @@ import           Data.Int             (Int32, Int64)
 import           Data.Text            (Text)
 import           Data.Time.Calendar   (Day)
 import           Data.Time.Clock      (UTCTime)
+import           Data.UUID            (UUID)
 
 import qualified Theta.Types          as Theta
 
@@ -57,6 +58,9 @@ instance HasTheta Day where
 
 instance HasTheta UTCTime where
   theta = Theta.datetime'
+
+instance HasTheta UUID where
+  theta = Theta.uuid'
 
 instance HasTheta a => HasTheta [a] where
   theta = Theta.array' $ theta @a

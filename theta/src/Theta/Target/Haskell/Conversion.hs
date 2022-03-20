@@ -32,6 +32,7 @@ import qualified Data.Avro.Internal.DecodeRaw  as DecodeRaw
 import qualified Data.Avro.Internal.EncodeRaw  as EncodeRaw
 import qualified Data.Avro.Internal.Get        as Avro
 
+
 import           Data.Binary.Get               (Get, runGetOrFail)
 import qualified Data.ByteString.Builder       as ByteString
 import           Data.ByteString.Lazy          (ByteString)
@@ -43,12 +44,16 @@ import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
 import           Data.Time.Calendar            (Day)
 import           Data.Time.Clock               (UTCTime)
+import           Data.UUID                     (UUID)
+import qualified Data.UUID                     as UUID
 import qualified Data.Vector                   as Vector
 import           Data.Word                     (Word64)
 
 import           GHC.Stack                     (HasCallStack)
 
 import           Test.QuickCheck               (Gen)
+
+import           Text.Printf                   (printf)
 
 import qualified Theta.Error                   as Theta
 import           Theta.Name                    (Name)
@@ -255,6 +260,22 @@ instance FromTheta UTCTime where
     _                                     -> mismatch Theta.datetime' type_
 
   avroDecoding = Values.toUTCTime <$> DecodeRaw.decodeRaw @Int64
+
+instance ToTheta UUID where
+  toTheta = Theta.uuid
+
+  avroEncoding = avroEncoding . UUID.toText
+
+instance FromTheta UUID where
+  fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
+    Theta.Primitive (Theta.UUID uuid) -> pure uuid
+    _                                 -> mismatch Theta.uuid' type_
+
+  avroDecoding = do
+    str <- avroDecoding
+    case UUID.fromText str of
+      Just uuid -> pure uuid
+      Nothing   -> fail (printf "Invalid UUID format in string:\n%s" str)
 
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value

@@ -99,6 +99,7 @@ toModule Theta.Module { Theta.types } = definitionLines $ imports : typeDefiniti
           use std::collections::HashMap;
           use theta::avro::{FromAvro, ToAvro};
           use nom::{IResult, Err, error::{context, ErrorKind}};
+          use uuid::{Uuid};
         |]
 
 -- | Return a Rust snippet that defines a type for the given Theta
@@ -175,6 +176,7 @@ typeIdentifier Theta.Type { Theta.baseType } = case baseType of
     Theta.String   -> ["String"]
     Theta.Date     -> ["Date"]
     Theta.Datetime -> ["DateTime"]
+    Theta.UUID     -> ["Uuid"]
 
   -- containers
   Theta.Array' _        -> ["Vec"]

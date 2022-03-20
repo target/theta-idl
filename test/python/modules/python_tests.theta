@@ -10,6 +10,8 @@ avro-version: 1.0.0
  *
  */
 
+import container
+
 import enum
 
 import importing

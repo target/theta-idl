@@ -93,6 +93,9 @@ data AvroError = InvalidExport Type
                | FieldNameMismatch Name (HashSet FieldName) (HashSet FieldName)
                  -- ^ The fields of an Avro record are not the same as
                  -- the fields of the expected Theta record.
+               | InvalidUUID Text
+                 -- ^ A string encoding a UUID did not have the right
+                 -- format.
                deriving (Show)
 
 -- | The reason why a variant encoding is invalid.
@@ -155,6 +158,14 @@ instance Pretty AvroError where
           missing = prettyDifference "Missing" theta avro
           extra   = prettyDifference "Extra" avro theta
       in header <> missing <> extra
+    InvalidUUID uuid ->
+      [p|
+        ‘#{uuid}’ is not valid syntax for a UUID.
+
+        UUIDs need to be strings conforming to RFC 4122.
+
+        Example: ‘f81d4fae-7dec-11d0-a765-00a0c91e6bf6’
+        |]
 
 -- | Render a human-readable description of why a varaint was not
 -- encoded correctly.

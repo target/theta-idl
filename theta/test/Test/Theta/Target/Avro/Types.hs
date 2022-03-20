@@ -58,6 +58,7 @@ tests = testGroup "Types"
     , test_string
     , test_date
     , test_datetime
+    , test_uuid
     ]
 
   , testGroup "containers"
@@ -118,6 +119,10 @@ test_datetime = testGroup "Datetime"
   , testCase "≥ 1.1.0" $
       check (typeToAvro "1.1.0" datetime') (Avro.Long (Just Avro.TimestampMicros))
   ]
+
+test_uuid :: TestTree
+test_uuid = testCase "UUID" $
+  check (typeToAvro "1.0.0" uuid') (Avro.String (Just Avro.UUID))
 
 -- * Containers
 

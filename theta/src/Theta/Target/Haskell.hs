@@ -77,6 +77,7 @@ import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
 import           Data.Time.Calendar              (Day)
 import           Data.Time.Clock                 (UTCTime)
+import           Data.UUID                       (UUID)
 import           Data.Vector                     ((!))
 import qualified Data.Vector                     as Vector
 import           Data.Versions                   (SemVer (..), VUnit (..))
@@ -1172,6 +1173,7 @@ generateThetaExp type_ = case Theta.baseType type_ of
     Primitive.String   -> [e| Theta.string' |]
     Primitive.Date     -> [e| Theta.date' |]
     Primitive.Datetime -> [e| Theta.datetime' |]
+    Primitive.UUID     -> [e| Theta.uuid' |]
 
   Theta.Array' type_        -> [e| Theta.array' $(generateThetaExp type_) |]
   Theta.Map' type_          -> [e| Theta.map' $(generateThetaExp type_) |]
@@ -1234,6 +1236,7 @@ generateType type_ = case Theta.baseType type_ of
     Primitive.String   -> [t| Text |]
     Primitive.Date     -> [t| Day |]
     Primitive.Datetime -> [t| UTCTime |]
+    Primitive.UUID     -> [t| UUID |]
 
   Theta.Array' items    -> [t| [$(generateType items)] |]
   Theta.Map' values     -> [t| HashMap Text $(generateType values) |]

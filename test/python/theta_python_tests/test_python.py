@@ -2,11 +2,12 @@ import datetime
 import io
 from hypothesis import given
 from hypothesis.strategies import binary, booleans, builds, dates, datetimes, \
-     dictionaries, floats, integers, lists, none, one_of, text
+     dictionaries, floats, integers, lists, none, one_of, text, uuids
 import unittest
 
 from theta import avro
 
+from theta_python_tests.container import ContainerRecord
 from theta_python_tests.enum import EnumWrapper, SimpleEnum
 from theta_python_tests.primitives import Containers, Primitives
 from theta_python_tests.importing import Foo
@@ -40,7 +41,8 @@ primitives = builds(Primitives,
                     floats(width=64, allow_nan=False),
                     text(),
                     dates(),
-                    datetimes())
+                    datetimes(),
+                    uuids())
 
 containers = builds(Containers,
                     lists(booleans()),
@@ -114,25 +116,25 @@ class TestImportingNested(unittest.TestCase):
 
 
 class TestFixedContainers(unittest.TestCase):
-    def test_primitives_container(self):
+    def test_container(self):
         date = datetime.date(2010, 10, 10)
         time = datetime.datetime(2010, 10, 10, 10, 10, 10)
-        expected_primitives = [
-            Primitives(True, b"foo", 1, 42, 1.0, 2.3, "blarg", date, time),
-            Primitives(True, b"foo", 2, 42, 1.0, 2.3, "blarg", date, time),
-            Primitives(True, b"foo", 3, 42, 1.0, 2.3, "blarg", date, time)
+        expected_records = [
+            ContainerRecord(True, b"foo", 1, 42, 1.0, 2.3, "blarg", date, time),
+            ContainerRecord(True, b"foo", 2, 42, 1.0, 2.3, "blarg", date, time),
+            ContainerRecord(True, b"foo", 3, 42, 1.0, 2.3, "blarg", date, time)
         ]
 
         # A container created using Haskell with no compression.
-        with open("avro/primitives-container.avro", "rb") as container:
-            records = Primitives.read_container(container)
-            for (got, expected) in zip(records, expected_primitives):
+        with open("avro/container.avro", "rb") as container:
+            records = ContainerRecord.read_container(container)
+            for (got, expected) in zip(records, expected_records):
                 assert(got == expected)
 
         # A container created using Haskell with deflate compression.
-        with open("avro/primitives-container-deflate.avro", "rb") as container:
-            records = Primitives.read_container(container)
-            for (got, expected) in zip(records, expected_primitives):
+        with open("avro/container-deflate.avro", "rb") as container:
+            records = ContainerRecord.read_container(container)
+            for (got, expected) in zip(records, expected_records):
                 assert(got == expected)
 
 

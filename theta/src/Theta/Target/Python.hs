@@ -70,6 +70,7 @@ toModule Theta.Module {..} prefix = do
     from enum import Enum
     import json
     from typing import Any, ClassVar, Dict, Iterator, List, Mapping, Optional
+    from uuid import UUID
 
     from theta import avro, container
 
@@ -99,6 +100,7 @@ primitive Theta.Double   = "float"
 primitive Theta.String   = "str"
 primitive Theta.Date     = "date"
 primitive Theta.Datetime = "datetime"
+primitive Theta.UUID     = "UUID"
 
 -- | Return a Python snippet that /refers/ to the given Theta"a"
 --
@@ -474,6 +476,7 @@ encodingFunction Theta.Type { Theta.baseType, Theta.module_ } = case baseType of
     Theta.String   -> "encoder.string"
     Theta.Date     -> "encoder.date"
     Theta.Datetime -> "encoder.datetime"
+    Theta.UUID     -> "encoder.uuid"
 
   -- Containers
   Theta.Array' type_    -> do
@@ -537,6 +540,7 @@ decodingFunction prefix currentModule Theta.Type { Theta.baseType, Theta.module_
       Theta.String   -> "decoder.string()"
       Theta.Date     -> "decoder.date()"
       Theta.Datetime -> "decoder.datetime()"
+      Theta.UUID     -> "decoder.uuid()"
 
     -- Containers
     Theta.Array' type_ -> do

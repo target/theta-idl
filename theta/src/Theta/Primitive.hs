@@ -52,6 +52,11 @@ data Primitive = Bool
                -- attached
                | Datetime
                -- ^ An absolute timestamp in UTC (no locale/timezone)
+               | UUID
+               -- ^ A universally unique identifier (UUID), conforming
+               -- to [RFC 4122](https://www.ietf.org/rfc/rfc4122.txt)
+               --
+               -- Example: @f81d4fae-7dec-11d0-a765-00a0c91e6bf6@
  deriving stock (Eq, Show, Ord, Enum, Bounded)
 
 instance Pretty Primitive where pretty = primitiveKeyword
@@ -72,6 +77,7 @@ primitiveName Double   = "theta.primitive.Double"
 primitiveName String   = "theta.primitive.String"
 primitiveName Date     = "theta.primitive.Date"
 primitiveName Datetime = "theta.primitive.Datetime"
+primitiveName UUID     = "theta.primitive.UUID"
 
 -- | The canonical keyword for each primitive type.
 --
@@ -96,6 +102,7 @@ definedIn Double   = "1.0.0"
 definedIn String   = "1.0.0"
 definedIn Date     = "1.0.0"
 definedIn Datetime = "1.0.0"
+definedIn UUID     = "1.1.0"
 
 -- | Every single primitive type supported by Theta.
 primitives :: [Primitive]

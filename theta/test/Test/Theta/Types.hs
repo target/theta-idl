@@ -77,6 +77,7 @@ test_eq = testGroup "Eq instance"
           , Theta.string'
           , Theta.date'
           , Theta.datetime'
+          , Theta.uuid'
 
           , Theta.array' Theta.int'
           , Theta.map' Theta.int'
@@ -109,6 +110,7 @@ test_eq = testGroup "Eq instance"
             Theta.String   -> type_ @?= type_
             Theta.Date     -> type_ @?= type_
             Theta.Datetime -> type_ @?= type_
+            Theta.UUID     -> type_ @?= type_
 
           -- containers
           Theta.Array'{}     -> type_ @?= type_
@@ -215,6 +217,7 @@ test_hashing = testGroup "hashing"
               Theta.String   -> "4b041ed503e3481e6341363865732ab2"
               Theta.Date     -> "f9796917d9806a980c089cae18f6d57e"
               Theta.Datetime -> "e5158c40b7bc0dd7b50340fdb08e3c2b"
+              Theta.UUID     -> "d2e4edd151c5d24637c63111311b13d1"
             test name t =
               testCase name (Theta.wrapPrimitive t ?= expectedPrimitive t)
         in [ test (show t) t | t <- primitives ]

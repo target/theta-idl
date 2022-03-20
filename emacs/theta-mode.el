@@ -27,7 +27,16 @@
   "Theta keywords that define new type names.")
 
 (defconst theta-primitive-types
-  '("Bool" "Bytes" "Int" "Long" "Float" "Double" "String" "Date" "Datetime")
+  '("Bool"
+    "Bytes"
+    "Int"
+    "Long"
+    "Float"
+    "Double"
+    "String"
+    "Date"
+    "Datetime"
+    "UUID")
 
   "Types that are built into Theta, indexed by the version of
   Theta they were introduced in.")

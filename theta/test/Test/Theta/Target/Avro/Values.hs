@@ -18,10 +18,12 @@ import qualified Data.ByteString                 as BS
 import           Data.Either                     (fromRight)
 import qualified Data.HashMap.Strict             as HashMap
 import           Data.Int                        (Int32, Int64)
+import           Data.Maybe                      (fromMaybe)
 import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
 import qualified Data.Time.Calendar              as Time
 import qualified Data.Time.Clock                 as Time
+import qualified Data.UUID                       as UUID
 import           Data.Vector                     (Vector)
 import qualified Data.Vector                     as Vector
 
@@ -37,6 +39,7 @@ import qualified Theta.Value                     as Theta
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
+import Data.UUID (UUID)
 
 Theta.loadModule "test/data/modules" "recursive"
 Theta.loadModule "test/data/modules" "enums"
@@ -175,8 +178,12 @@ primitives =
   , (Theta.date $ read "2019-02-11", Theta.date', avroInt 17938 )
 
   , (Theta.datetime datetime, Theta.datetime', avroLong 1549894992000000)
+
+  , (Theta.uuid uuid, Theta.uuid', avroUUID uuid)
   ]
   where datetime = read "2019-02-11 14:23:12 UTC"
+        uuid = fromMaybe (error "Invalid UUID literal") $
+          UUID.fromText "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
 
 containers :: [(Theta.Value, Theta.Type, Avro.Value)]
 containers =
@@ -409,6 +416,9 @@ avroDouble = Avro.Double (ReadSchema.Double ReadSchema.ReadDouble)
 avroString :: Text -> Avro.Value
 avroString = Avro.String schemaString
 
+avroUUID :: UUID -> Avro.Value
+avroUUID = Avro.String schemaUUID . UUID.toText
+
 avroUnion :: Vector ReadSchema.ReadSchema -> Int -> Avro.Value -> Avro.Value
 avroUnion = Avro.Union . schemaUnion
 
@@ -432,3 +442,6 @@ schemaFloat = ReadSchema.Float ReadSchema.ReadFloat
 
 schemaString :: ReadSchema.ReadSchema
 schemaString = ReadSchema.String Nothing
+
+schemaUUID :: ReadSchema.ReadSchema
+schemaUUID = ReadSchema.String (Just ReadSchema.UUID)

@@ -4,6 +4,7 @@ import io
 import math
 import struct
 from typing import Callable, Dict, List, Optional, TypeVar, Union
+from uuid import UUID
 
 from hypothesis import example, given
 from hypothesis.strategies import binary, booleans, dates, datetimes, dictionaries, floats, integers, lists, text
@@ -110,6 +111,16 @@ class Encoder:
         micros += delta.microseconds
 
         self.integral(micros)
+
+    def uuid(self, uuid: UUID):
+        """
+        Write a UUID to the output stream.
+
+        UUIDs are encoded as strings following the RFC 4122 format.
+
+        Example: f81d4fae-7dec-11d0-a765-00a0c91e6bf6
+        """
+        self.string(str(uuid))
 
     # Containers
 
@@ -273,6 +284,17 @@ class Decoder:
         """
         epoch = datetime(1970, 1, 1)
         return epoch + timedelta(microseconds=self.integral())
+
+
+    def uuid(self) -> UUID:
+        """
+        Decode a UUID.  UUIDs have to be represented as strings
+        following the RFC 4122 format (example:
+        "ef81d4fae-7dec-11d0-a765-00a0c91e6bf6").
+
+        Raises an exception if the encoding does not conform to RFC 4122.
+        """
+        return UUID(self.string())
 
     A = TypeVar("A")
 

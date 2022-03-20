@@ -27,6 +27,8 @@ import qualified Data.Text            as Text
 import qualified Data.Time            as Time
 import           Data.Time.Calendar   (Day)
 import           Data.Time.Clock      (UTCTime)
+import           Data.UUID            (UUID)
+import qualified Data.UUID            as UUID
 import           Data.Vector          (Vector)
 import qualified Data.Vector          as Vector
 
@@ -48,6 +50,7 @@ data PrimitiveValue =
   | String {-# UNPACK #-} !Text
   | Date !Day
   | Datetime {-# UNPACK #-} !UTCTime
+  | UUID UUID
   deriving stock (Show, Eq)
 
 -- | A generic representation of data that could be represented by a
@@ -131,6 +134,9 @@ date = Value Theta.date' . Primitive . Date
 datetime :: UTCTime -> Value
 datetime = Value Theta.datetime' . Primitive . Datetime
 
+uuid :: UUID -> Value
+uuid = Value Theta.uuid' . Primitive . UUID
+
 -- * Testing
 
 -- | Does the given type match the given base value?
@@ -148,6 +154,7 @@ checkBaseValue Theta.Type { Theta.baseType, Theta.module_ } baseValue =
       (Theta.String, String _)     -> True
       (Theta.Date, Date _)         -> True
       (Theta.Datetime, Datetime _) -> True
+      (Theta.UUID, UUID _)         -> True
       (_, _)                       -> False
 
     -- containers
@@ -230,6 +237,8 @@ genValue' overrides = go
             Theta.String   -> string . Text.pack <$> arbitrary
             Theta.Date     -> date <$> genDate
             Theta.Datetime -> datetime <$> genDatetime
+            Theta.UUID     ->
+              uuid <$> (UUID.fromWords64 <$> arbitrary <*> arbitrary)
 
           Theta.Array' item    -> Value t <$> genArray item
           Theta.Map' item      -> Value t <$> genMap item
