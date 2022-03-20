@@ -1,3 +1,0 @@
-{"bool":true,"bytes":"foo","int":1,"long":42,"float":1.0,"double":2.3,"string":"blarg","date":14892,"datetime":1286705410000000,"uuid":"f81d4fae-7dec-11d0-a765-00a0c91e6bf6"}
-{"bool":true,"bytes":"foo","int":2,"long":42,"float":1.0,"double":2.3,"string":"blarg","date":14892,"datetime":1286705410000000,"uuid":"f81d4fae-7dec-11d0-a765-00a0c91e6bf6"}
-{"bool":true,"bytes":"foo","int":3,"long":42,"float":1.0,"double":2.3,"string":"blarg","date":14892,"datetime":1286705410000000,"uuid":"f81d4fae-7dec-11d0-a765-00a0c91e6bf6"}

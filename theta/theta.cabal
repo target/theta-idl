@@ -8,7 +8,6 @@ category:       Language
 build-type:     Simple
 maintainer:     Tikhon Jelvis <tikhon@jelv.is>
 data-files:
-  test/data/containers/*.avro
   test/data/modules/*.theta
   test/data/transitive/*.theta
   test/data/root-1/*.theta

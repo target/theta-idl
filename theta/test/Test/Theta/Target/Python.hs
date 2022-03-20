@@ -13,14 +13,8 @@ module Test.Theta.Target.Python where
 import           Prelude                 hiding (toEnum)
 
 import           Data.Aeson              (object, (.=))
-import qualified Data.Avro               as Avro
-import qualified Data.ByteString.Lazy    as LBS
-import           Data.Maybe              (fromMaybe)
 import qualified Data.Text               as Text
 import qualified Data.Text.Lazy          as Text (toStrict)
-import qualified Data.Time.Calendar      as Time
-import qualified Data.Time.Clock         as Time
-import qualified Data.UUID               as UUID
 
 import           System.FilePath         ((<.>), (</>))
 
@@ -48,41 +42,12 @@ loadModule "test/data/modules" "importing_foo"
 
 tests :: TestTree
 tests = testGroup "Python"
-  [ test_decodeContainer
-
-  , test_toReference
+  [ test_toReference
   , test_toEnum
   , test_toRecord
   , test_toVariant
   , test_toModule
   ]
-
--- Can we decode a container encoded using this generated Python code?
-test_decodeContainer :: TestTree
-test_decodeContainer = testGroup "decode container"
-  [ testCase "null" $ do
-      dataDir <- Paths.getDataDir
-      let path = "test/data/containers/primitives-container-python.avro"
-      container <- LBS.readFile $ dataDir </> path
-      Avro.decodeContainer container @?= (Right <$> expectedPrimitives)
-  , testCase "deflate" $ do
-      dataDir <- Paths.getDataDir
-      let path = "test/data/containers/primitives-container-python.avro"
-      container <- LBS.readFile $ dataDir </> path
-      Avro.decodeContainer container @?= (Right <$> expectedPrimitives)
-  ]
-  where expectedPrimitives :: [Primitives]
-        expectedPrimitives =
-          [ Primitives True "foo" 1 42 1.0 2.3 "blarg" date time uuid
-          , Primitives True "foo" 2 42 1.0 2.3 "blarg" date time uuid
-          , Primitives True "foo" 3 42 1.0 2.3 "blarg" date time uuid
-          ]
-
-        date = Time.fromGregorian 2010 10 10
-        time = Time.UTCTime date 36610
-        uuid  = fromMaybe (error "Invalid UUID literal.") $
-          UUID.fromText "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-
 
 test_toReference :: TestTree
 test_toReference = testGroup "toReference"
