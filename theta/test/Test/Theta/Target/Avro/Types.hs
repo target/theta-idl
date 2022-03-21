@@ -58,6 +58,7 @@ tests = testGroup "Types"
     , test_string
     , test_date
     , test_datetime
+    , test_uuid
     ]
 
   , testGroup "containers"
@@ -118,6 +119,10 @@ test_datetime = testGroup "Datetime"
   , testCase "≥ 1.1.0" $
       check (typeToAvro "1.1.0" datetime') (Avro.Long (Just Avro.TimestampMicros))
   ]
+
+test_uuid :: TestTree
+test_uuid = testCase "UUID" $
+  check (typeToAvro "1.0.0" uuid') (Avro.String (Just Avro.UUID))
 
 -- * Containers
 
@@ -320,7 +325,7 @@ test_toSchema = testCase "toSchema" $ do
       docs     = Just
         [__i|
           Generated with Theta #{Theta.packageVersion'}
-          Type hash: 9bea6d3431cc3238ff611c832dfcd4d9
+          Type hash: 00c870b76a493aaac9709ea3b9968cc5
             |]
 
   case toSchema $ getDefinition "test.OneField" of

@@ -215,8 +215,7 @@ resolveModule loadPath moduleDefinition@ModuleDefinition { header, body } = do
     errs -> throwError $ InvalidModule errs
   where
     moduleName = moduleDefinitionName moduleDefinition
-
-    resolve finalModule = foldM go (Module moduleName Map.empty [] header, []) body
+    resolve finalModule = foldM go (emptyModule moduleName header, []) body
       where
         go (module_, dependencies) (DefinitionStatement definition)  = do
           let Definition {..} = definition

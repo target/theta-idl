@@ -48,9 +48,12 @@ import qualified Data.List.NonEmpty          as NonEmpty
 import qualified Data.Set                    as Set
 import           Data.Text                   (Text)
 import qualified Data.Text                   as Text
+import           Data.Time                   (picosecondsToDiffTime)
 import qualified Data.Time                   as Time
+import qualified Data.UUID                   as UUID
 import           Data.Vector                 (Vector)
 import qualified Data.Vector                 as Vector
+
 
 import           GHC.Exts                    (fromList)
 
@@ -64,11 +67,7 @@ import           Theta.Target.Avro.Types
 import qualified Theta.Types                 as Theta
 import           Theta.Value
 
-import           Data.Time                   (picosecondsToDiffTime)
-import           Debug.Trace
-
-trace' :: Show a => String -> a -> a
-trace' label a = trace (label <> ":\n" <> show a <> "\n") a
+import qualified Theta.Primitive             as Theta
 
 -- | Convert a Theta 'Value' to an Avro object which can be directly
 -- serialized to JSON or the Avro binary format.
@@ -89,15 +88,22 @@ toAvro value@Value { type_ } = do
           (ReadSchema.NamedType name, _)  -> go env (env name) v
 
           -- primitive types
-          (ReadSchema.Boolean, Boolean b)   -> Avro.Boolean b
-          (ReadSchema.Bytes _, Bytes bs)    -> Avro.Bytes schema (LBS.toStrict bs)
-          (ReadSchema.Int _, Int i)         -> Avro.Int schema i
-          (ReadSchema.Long _ _, Long l)     -> Avro.Long schema l
-          (ReadSchema.Float _, Float f)     -> Avro.Float schema f
-          (ReadSchema.Double _, Double d)   -> Avro.Double schema d
-          (ReadSchema.String _, String t)   -> Avro.String schema t
-          (ReadSchema.Int _, Date d)        -> Avro.Int schema $ fromDay d
-          (ReadSchema.Long _ _, Datetime t) -> Avro.Long schema $ fromUTCTime t
+          (readSchema, Primitive v) -> case (readSchema, v) of
+            (ReadSchema.Boolean, Boolean b)   -> Avro.Boolean b
+            (ReadSchema.Bytes _, Bytes bs)    -> Avro.Bytes schema (LBS.toStrict bs)
+            (ReadSchema.Int _, Int i)         -> Avro.Int schema i
+            (ReadSchema.Long _ _, Long l)     -> Avro.Long schema l
+            (ReadSchema.Float _, Float f)     -> Avro.Float schema f
+            (ReadSchema.Double _, Double d)   -> Avro.Double schema d
+            (ReadSchema.String _, String t)   -> Avro.String schema t
+            (ReadSchema.Int _, Date d)        -> Avro.Int schema $ fromDay d
+            (ReadSchema.Long _ _, Datetime t) -> Avro.Long schema $ fromUTCTime t
+            (ReadSchema.String _, UUID u)     -> Avro.String schema $ UUID.toText u
+
+            (_, _) -> error $ "Mismatch between the type_ and value of a Value. \
+                              \This is a bug in the Theta implementation.\n"
+                           <> show readSchema <> "\n" <> show v
+
 
           -- containers
           (ReadSchema.Array t, Array vs)                    ->
@@ -217,16 +223,20 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
             Right t -> recurse t avro
 
           -- primitive types
-          (Theta.Bool', Avro.Boolean b)    -> pure $ Boolean b
-          (Theta.Int', Avro.Int _ i)       -> pure $ Int i
-          (Theta.Long', Avro.Long _ l)     -> pure $ Long l
-          (Theta.Float', Avro.Float _ f)   -> pure $ Float f
-          (Theta.Double', Avro.Double _ d) -> pure $ Double d
-          (Theta.Bytes', Avro.Bytes _ bs)  -> pure $ Bytes $ LBS.fromStrict bs
-          (Theta.String', Avro.String _ t) -> pure $ String t
-
-          (Theta.Date', Avro.Int _ i)      -> pure $ Date $ toDay i
-          (Theta.Datetime', Avro.Long _ i) -> pure $ Datetime $ toUTCTime i
+          (Theta.Primitive' t, avro) -> case (t, avro) of
+            (Theta.Bool, Avro.Boolean b)    -> wrapPrimitive $ Boolean b
+            (Theta.Bytes, Avro.Bytes _ bs)  -> wrapPrimitive $ Bytes $ LBS.fromStrict bs
+            (Theta.Int, Avro.Int _ i)       -> wrapPrimitive $ Int i
+            (Theta.Long, Avro.Long _ l)     -> wrapPrimitive $ Long l
+            (Theta.Float, Avro.Float _ f)   -> wrapPrimitive $ Float f
+            (Theta.Double, Avro.Double _ d) -> wrapPrimitive $ Double d
+            (Theta.String, Avro.String _ t) -> wrapPrimitive $ String t
+            (Theta.Date, Avro.Int _ i)      -> wrapPrimitive $ Date $ toDay i
+            (Theta.Datetime, Avro.Long _ l) -> wrapPrimitive $ Datetime $ toUTCTime l
+            (Theta.UUID, Avro.String _ s)   -> case UUID.fromText s of
+              Just uuid -> wrapPrimitive $ UUID uuid
+              Nothing   -> throw $ InvalidUUID s
+            (_, got)                        -> throw $ TypeMismatch type_ got
 
           -- containers
           (Theta.Array' t, Avro.Array xs)   ->
@@ -257,6 +267,8 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
           (Theta.Newtype' _ t, v)           -> recurse t v
 
           (_, got)                          -> throw $ TypeMismatch type_ got
+
+        wrapPrimitive = pure . Primitive
 
         fieldSchemas :: ReadSchema.ReadSchema
                      -> Vector Avro.Value

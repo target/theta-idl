@@ -13,12 +13,8 @@ module Test.Theta.Target.Python where
 import           Prelude                 hiding (toEnum)
 
 import           Data.Aeson              (object, (.=))
-import qualified Data.Avro               as Avro
-import qualified Data.ByteString.Lazy    as LBS
 import qualified Data.Text               as Text
 import qualified Data.Text.Lazy          as Text (toStrict)
-import qualified Data.Time.Calendar      as Time
-import qualified Data.Time.Clock         as Time
 
 import           System.FilePath         ((<.>), (</>))
 
@@ -46,62 +42,36 @@ loadModule "test/data/modules" "importing_foo"
 
 tests :: TestTree
 tests = testGroup "Python"
-  [ test_decodeContainer
-
-  , test_toReference
+  [ test_toReference
   , test_toEnum
   , test_toRecord
   , test_toVariant
   , test_toModule
   ]
 
--- Can we decode a container encoded using this generated Python code?
-test_decodeContainer :: TestTree
-test_decodeContainer = testGroup "decode container"
-  [ testCase "null" $ do
-      dataDir <- Paths.getDataDir
-      let path = "test/data/containers/primitives-container-python.avro"
-      container <- LBS.readFile $ dataDir </> path
-      Avro.decodeContainer container @?= (Right <$> expectedPrimitives)
-  , testCase "deflate" $ do
-      dataDir <- Paths.getDataDir
-      let path = "test/data/containers/primitives-container-python.avro"
-      container <- LBS.readFile $ dataDir </> path
-      Avro.decodeContainer container @?= (Right <$> expectedPrimitives)
-  ]
-  where expectedPrimitives :: [Primitives]
-        expectedPrimitives =
-          [ Primitives True "foo" 1 42 1.0 2.3 "blarg" date time
-          , Primitives True "foo" 2 42 1.0 2.3 "blarg" date time
-          , Primitives True "foo" 3 42 1.0 2.3 "blarg" date time
-          ]
-
-        date = Time.fromGregorian 2010 10 10
-        time = Time.UTCTime date 36610
-
 test_toReference :: TestTree
 test_toReference = testGroup "toReference"
   [ testCase "primitive types" $ do
-      toReference "base" Theta.bool'   ?= [python|bool|]
-      toReference "base" Theta.bytes'  ?= [python|bytes|]
-      toReference "base" Theta.int'    ?= [python|int|]
-      toReference "base" Theta.long'   ?= [python|int|]
-      toReference "base" Theta.float'  ?= [python|float|]
-      toReference "base" Theta.double' ?= [python|float|]
-      toReference "base" Theta.string' ?= [python|str|]
+      toReference' "base" Theta.bool'   ?= [python|bool|]
+      toReference' "base" Theta.bytes'  ?= [python|bytes|]
+      toReference' "base" Theta.int'    ?= [python|int|]
+      toReference' "base" Theta.long'   ?= [python|int|]
+      toReference' "base" Theta.float'  ?= [python|float|]
+      toReference' "base" Theta.double' ?= [python|float|]
+      toReference' "base" Theta.string' ?= [python|str|]
 
   , testCase "containers" $ do
-      toReference "base" (Theta.array' Theta.int')       ?= [python|List[int]|]
-      toReference "base" (Theta.array' Theta.string')    ?= [python|List[str]|]
-      toReference "base" (Theta.map' Theta.int')         ?= [python|Mapping[str, int]|]
-      toReference "base" (Theta.map' Theta.string')      ?= [python|Mapping[str, str]|]
-      toReference "base" (Theta.optional' Theta.int')    ?= [python|Optional[int]|]
-      toReference "base" (Theta.optional' Theta.string') ?= [python|Optional[str]|]
+      toReference' "base" (Theta.array' Theta.int')       ?= [python|List[int]|]
+      toReference' "base" (Theta.array' Theta.string')    ?= [python|List[str]|]
+      toReference' "base" (Theta.map' Theta.int')         ?= [python|Mapping[str, int]|]
+      toReference' "base" (Theta.map' Theta.string')      ?= [python|Mapping[str, str]|]
+      toReference' "base" (Theta.optional' Theta.int')    ?= [python|Optional[int]|]
+      toReference' "base" (Theta.optional' Theta.string') ?= [python|Optional[str]|]
 
   , testCase "nested containers" $ do
-      toReference "base" (Theta.array' (Theta.map' Theta.float')) ?=
+      toReference' "base" (Theta.array' (Theta.map' Theta.float')) ?=
         [python|List[Mapping[str, float]]|]
-      toReference "base" (Theta.map' (Theta.array' Theta.float')) ?=
+      toReference' "base" (Theta.map' (Theta.array' Theta.float')) ?=
         [python|Mapping[str, List[float]]|]
 
   , testGroup "named types"
@@ -111,10 +81,10 @@ test_toReference = testGroup "toReference"
             variant   = wrap $ Theta.Variant' "base.FooVariant" [Theta.Case "base.Foo" Nothing []]
             newtype_  = wrap $ Theta.Newtype' "base.FooNewtype" record
 
-        toReference "base" reference ?= [python|FooReference|]
-        toReference "base" record    ?= [python|FooRecord|]
-        toReference "base" variant   ?= [python|FooVariant|]
-        toReference "base" newtype_  ?= [python|FooNewtype|]
+        toReference' "base" reference ?= [python|FooReference|]
+        toReference' "base" record    ?= [python|FooRecord|]
+        toReference' "base" variant   ?= [python|FooVariant|]
+        toReference' "base" newtype_  ?= [python|FooNewtype|]
 
     , testCase "imported" $ do
         let reference = wrap $ Theta.Reference' "base.FooReference"
@@ -122,19 +92,32 @@ test_toReference = testGroup "toReference"
             variant   = wrap $ Theta.Variant' "base.FooVariant" [Theta.Case "base.Foo" Nothing []]
             newtype_  = wrap $ Theta.Newtype' "base.FooNewtype" record
 
-        toReference "foo" reference ?= [python|base.FooReference|]
-        toReference "foo" record    ?= [python|base.FooRecord|]
-        toReference "foo" variant   ?= [python|base.FooVariant|]
-        toReference "foo" newtype_  ?= [python|base.FooNewtype|]
+        toReference' "foo" reference ?= [python|base.FooReference|]
+        toReference' "foo" record    ?= [python|base.FooRecord|]
+        toReference' "foo" variant   ?= [python|base.FooVariant|]
+        toReference' "foo" newtype_  ?= [python|base.FooNewtype|]
+
+    , testCase "with prefix" $ do
+        let reference = wrap $ Theta.Reference' "base.FooReference"
+
+        -- same module: no prefix
+        toReference (Just "prefix") "base" reference ?= [python|FooReference|]
+
+        -- different module: prefix + qualified
+        toReference (Just "prefix") "foo" reference ?= [python|prefix.base.FooReference|]
     ]
   ]
-  where wrap baseType = Theta.withModule' Theta.baseModule baseType
+  where wrap = Theta.withModule' (Theta.emptyModule "base" metadata)
+        metadata = Metadata "1.0.0" "1.0.0" "base"
+
+        toReference' = toReference Nothing
 
 test_toEnum :: TestTree
 test_toEnum = testGroup "toEnum"
   [ testCase "enum" $ do
       Python expected <- loadPython "enum"
-      toEnum "test" "test.Foo" ["Bar", "baz", "_Baz"] @?= Python (Text.strip expected)
+      toEnum Nothing "test" "test.Foo" ["Bar", "baz", "_Baz"] @?=
+        Python (Text.strip expected)
   ]
 
 test_toRecord :: TestTree
@@ -143,22 +126,28 @@ test_toRecord = testGroup "toRecord"
       expected <- loadPython "empty_record"
       toRecord' "test.Empty" [] ??= expected
 
-  , testCase "simple types" $ do
+  , testGroup "simple types" $
       let foo = Theta.Field "foo" Nothing Theta.int'
           bar = Theta.Field "bar" Nothing Theta.string'
+      in
+      [ testCase "one_field" $ do
+          expected <- loadPython "one_field"
+          toRecord' "test.OneField" [foo] ??= expected
 
-      expected <- loadPython "one_field"
-      toRecord' "test.OneField" [foo] ??= expected
+      , testCase "two_fields" $ do
+          expected <- loadPython "two_fields"
+          toRecord' "test.TwoFields" [foo, bar] ??= expected
+      ]
 
-      expected <- loadPython "two_fields"
-      toRecord' "test.TwoFields" [foo, bar] ??= expected
+  , testGroup "local references"
+    [ testCase "foo_reference" $ do
+        expected <- loadPython "foo_reference"
+        toRecord' "test.Foo" [fooField] ??= expected
 
-  , testCase "local references" $ do
-      expected <- loadPython "foo_reference"
-      toRecord' "test.Foo" [fooField] ??= expected
-
-      expected <- loadPython "bar_reference"
-      toRecord' "test.Bar" [fooField] ??= expected
+    , testCase "bar_reference" $ do
+        expected <- loadPython "bar_reference"
+        toRecord' "test.Bar" [fooField] ??= expected
+    ]
 
   , testCase "imported references" $ do
       expected <- loadPython "importing_reference"
@@ -167,7 +156,7 @@ test_toRecord = testGroup "toRecord"
   where toRecord' name fields =
           let type_ = Theta.withModule' module_ (Theta.Record' name fields) in
             case toSchema $ Theta.Definition name Nothing type_ of
-              Right schema -> toRecord "test" schema name fields
+              Right schema -> toRecord Nothing "test" schema name fields
               Left err     -> error (show err)
 
         module_ = Theta.Module
@@ -224,7 +213,7 @@ test_toVariant = testGroup "toVariant"
   where toVariant' name cases =
           let type_ = Theta.withModule' module_ (Theta.Variant' name cases) in
             case toSchema $ Theta.Definition name Nothing type_ of
-              Right schema -> toVariant "test" schema name cases
+              Right schema -> toVariant Nothing "test" schema name cases
               Left err     -> error (show err)
 
         module_ = Theta.Module

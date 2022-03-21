@@ -24,6 +24,7 @@ import           GHC.Generics    (Generic)
 import           Test.QuickCheck (Arbitrary (..))
 import qualified Test.QuickCheck as QuickCheck
 
+import           Theta.Hash      (Hash, hashList, hashText)
 import           Theta.Pretty    (Pretty (..), ShowPretty (..))
 
 -- * Definitions
@@ -79,6 +80,11 @@ randomPart = do
 
         randomList =
           QuickCheck.resize 20 . QuickCheck.listOf . QuickCheck.elements
+
+-- | Calculate the hash for a fully qualified name. This considers
+-- both the base name *and* the namespace.
+hashName :: Name -> Hash
+hashName = hashList . map hashText . parts
 
 -- | Return the parts of a name (ie module name and base name) as a
 -- list.

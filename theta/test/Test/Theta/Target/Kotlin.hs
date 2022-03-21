@@ -14,6 +14,7 @@ import           Theta.Target.Haskell            (loadModule)
 import           Theta.Target.Kotlin
 import           Theta.Target.Kotlin.QuasiQuoter
 
+import           Test.Assertions                 ((?=))
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -82,7 +83,8 @@ test_toReference = testGroup "toReference"
       toReference variant   @?= [kotlin|FooVariant|]
       toReference newtype_  @?= [kotlin|FooNewtype|]
   ]
-  where wrap baseType = Theta.withModule' Theta.baseModule baseType
+  where wrap = Theta.withModule' (Theta.emptyModule "base" metadata)
+        metadata = Metadata "1.0.0" "1.0.0" "base"
 
 test_toRecord :: TestTree
 test_toRecord = testGroup "toRecord"
@@ -133,7 +135,7 @@ test_toVariant = testGroup "toVariant"
             [ Theta.Case "test.One" Nothing [ Theta.Field "foo" Nothing Theta.int']
             , Theta.Case "test.Two" Nothing [ Theta.Field "foo" Nothing Theta.int'
                                             , Theta.Field "bar" Nothing Theta.string']]
-      toVariant "test.Variant" cases @?= [kotlin|
+      toVariant "test.Variant" cases ?= [kotlin|
         sealed class Variant {
             data class One(val foo: Int) : Variant()
 
@@ -148,11 +150,13 @@ test_toVariant = testGroup "toVariant"
 test_toModule :: TestTree
 test_toModule = testGroup "toModule"
   [ testCase "newtype.theta" $ do
-      toModule [] theta'newtype @?= [kotlin|
+      toModule [] theta'newtype ?= [kotlin|
         package newtype
 
         import java.time.LocalDate
         import java.time.LocalDateTime
+
+        import java.util.UUID
 
         import kotlin.ByteArray
 
@@ -166,11 +170,13 @@ test_toModule = testGroup "toModule"
       |]
 
   , testCase "importing_foo.theta" $ do
-      toModule [] theta'importing_foo @?= [kotlin|
+      toModule [] theta'importing_foo ?= [kotlin|
         package importing_foo
 
         import java.time.LocalDate
         import java.time.LocalDateTime
+
+        import java.util.UUID
 
         import kotlin.ByteArray
 
@@ -182,11 +188,13 @@ test_toModule = testGroup "toModule"
       |]
 
   , testCase "importing_foo.theta with prefix" $ do
-      toModule ["com", "example"] theta'importing_foo @?= [kotlin|
+      toModule ["com", "example"] theta'importing_foo ?= [kotlin|
         package com.example.importing_foo
 
         import java.time.LocalDate
         import java.time.LocalDateTime
+
+        import java.util.UUID
 
         import kotlin.ByteArray
 

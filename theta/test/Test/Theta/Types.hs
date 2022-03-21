@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 
@@ -23,7 +25,9 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 
 import           Theta.Pretty                  (pretty)
-import           Theta.Target.Haskell
+import           Theta.Primitive               (primitives)
+import qualified Theta.Primitive               as Theta
+import           Theta.Target.Haskell          (loadModule)
 import qualified Theta.Target.Haskell.HasTheta as HasTheta
 import           Theta.Types                   (moduleName, transitiveImports)
 import qualified Theta.Types                   as Theta
@@ -73,6 +77,7 @@ test_eq = testGroup "Eq instance"
           , Theta.string'
           , Theta.date'
           , Theta.datetime'
+          , Theta.uuid'
 
           , Theta.array' Theta.int'
           , Theta.map' Theta.int'
@@ -95,15 +100,17 @@ test_eq = testGroup "Eq instance"
         -- basicTypes list too
         checkType type_ = case Theta.baseType type_ of
           -- primitive types
-          Theta.Bool'        -> type_ @?= type_
-          Theta.Bytes'       -> type_ @?= type_
-          Theta.Int'         -> type_ @?= type_
-          Theta.Long'        -> type_ @?= type_
-          Theta.Float'       -> type_ @?= type_
-          Theta.Double'      -> type_ @?= type_
-          Theta.String'      -> type_ @?= type_
-          Theta.Date'        -> type_ @?= type_
-          Theta.Datetime'    -> type_ @?= type_
+          Theta.Primitive' p -> case p of
+            Theta.Bool     -> type_ @?= type_
+            Theta.Bytes    -> type_ @?= type_
+            Theta.Int      -> type_ @?= type_
+            Theta.Long     -> type_ @?= type_
+            Theta.Float    -> type_ @?= type_
+            Theta.Double   -> type_ @?= type_
+            Theta.String   -> type_ @?= type_
+            Theta.Date     -> type_ @?= type_
+            Theta.Datetime -> type_ @?= type_
+            Theta.UUID     -> type_ @?= type_
 
           -- containers
           Theta.Array'{}     -> type_ @?= type_
@@ -192,77 +199,108 @@ test_HasDoc = testGroup "HasDoc"
 test_hashing :: TestTree
 test_hashing = testGroup "hashing"
   [ -- in case hashes change version-to-version
+    --
+    -- this is fine according to the contract spelled out in
+    -- Theta.Hash, but it shouldn't happen unless you intentionally
+    -- change the hashing logic
     testGroup "unchanged"
-    [ testCase "primitive" $ do
-        Theta.bool'     ?= "4919965a95bd3a2429452fd4a69276e4"
-        Theta.bytes'    ?= "0a54013f5513d0f2d6453c252b97f356"
-        Theta.int'      ?= "17ea9a080335a6f8f92212e20687d09b"
-        Theta.long'     ?= "1d9635869eeca793d715038fed6ad728"
-        Theta.float'    ?= "0e7bbb7af69b70f68553e17122313028"
-        Theta.double'   ?= "a5666b00d3697ec4ba60f56ebaff00b3"
-        Theta.string'   ?= "3f66b8f128b9b450ed674e5895366d2d"
-        Theta.date'     ?= "982300d27a39ddac604eb5b31f5681dd"
-        Theta.datetime' ?= "c3258332c6f795f29ed884f9399468ad"
+    [ testGroup "primitive" $
+        -- defining this as a function gives us a warning if we add
+        -- new primitive types but don't update this test case
+        let expectedPrimitive t = case t of
+              Theta.Bool     -> "368b9de4188c87e7afa1d7867dcf4413"
+              Theta.Bytes    -> "0fa7cf75524be7f38afd4c156a8806ca"
+              Theta.Int      -> "43d51ed7739b75a3636f33b75c599255"
+              Theta.Long     -> "bd1906da131060d558fff8de56142006"
+              Theta.Float    -> "f3e66d7cfcf8cec4e28182bfaee67c00"
+              Theta.Double   -> "d42662766a376211229617337bd427a9"
+              Theta.String   -> "4b041ed503e3481e6341363865732ab2"
+              Theta.Date     -> "f9796917d9806a980c089cae18f6d57e"
+              Theta.Datetime -> "e5158c40b7bc0dd7b50340fdb08e3c2b"
+              Theta.UUID     -> "d2e4edd151c5d24637c63111311b13d1"
+            test name t =
+              testCase name (Theta.wrapPrimitive t ?= expectedPrimitive t)
+        in [ test (show t) t | t <- primitives ]
 
-    , testCase "container" $ do
-        Theta.array' Theta.bool' ?= "be04590193fe0b46274546386bbae04a"
-        Theta.array' Theta.int'  ?= "9e5c1459ccfdde08dd93f23cdf0c4656"
+    , testGroup "container"
+      [ testCase "[Bool]" $ Theta.array' Theta.bool' ?= "a923b66caa3b5848189d5f889979bd36"
+      , testCase "[Int]"  $ Theta.array' Theta.int'  ?= "10638db762caad1bc8d8a24c6a5f2561"
 
-        Theta.map' Theta.long'   ?= "2fd4b7df7008e79ecdaadfee4ed36056"
-        Theta.map' Theta.string' ?= "4748560da73c3354613dd674e7b42a05"
+      , testCase "{Long}"   $ Theta.map' Theta.long'   ?= "ae09ab852e0b160a795bf522d6cf2a97"
+      , testCase "{String}" $ Theta.map' Theta.string' ?= "2f68eeb4857f3642bc49a3928c57ca9e"
 
-        Theta.optional' Theta.bytes' ?= "fe8555ea03aa8ac9de9b74cda03313a3"
-        Theta.optional' Theta.date'  ?= "fb84e2ea1a4379adcb3ce3eb6cae3c6c"
+      , testCase "Bytes?" $ Theta.optional' Theta.bytes' ?= "1dbb7970dcf10823968dd187a01ba969"
+      , testCase "Date?"  $ Theta.optional' Theta.date'  ?= "e788ea9060022bad189298d2e253199d"
+      ]
 
     , testGroup "named types"
       [ testCase "enum" $ do
-          HasTheta.theta @TrickyEnum ?= "a5598bd1d8c1126f98add389ed96086c"
+          HasTheta.theta @TrickyEnum ?= "d82ce0b1c6f11f6f35538f04fccfbf50"
 
       , testCase "record" $ do
-          HasTheta.theta @Record   ?= "12830fe0301c2dbf8fbd09c85ed2bef8"
+          HasTheta.theta @Record   ?= "1a93bc566e8d4a6ab6c61e9942ff66f5"
 
       , testCase "variant" $ do
-          HasTheta.theta @Variant  ?= "d018a023a21f379ee6cefc2270e06760"
+          HasTheta.theta @Variant  ?= "6963fdd3e362d41b69dc873d829a3462"
 
-      , testCase "newtype" $ do
-          HasTheta.theta @Newtype  ?= "20f7cf73ddc12ea5aeb866dbcc147fa4"
-          HasTheta.theta @Newtype2 ?= "9a186dc3ed7f0a7206f313121ba5e98b"
+      , testGroup "newtype"
+        [ testCase "Newtype" $
+            HasTheta.theta @Newtype  ?= "f881fda8539d6269a4c8a69a019a6eca"
+        , testCase "Newtype2" $
+            HasTheta.theta @Newtype2 ?= "4056071b1f86b14d95f349ba02014633"
 
           -- from nested_types.theta
-          HasTheta.theta @Newtype_0 ?= "9afe3955179b3c12b134ffc8b708f83a"
-          HasTheta.theta @Newtype_1 ?= "b7dec420e20dc6ac129007a565aca39c"
+        , testCase "Newtype_0" $
+            HasTheta.theta @Newtype_0 ?= "05d345b5db4df5c3a158bc5309a1383f"
+        , testCase "Newtype_1" $
+            HasTheta.theta @Newtype_1 ?= "02c3ddf457aa85e993d10f89315d0f78"
+        ]
 
       , testCase "alias" $ do
-          HasTheta.theta @Alias     ?= "b7dec420e20dc6ac129007a565aca39c"
+          HasTheta.theta @Alias ?= "02c3ddf457aa85e993d10f89315d0f78"
       ]
 
     , testCase "recursive" $ do
-        HasTheta.theta @Recursive ?= "b49f702e7f64ff003622e4c476d81e3a"
+        HasTheta.theta @Recursive ?= "926649e7e828763c4333257b4f586af2"
 
-    , testCase "mutually recursive" $ do
-        HasTheta.theta @MutualA ?= "acbcf64168fe48a58e855ae625d610b4"
-        HasTheta.theta @MutualB ?= "1292adf5796a27df68a49d3bc049e190"
-        HasTheta.theta @Wrapper ?= "4479f3b3ab034cb491de22afe3527901"
+    , testGroup "mutually recursive"
+      [ testCase "MutualA" $
+          HasTheta.theta @MutualA ?= "5ed64a512c84ba695a337c0b0ac66ce6"
+      , testCase "MutualB" $
+          HasTheta.theta @MutualB ?= "4589f9047afc3114e5fc9b48e2e08524"
+      , testCase "Wrapper" $
+          HasTheta.theta @Wrapper ?= "e425e524f643bc1905a6ffc79242c5c7"
+      ]
 
-    , testCase "references" $ do
-        reference "named_types.Record"   ?= "12830fe0301c2dbf8fbd09c85ed2bef8"
-        reference "named_types.Variant"  ?= "d018a023a21f379ee6cefc2270e06760"
-        reference "named_types.Newtype"  ?= "20f7cf73ddc12ea5aeb866dbcc147fa4"
-        reference "named_types.Newtype2" ?= "9a186dc3ed7f0a7206f313121ba5e98b"
-        reference "named_types.Alias1"   ?= "12830fe0301c2dbf8fbd09c85ed2bef8"
+    , testGroup "references"
+      [ testCase "named_types.Record" $
+          reference "named_types.Record" ?= "1a93bc566e8d4a6ab6c61e9942ff66f5"
+      , testCase "named_types.Variant" $
+          reference "named_types.Variant" ?= "6963fdd3e362d41b69dc873d829a3462"
+      , testCase "named_types.Newtype" $
+          reference "named_types.Newtype" ?= "f881fda8539d6269a4c8a69a019a6eca"
+      , testCase "named_types.Newtype2" $
+          reference "named_types.Newtype2" ?= "4056071b1f86b14d95f349ba02014633"
+      , testCase "named_types.Alias1" $
+          reference "named_types.Alias1" ?= "1a93bc566e8d4a6ab6c61e9942ff66f5"
+      ]
     ]
 
   -- check that changes to structure of types changes hash
-  , testGroup "structure"
-    [ testCase "records" $
-        forM_ differentFields $ \ (description, fields') -> do
-          let message = "Hashes of fields and %s fields should be different."
-          assertBool (printf message description) $
-            Theta.hash (record "named_types.Example" fields) /=
-            Theta.hash (record "named_types.Example" fields')
+  , testGroup "structural changes"
+    [ testGroup "records"
+      [ testCase description $ do
+        let message = "Hashes of fields and %s fields should be different."
+        assertBool (printf message description) $
+          Theta.hash (record "named_types.Example" fields) /=
+          Theta.hash (record "named_types.Example" fields')
+      | (description, fields') <- differentFields
+      ]
 
-    , testCase "variants" $
-        Theta.hash variant @?= Theta.hash variant'
+    , testGroup "variant"
+      [ testCase "case order does not matter" $
+          Theta.hash variant @?= Theta.hash variant'
+      ]
     ]
   ]
   where Theta.Type { hash } ?= string = show hash @?= string

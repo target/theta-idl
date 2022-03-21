@@ -46,6 +46,7 @@ import qualified Theta.Types                   as Theta
 
 import           Theta.Target.Haskell          (disambiguateConstructors)
 
+import qualified Theta.Primitive               as Theta
 import           Theta.Target.Rust.QuasiQuoter (Rust (..), rust)
 
 -- | Given a set of modules, generate a self-contained Rust file with
@@ -98,6 +99,7 @@ toModule Theta.Module { Theta.types } = definitionLines $ imports : typeDefiniti
           use std::collections::HashMap;
           use theta::avro::{FromAvro, ToAvro};
           use nom::{IResult, Err, error::{context, ErrorKind}};
+          use uuid::{Uuid};
         |]
 
 -- | Return a Rust snippet that defines a type for the given Theta
@@ -138,10 +140,10 @@ toDefinition Theta.Definition {..} = case Theta.baseType definitionType of
 -- ignoring namespaces.
 toReference :: Theta.Type -> Rust
 toReference type_@Theta.Type { Theta.baseType } = case baseType of
-  -- primitive types
-  Theta.Bytes'      -> [rust|Vec<u8>|]
-  Theta.Date'       -> [rust|Date<Utc>|]
-  Theta.Datetime'   -> [rust|DateTime<Utc>|]
+  -- special cases for primitive types
+  Theta.Primitive' Theta.Bytes    -> [rust|Vec<u8>|]
+  Theta.Primitive' Theta.Date     -> [rust|Date<Utc>|]
+  Theta.Primitive' Theta.Datetime -> [rust|DateTime<Utc>|]
 
   -- containers
   Theta.Array' a    -> let ref = toReference a in [rust|Vec<$ref>|]
@@ -164,15 +166,17 @@ toReference type_@Theta.Type { Theta.baseType } = case baseType of
 typeIdentifier :: Theta.Type -> [Rust]
 typeIdentifier Theta.Type { Theta.baseType } = case baseType of
   -- primitive types
-  Theta.Bool'           -> ["bool"]
-  Theta.Bytes'          -> ["Vec"]
-  Theta.Int'            -> ["i32"]
-  Theta.Long'           -> ["i64"]
-  Theta.Float'          -> ["f32"]
-  Theta.Double'         -> ["f64"]
-  Theta.String'         -> ["String"]
-  Theta.Date'           -> ["Date"]
-  Theta.Datetime'       -> ["DateTime"]
+  Theta.Primitive' p -> case p of
+    Theta.Bool     -> ["bool"]
+    Theta.Bytes    -> ["Vec"]
+    Theta.Int      -> ["i32"]
+    Theta.Long     -> ["i64"]
+    Theta.Float    -> ["f32"]
+    Theta.Double   -> ["f64"]
+    Theta.String   -> ["String"]
+    Theta.Date     -> ["Date"]
+    Theta.Datetime -> ["DateTime"]
+    Theta.UUID     -> ["Uuid"]
 
   -- containers
   Theta.Array' _        -> ["Vec"]
@@ -946,18 +950,8 @@ refersTo t@Theta.Type { Theta.module_ } name =
             | otherwise               -> whenUnseen name' $
               or <$> mapM fieldsReference (Theta.caseParameters <$> cases)
 
-          -- primitive types
-          -- (listed explicitly to raise a warning if we add new kinds of
-          -- types to Theta)
-          Theta.Bool'     -> pure False
-          Theta.Bytes'    -> pure False
-          Theta.Int'      -> pure False
-          Theta.Long'     -> pure False
-          Theta.Float'    -> pure False
-          Theta.Double'   -> pure False
-          Theta.String'   -> pure False
-          Theta.Date'     -> pure False
-          Theta.Datetime' -> pure False
+          -- primitive types can never refer to another type
+          Theta.Primitive' _ -> pure False
 
         names cases = Theta.caseName <$> cases
 

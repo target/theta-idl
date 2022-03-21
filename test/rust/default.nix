@@ -10,25 +10,6 @@ let
       type != "directory" || builtins.baseNameOf path != "target")
     theta-rust-src;
 
-  # Cargo.toml file with *absolute* path to theta-rust—not sure why I
-  # needed this, but it's the only way I made the whole thing work.
-  test-cargo-toml = pkgs.writeTextFile {
-    name = "Cargo.toml";
-    text =''
-      [package]
-      name = "theta_rust_tests"
-      version = "0.1.0"
-      edition = "2018"
-
-      [lib]
-
-      [dependencies]
-      chrono = "0.4.0"
-      nom = "5.0.0"
-      theta = { path = "./theta-rust" }
-    '';
-  };
-
   # Set up the *source* for the Rust test code:
   #
   #  1. Set up Cargo.lock and Cargo.toml (see above)
@@ -54,7 +35,7 @@ let
       # Theta's Rust support library
       cp -r ${theta-rust} $out/theta-rust
 
-      cp ${test-cargo-toml} $out/Cargo.toml
+      cp $src/Cargo.toml $out/Cargo.toml
       cp $src/Cargo.lock $out
 
       # Copy over Rust source for tests (src/*.rs from this directory)

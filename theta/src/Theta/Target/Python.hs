@@ -44,6 +44,7 @@ import           Theta.Pretty                    (p)
 import qualified Theta.Pretty                    as Theta
 import qualified Theta.Types                     as Theta
 
+import qualified Theta.Primitive                 as Theta
 import           Theta.Target.Avro.Types         (toSchema)
 import           Theta.Target.Python.QuasiQuoter (Python (..), python)
 
@@ -53,11 +54,14 @@ import           Theta.Target.Python.QuasiQuoter (Python (..), python)
 toModule :: MonadError Theta.Error m
          => Theta.Module
          -> Maybe Python
-         -- ^ The package path to use when importing other
-         -- Theta-generated modules.
+         -- ^ The prefix to use when importing other Theta-generated
+         -- modules.
+         --
+         -- This is specified as @--prefix@ for the @theta python@
+         -- command.
          -> m Python
-toModule Theta.Module {..} packagePath = do
-  definitions <- mapM (toDefinition moduleName) types
+toModule Theta.Module {..} prefix = do
+  definitions <- mapM (toDefinition prefix moduleName) types
   let definitionLines = toDefinitions $ Foldable.toList definitions
   pure [python|
     from abc import ABC
@@ -66,6 +70,7 @@ toModule Theta.Module {..} packagePath = do
     from enum import Enum
     import json
     from typing import Any, ClassVar, Dict, Iterator, List, Mapping, Optional
+    from uuid import UUID
 
     from theta import avro, container
 
@@ -74,18 +79,30 @@ toModule Theta.Module {..} packagePath = do
     $definitionLines
   |]
   where importLines =
-          toLines [ qualifiedImport moduleName packagePath
+          toLines [ qualifiedImport moduleName prefix
                   | Theta.Module { Theta.moduleName } <- imports
                   ]
 
-        qualifiedImport moduleName packagePath = case packagePath of
-          Nothing   -> [python|import $qualified|]
-          Just path ->
-            let prefixed = path <> "." <> qualified in
-              [python|import $prefixed as $qualified|]
+        qualifiedImport moduleName = \case
+          Nothing -> [python|import $qualified|]
+          Just p  -> let prefixed = p <> "." <> qualified in
+                       [python|import $prefixed|]
           where qualified = Python $ Name.renderModuleName moduleName
 
--- | Return a Python snippet that /refers/ to the given Theta type.
+-- | The Python type that corresponds to each primitive Theta type.
+primitive :: Theta.Primitive -> Python
+primitive Theta.Bool     = "bool"
+primitive Theta.Bytes    = "bytes"
+primitive Theta.Int      = "int"
+primitive Theta.Long     = "int"
+primitive Theta.Float    = "float"
+primitive Theta.Double   = "float"
+primitive Theta.String   = "str"
+primitive Theta.Date     = "date"
+primitive Theta.Datetime = "datetime"
+primitive Theta.UUID     = "UUID"
+
+-- | Return a Python snippet that /refers/ to the given Theta"a"
 --
 -- For primitive types, this returns the equivalent Python type.
 --
@@ -94,38 +111,29 @@ toModule Theta.Module {..} packagePath = do
 --
 -- Named types (references, records, variants and newtypes) are
 -- referred to by name, ignoring namespaces.
-toReference :: Name.ModuleName -> Theta.Type -> Python
-toReference currentModule Theta.Type { Theta.baseType } = case baseType of
-
-  -- primitive types
-  Theta.Bool'           -> [python|bool|]
-  Theta.Bytes'          -> [python|bytes|]
-  Theta.Int'            -> [python|int|]
-  Theta.Long'           -> [python|int|]
-  Theta.Float'          -> [python|float|]
-  Theta.Double'         -> [python|float|]
-  Theta.String'         -> [python|str|]
-  Theta.Date'           -> [python|date|]
-  Theta.Datetime'       -> [python|datetime|]
+toReference :: Maybe Python -> Name.ModuleName -> Theta.Type -> Python
+toReference prefix currentModule Theta.Type { Theta.baseType } = case baseType of
+  -- primitive
+  Theta.Primitive' t -> primitive t
 
   -- containers
   Theta.Array' a        ->
-    let items = toReference currentModule a
+    let items = toReference prefix currentModule a
     in [python|List[$items]|]
   Theta.Map' a          ->
-    let values = toReference currentModule a
+    let values = toReference prefix currentModule a
     in [python|Mapping[str, $values]|]
   Theta.Optional' a     ->
-    let type_ = toReference currentModule a
+    let type_ = toReference prefix currentModule a
     in [python|Optional[$type_]|]
 
   -- named types
-  Theta.Enum' name _    -> toIdentifier currentModule name
-  Theta.Record' name _  -> toIdentifier currentModule name
-  Theta.Variant' name _ -> toIdentifier currentModule name
-  Theta.Newtype' name _ -> toIdentifier currentModule name
+  Theta.Enum' name _    -> toIdentifier prefix currentModule name
+  Theta.Record' name _  -> toIdentifier prefix currentModule name
+  Theta.Variant' name _ -> toIdentifier prefix currentModule name
+  Theta.Newtype' name _ -> toIdentifier prefix currentModule name
 
-  Theta.Reference' name -> toIdentifier currentModule name
+  Theta.Reference' name -> toIdentifier prefix currentModule name
 
 -- | Return a Python snippet that defines a type with the given name
 -- corresponding to the given Theta type.
@@ -140,37 +148,39 @@ toReference currentModule Theta.Type { Theta.baseType } = case baseType of
 -- For records and variants, this produces Python class definitions
 -- corresponding to the Theta type.
 toDefinition :: MonadError Theta.Error m
-             => Name.ModuleName
+             => Maybe Python
+             -> Name.ModuleName
              -> Theta.Definition Theta.Type
              -> m Python
-toDefinition currentModule definition =
+toDefinition prefix currentModule definition =
   case Theta.baseType $ Theta.definitionType definition of
     -- structured types
     Theta.Enum' name symbols    ->
-      pure $ toEnum currentModule name symbols
+      pure $ toEnum prefix currentModule name symbols
     Theta.Record' name fields   -> do
       schema <- toSchema definition
-      toRecord currentModule schema name fields
+      toRecord prefix currentModule schema name fields
     Theta.Variant' name cases   -> do
       schema <- toSchema definition
-      toVariant currentModule schema name cases
+      toVariant prefix currentModule schema name cases
     Theta.Newtype' _ underlying ->
       -- treat newtypes the same as aliases
-      toDefinition currentModule $ definition { Theta.definitionType = underlying }
+      toDefinition prefix currentModule $ definition { Theta.definitionType = underlying }
 
     -- everything else becomes a type alias
     _ -> let reference  =
-               toReference currentModule $ Theta.definitionType definition
+               toReference prefix currentModule $ Theta.definitionType definition
              identifier =
-               toIdentifier currentModule $ Theta.definitionName definition
+               toIdentifier prefix currentModule $ Theta.definitionName definition
          in pure [python|$identifier = '$reference'|]
 
 -- | Compile a Theta enum to a Python enum.
-toEnum :: Name.ModuleName
+toEnum :: Maybe Python
+       -> Name.ModuleName
        -> Name.Name
        -> NonEmpty Theta.EnumSymbol
        -> Python
-toEnum currentModule enumName symbols = [python|
+toEnum prefix currentModule enumName symbols = [python|
   class $name(Enum):
       $enumDeclarations
 
@@ -203,7 +213,7 @@ toEnum currentModule enumName symbols = [python|
           decoder = avro.Decoder(in_)
           return container.decode_container(decoder, $name)
   |]
-  where name = toIdentifier currentModule enumName
+  where name = toIdentifier prefix currentModule enumName
 
         enumDeclarations =
           toLines [ [python|$symbol = $i|]
@@ -232,7 +242,8 @@ toEnum currentModule enumName symbols = [python|
 
 -- | Compile a Theta record to a Python dataclass.
 toRecord :: MonadError Theta.Error m
-         => Name.ModuleName
+         => Maybe Python
+         -> Name.ModuleName
          -- ^ The name of the module that we're generating Python code
          -- for.
          -> Avro.Schema
@@ -240,13 +251,13 @@ toRecord :: MonadError Theta.Error m
          -> Name.Name
          -> Theta.Fields Theta.Type
          -> m Python
-toRecord currentModule schema recordName Theta.Fields { Theta.fields } = do
+toRecord prefix currentModule schema recordName Theta.Fields { Theta.fields } = do
   let avroSchema = schemaLiteral schema
 
   fieldEncodings <- case fields of
     [] -> pure [python|pass|]
     _  -> toLines <$> mapM avroEncoding fields
-  let decode = decodingFunction currentModule . Theta.fieldType
+  let decode = decodingFunction prefix currentModule . Theta.fieldType
   fieldDecodings <- toList <$> mapM decode fields
 
   pure [python|
@@ -281,23 +292,27 @@ toRecord currentModule schema recordName Theta.Fields { Theta.fields } = do
             decoder = avro.Decoder(in_)
             return container.decode_container(decoder, $name)
   |]
-  where name = toIdentifier currentModule recordName
-        fieldDeclarations = toLines $ fieldDeclaration currentModule <$> fields
+  where name = toIdentifier prefix currentModule recordName
+        fieldDeclarations = toLines $ fieldDeclaration prefix currentModule <$> fields
 
 -- | Declare a field and its type in the style used by dataclasses.
 --
 -- @
 -- foo: int
 -- @
-fieldDeclaration :: Name.ModuleName -> Theta.Field Theta.Type -> Python
-fieldDeclaration currentModule Theta.Field { Theta.fieldName, Theta.fieldType } =
+fieldDeclaration :: Maybe Python
+                 -> Name.ModuleName
+                 -> Theta.Field Theta.Type
+                 -> Python
+fieldDeclaration prefix currentModule Theta.Field { Theta.fieldName, Theta.fieldType } =
   [python|$name: '$reference'|]
   where name      = toFieldName fieldName
-        reference = toReference currentModule fieldType
+        reference = toReference prefix currentModule fieldType
 
 -- | Compile a Theta variant to a set of Python classes.
 toVariant :: MonadError Theta.Error m
-          => Name.ModuleName
+          => Maybe Python
+          -> Name.ModuleName
           -- ^ The name of the module that we're generating Python code
           -- for.
           -> Avro.Schema
@@ -305,7 +320,7 @@ toVariant :: MonadError Theta.Error m
           -> Name.Name
           -> NonEmpty (Theta.Case Theta.Type)
           -> m Python
-toVariant currentModule schema variantName cases = do
+toVariant prefix currentModule schema variantName cases = do
   let avroSchema = schemaLiteral schema
 
   caseClasses <- toDefinitions <$> mapM toClass (zip [0..] $ NonEmpty.toList cases)
@@ -339,14 +354,14 @@ toVariant currentModule schema variantName cases = do
 
     $caseClasses
   |]
-  where variantIdentifier = toIdentifier currentModule variantName
+  where variantIdentifier = toIdentifier prefix currentModule variantName
 
         toClass (n, Theta.Case { Theta.caseName, Theta.caseParameters }) = do
           fieldEncodings <- case fields of
             [] -> pure [python|pass|]
             _  -> toLines <$> mapM avroEncoding fields
 
-          let decode = decodingFunction currentModule . Theta.fieldType
+          let decode = decodingFunction prefix currentModule . Theta.fieldType
           fieldDecodings <- toList <$> mapM decode fields
 
           pure [python|
@@ -368,10 +383,10 @@ toVariant currentModule schema variantName cases = do
                  def to_avro(self, out):
                      self.encode_avro(avro.Encoder(out))
           |]
-          where caseIdentifier = toIdentifier currentModule caseName
+          where caseIdentifier = toIdentifier prefix currentModule caseName
 
                 fieldDeclarations =
-                  toLines $ fieldDeclaration currentModule <$> fields
+                  toLines $ fieldDeclaration prefix currentModule <$> fields
                 fields = Theta.fields caseParameters
 
                 tag = Python $ Text.pack $ show n
@@ -381,7 +396,7 @@ toVariant currentModule schema variantName cases = do
                   toLines $ ifCase case_ : (elifCase <$> zip [1..] cases)
 
                 ifCase Theta.Case { Theta.caseName } =
-                  let identifier = toIdentifier currentModule caseName in
+                  let identifier = toIdentifier prefix currentModule caseName in
                     [python|
                       if tag == 0:
                           return $identifier.decode_avro(decoder)
@@ -389,7 +404,7 @@ toVariant currentModule schema variantName cases = do
 
                 elifCase (n, Theta.Case { Theta.caseName }) =
                   let tag = Python $ Text.pack $ show n
-                      identifier = toIdentifier currentModule caseName
+                      identifier = toIdentifier prefix currentModule caseName
                   in
                     [python|
                       elif tag == $tag:
@@ -451,15 +466,17 @@ encodingFunction :: MonadError Theta.Error m => Theta.Type ->  m Python
 encodingFunction Theta.Type { Theta.baseType, Theta.module_ } = case baseType of
 
   -- Primitive Types
-  Theta.Bool'     -> pure [python|encoder.bool|]
-  Theta.Bytes'    -> pure [python|encoder.bytes|]
-  Theta.Int'      -> pure [python|encoder.integral|]
-  Theta.Long'     -> pure [python|encoder.integral|]
-  Theta.Float'    -> pure [python|encoder.float|]
-  Theta.Double'   -> pure [python|encoder.double|]
-  Theta.String'   -> pure [python|encoder.string|]
-  Theta.Date'     -> pure [python|encoder.date|]
-  Theta.Datetime' -> pure [python|encoder.datetime|]
+  Theta.Primitive' t -> pure $ case t of
+    Theta.Bool     -> "encoder.bool"
+    Theta.Bytes    -> "encoder.bytes"
+    Theta.Int      -> "encoder.integral"
+    Theta.Long     -> "encoder.integral"
+    Theta.Float    -> "encoder.float"
+    Theta.Double   -> "encoder.double"
+    Theta.String   -> "encoder.string"
+    Theta.Date     -> "encoder.date"
+    Theta.Datetime -> "encoder.datetime"
+    Theta.UUID     -> "encoder.uuid"
 
   -- Containers
   Theta.Array' type_    -> do
@@ -506,46 +523,49 @@ encodingFunction Theta.Type { Theta.baseType, Theta.module_ } = case baseType of
 -- This assumes the Python identifier @decoder@ is in scope and has
 -- the right type.
 decodingFunction :: MonadError Theta.Error m
-                 => Name.ModuleName
+                 => Maybe Python
+                 -> Name.ModuleName
                  -> Theta.Type
                  -> m Python
-decodingFunction currentModule Theta.Type { Theta.baseType, Theta.module_ } =
+decodingFunction prefix currentModule Theta.Type { Theta.baseType, Theta.module_ } =
   case baseType of
     -- Primitive Types
-    Theta.Bool'     -> pure [python|decoder.bool()|]
-    Theta.Bytes'    -> pure [python|decoder.bytes()|]
-    Theta.Int'      -> pure [python|decoder.integral()|]
-    Theta.Long'     -> pure [python|decoder.integral()|]
-    Theta.Float'    -> pure [python|decoder.float()|]
-    Theta.Double'   -> pure [python|decoder.double()|]
-    Theta.String'   -> pure [python|decoder.string()|]
-    Theta.Date'     -> pure [python|decoder.date()|]
-    Theta.Datetime' -> pure [python|decoder.datetime()|]
+    Theta.Primitive' t -> pure $ case t of
+      Theta.Bool     -> "decoder.bool()"
+      Theta.Bytes    -> "decoder.bytes()"
+      Theta.Int      -> "decoder.integral()"
+      Theta.Long     -> "decoder.integral()"
+      Theta.Float    -> "decoder.float()"
+      Theta.Double   -> "decoder.double()"
+      Theta.String   -> "decoder.string()"
+      Theta.Date     -> "decoder.date()"
+      Theta.Datetime -> "decoder.datetime()"
+      Theta.UUID     -> "decoder.uuid()"
 
     -- Containers
     Theta.Array' type_ -> do
-      elementFunction <- decodingFunction currentModule type_
+      elementFunction <- decodingFunction prefix currentModule type_
       pure [python|decoder.array(lambda: $elementFunction)|]
     Theta.Map' type_ -> do
-      elementFunction <- decodingFunction currentModule type_
+      elementFunction <- decodingFunction prefix currentModule type_
       pure [python|decoder.map(lambda: $elementFunction)|]
     Theta.Optional' type_ -> do
-      elementFunction <- decodingFunction currentModule type_
+      elementFunction <- decodingFunction prefix currentModule type_
       pure [python|decoder.optional(lambda: $elementFunction)|]
 
     -- Named Types
-    Theta.Enum' (toIdentifier currentModule -> name) _ ->
+    Theta.Enum' (toIdentifier prefix currentModule -> name) _ ->
       pure [python|$name.decode_avro(decoder)|]
-    Theta.Record' (toIdentifier currentModule -> name) _ ->
+    Theta.Record' (toIdentifier prefix currentModule -> name) _ ->
       pure [python|$name.decode_avro(decoder)|]
-    Theta.Variant' (toIdentifier currentModule -> name) _ ->
+    Theta.Variant' (toIdentifier prefix currentModule -> name) _ ->
       pure [python|$name.decode_avro(decoder)|]
 
     -- References and Newtypes
-    Theta.Newtype' _ type_ -> decodingFunction currentModule type_
+    Theta.Newtype' _ type_ -> decodingFunction prefix currentModule type_
     Theta.Reference' name  -> case Theta.lookupName name module_ of
       Left _      -> throw $ NonExistentType name
-      Right type_ -> decodingFunction currentModule type_
+      Right type_ -> decodingFunction prefix currentModule type_
 
 -- * Python Syntax
 
@@ -630,28 +650,35 @@ toDefinitions (l:ls) = let rest = toDefinitions ls in [python|
 --
 -- If the name is from the /current/ module, it is turned into an
 -- unqualified name. If the name is /imported/, it is rendered as
--- /fully qualified/.
---
--- Currently this ignores the Theta namespace and transcribes the name
--- directly to Python.
+-- /fully qualified/. This includes the extra package prefix (@theta
+-- python --prefix <PREFIX>@) if applicable.
 --
 -- @
--- > toIdentifier "example" "example.Foo"
+-- > toIdentifier (Just "prefix") "example" "example.Foo"
 -- Python "Foo"
--- > toIdentifier "example" "example.foo.Foo"
+-- > toIdentifier Nothing "example" "example.foo.Foo"
 -- Python "example.foo.Foo"
+-- > toIdentifier (Just "prefix") "example" "example.foo.Foo"
+-- Python "prefix.example.foo.Foo"
 -- @
-toIdentifier :: Name.ModuleName
+toIdentifier :: Maybe Python
+             -- ^ An optional extra prefix for importing other
+             -- Theta-generated modules.
+             --
+             -- This is specified as @--prefix@ for the @theta python@
+             -- command.
+             -> Name.ModuleName
              -- ^ What module we're generating code for, so that we
              -- know whether to use qualified names or not.
              -> Name.Name
              -- ^ The name we're converting to Python.
              -> Python
-toIdentifier currentModule name
+toIdentifier prefix currentModule name
   | Name.moduleName name == currentModule =
     Python $ Name.name name
-  | otherwise =
-    Python $ Name.render name
+  | otherwise = case prefix of
+      Just p  -> p <> "." <> Python (Name.render name)
+      Nothing -> Python $ Name.render name
 
 -- | Convert a 'Theta.FieldName' to the corresponding 'Python' field
 -- name.

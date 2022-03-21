@@ -32,6 +32,7 @@ import qualified Data.Avro.Internal.DecodeRaw  as DecodeRaw
 import qualified Data.Avro.Internal.EncodeRaw  as EncodeRaw
 import qualified Data.Avro.Internal.Get        as Avro
 
+
 import           Data.Binary.Get               (Get, runGetOrFail)
 import qualified Data.ByteString.Builder       as ByteString
 import           Data.ByteString.Lazy          (ByteString)
@@ -43,12 +44,16 @@ import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
 import           Data.Time.Calendar            (Day)
 import           Data.Time.Clock               (UTCTime)
+import           Data.UUID                     (UUID)
+import qualified Data.UUID                     as UUID
 import qualified Data.Vector                   as Vector
 import           Data.Word                     (Word64)
 
 import           GHC.Stack                     (HasCallStack)
 
 import           Test.QuickCheck               (Gen)
+
+import           Text.Printf                   (printf)
 
 import qualified Theta.Error                   as Theta
 import           Theta.Name                    (Name)
@@ -159,8 +164,8 @@ instance ToTheta Bool where
 
 instance FromTheta Bool where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Boolean b -> pure b
-    _               -> mismatch Theta.bool' type_
+    Theta.Primitive (Theta.Boolean b) -> pure b
+    _                                 -> mismatch Theta.bool' type_
 
   avroDecoding = Avro.getBoolean
 
@@ -171,8 +176,8 @@ instance ToTheta ByteString where
 
 instance FromTheta ByteString where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Bytes b -> pure b
-    _             -> mismatch Theta.bytes' type_
+    Theta.Primitive (Theta.Bytes b) -> pure b
+    _                               -> mismatch Theta.bytes' type_
 
   avroDecoding = Avro.getBytesLazy
 
@@ -183,8 +188,8 @@ instance ToTheta Int32 where
 
 instance FromTheta Int32 where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Int i -> pure i
-    _           -> mismatch Theta.int' type_
+    Theta.Primitive (Theta.Int i) -> pure i
+    _                             -> mismatch Theta.int' type_
 
 instance ToTheta Int64 where
   toTheta = Theta.long
@@ -193,8 +198,8 @@ instance ToTheta Int64 where
 
 instance FromTheta Int64 where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Long l -> pure l
-    _            -> mismatch Theta.long' type_
+    Theta.Primitive (Theta.Long l) -> pure l
+    _                              -> mismatch Theta.long' type_
 
 instance ToTheta Float where
   toTheta = Theta.float
@@ -203,8 +208,8 @@ instance ToTheta Float where
 
 instance FromTheta Float where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Float f -> pure f
-    _             -> mismatch Theta.float' type_
+    Theta.Primitive (Theta.Float f) -> pure f
+    _                               -> mismatch Theta.float' type_
 
   avroDecoding = Avro.getFloat
 
@@ -215,8 +220,8 @@ instance ToTheta Double where
 
 instance FromTheta Double where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Double d -> pure d
-    _              -> mismatch Theta.double' type_
+    Theta.Primitive (Theta.Double d) -> pure d
+    _                                -> mismatch Theta.double' type_
 
   avroDecoding = Avro.getDouble
 
@@ -227,8 +232,8 @@ instance ToTheta Text where
 
 instance FromTheta Text where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.String s -> pure s
-    _              -> mismatch Theta.string' type_
+    Theta.Primitive (Theta.String s) -> pure s
+    _                                -> mismatch Theta.string' type_
 
   avroDecoding = Avro.getString
 
@@ -239,8 +244,8 @@ instance ToTheta Day where
 
 instance FromTheta Day where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Date day -> pure day
-    _              -> mismatch Theta.date' type_
+    Theta.Primitive (Theta.Date day) -> pure day
+    _                                -> mismatch Theta.date' type_
 
   avroDecoding = Values.toDay <$> DecodeRaw.decodeRaw @Int32
 
@@ -251,10 +256,26 @@ instance ToTheta UTCTime where
 
 instance FromTheta UTCTime where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
-    Theta.Datetime time -> pure time
-    _                   -> mismatch Theta.datetime' type_
+    Theta.Primitive (Theta.Datetime time) -> pure time
+    _                                     -> mismatch Theta.datetime' type_
 
   avroDecoding = Values.toUTCTime <$> DecodeRaw.decodeRaw @Int64
+
+instance ToTheta UUID where
+  toTheta = Theta.uuid
+
+  avroEncoding = avroEncoding . UUID.toText
+
+instance FromTheta UUID where
+  fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
+    Theta.Primitive (Theta.UUID uuid) -> pure uuid
+    _                                 -> mismatch Theta.uuid' type_
+
+  avroDecoding = do
+    str <- avroDecoding
+    case UUID.fromText str of
+      Just uuid -> pure uuid
+      Nothing   -> fail (printf "Invalid UUID format in string:\n%s" str)
 
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value

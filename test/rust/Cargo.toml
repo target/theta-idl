@@ -1,7 +1,9 @@
 [package]
-name = "cat_everything_rust"
+name = "theta_rust_tests"
 version = "0.1.0"
 edition = "2018"
+
+[lib]
 
 [dependencies]
 chrono = "0.4.0"

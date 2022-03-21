@@ -31,6 +31,7 @@ import           Theta.Import
 import qualified Theta.Metadata                as Metadata
 import qualified Theta.Name                    as Name
 import           Theta.Pretty                  (pretty)
+import qualified Theta.Primitive               as Theta
 import           Theta.Types                   (Module (..))
 import qualified Theta.Types                   as Theta
 import qualified Theta.Versions                as Versions
@@ -124,8 +125,8 @@ test_importModule = testGroup "importModule"
       case Theta.lookupName "test.Foo" combined1 of
         Left err                              -> assertFailure err
         Right Theta.Type { Theta.baseType }   -> case baseType of
-          Theta.Long' -> pure ()
-          Theta.Int'  ->
+          Theta.Primitive' Theta.Long -> pure ()
+          Theta.Primitive' Theta.Int  ->
             assertFailure "Wrong type shadowed: should be ‘Long’, not ‘Int’."
           invalid     ->
             assertFailure $ "Unexpected type in module—expected ‘Long’ but got ‘"
@@ -134,8 +135,8 @@ test_importModule = testGroup "importModule"
       case Theta.lookupName "test.Foo" combined2 of
         Left err                              -> assertFailure err
         Right Theta.Type { Theta.baseType }   -> case baseType of
-          Theta.Long' -> pure ()
-          Theta.Int'  ->
+          Theta.Primitive' Theta.Long -> pure ()
+          Theta.Primitive' Theta.Int  ->
             assertFailure "Wrong type shadowed: should be ‘Long’, not ‘Int’."
           invalid     ->
             assertFailure $ "Unexpected type in module—expected ‘Long’ but got ‘"

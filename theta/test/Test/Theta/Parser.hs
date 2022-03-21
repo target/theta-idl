@@ -22,6 +22,7 @@ import           Test.Tasty.HUnit
 import           Theta.Metadata          (Version)
 import qualified Theta.Metadata          as Metadata
 import           Theta.Parser
+import           Theta.Primitive         (Primitive (..))
 import           Theta.Types
 
 tests :: TestTree
@@ -41,6 +42,7 @@ tests = testGroup "Parser"
     , test_string
     , test_date
     , test_datetime
+    , test_uuid
     ]
 
   , testGroup "containers"
@@ -69,7 +71,7 @@ tests = testGroup "Parser"
 
 test_metadata :: TestTree
 test_metadata = testCase "Metadata" $
-  go (metadataSection "test") testMetadataSection ?= testMetadata "1.0.0"
+  go (metadataSection "test") testMetadataSection =?= testMetadata "1.0.0"
   where go parser input = parse parser "<test>" input
 
 test_metadataComments :: TestTree
@@ -106,119 +108,124 @@ test_metadataComments = testGroup "Metadata with comments"
       |]
   ]
   where check input =
-          parse (metadataSection "test") "<test>" input ?= testMetadata "1.0.0"
+          parse (metadataSection "test") "<test>" input =?= testMetadata "1.0.0"
 
 -- * Primitive Types
 
 test_bool :: TestTree
 test_bool = testCase "Bool" $ do
-  parse' "1.0.0" bool "Bool" ?= BaseType' Bool'
-  parse' "1.0.0" atom "Bool" ?= BaseType' Bool'
+  parse' "1.0.0" primitive "Bool" =?= BaseType' (Primitive' Bool)
+  parse' "1.0.0" atom "Bool"      =?= BaseType' (Primitive' Bool)
 
 test_bytes :: TestTree
 test_bytes = testCase "Bytes" $ do
-  parse' "1.0.0" bytes "Bytes" ?= BaseType' Bytes'
-  parse' "1.0.0" atom "Bytes"  ?= BaseType' Bytes'
+  parse' "1.0.0" primitive "Bytes" =?= BaseType' (Primitive' Bytes)
+  parse' "1.0.0" atom "Bytes"      =?= BaseType' (Primitive' Bytes)
 
 test_int :: TestTree
 test_int = testCase "Int" $ do
-  parse' "1.0.0" int "Int"  ?= BaseType' Int'
-  parse' "1.0.0" atom "Int" ?= BaseType' Int'
+  parse' "1.0.0" primitive "Int" =?= BaseType' (Primitive' Int)
+  parse' "1.0.0" atom "Int"      =?= BaseType' (Primitive' Int)
 
 test_long :: TestTree
 test_long = testCase "Long" $ do
-  parse' "1.0.0" long  "Long" ?= BaseType' Long'
-  parse' "1.0.0" atom  "Long" ?= BaseType' Long'
+  parse' "1.0.0" primitive  "Long" =?= BaseType' (Primitive' Long)
+  parse' "1.0.0" atom  "Long"      =?= BaseType' (Primitive' Long)
 
 test_float :: TestTree
 test_float = testCase "Float" $ do
-  parse' "1.0.0" float  "Float" ?= BaseType' Float'
-  parse' "1.0.0" atom  "Float"  ?= BaseType' Float'
+  parse' "1.0.0" primitive  "Float" =?= BaseType' (Primitive' Float)
+  parse' "1.0.0" atom  "Float"      =?= BaseType' (Primitive' Float)
 
 test_double :: TestTree
 test_double = testCase "Double" $ do
-  parse' "1.0.0" double  "Double" ?= BaseType' Double'
-  parse' "1.0.0" atom  "Double"   ?= BaseType' Double'
+  parse' "1.0.0" primitive  "Double" =?= BaseType' (Primitive' Double)
+  parse' "1.0.0" atom  "Double"      =?= BaseType' (Primitive' Double)
 
 test_string :: TestTree
 test_string = testCase "String" $ do
-  parse' "1.0.0" str  "String"  ?= BaseType' String'
-  parse' "1.0.0" atom  "String" ?= BaseType' String'
+  parse' "1.0.0" primitive  "String" =?= BaseType' (Primitive' String)
+  parse' "1.0.0" atom  "String"      =?= BaseType' (Primitive' String)
 
 test_date :: TestTree
 test_date = testCase "Date" $ do
-  parse' "1.0.0" date "Date" ?= BaseType' Date'
-  parse' "1.0.0" atom "Date" ?= BaseType' Date'
+  parse' "1.0.0" primitive "Date" =?= BaseType' (Primitive' Date)
+  parse' "1.0.0" atom "Date"      =?= BaseType' (Primitive' Date)
 
 test_datetime :: TestTree
 test_datetime = testCase "Datetime" $ do
-  parse' "1.0.0" datetime "Datetime" ?= BaseType' Datetime'
-  parse' "1.0.0" atom "Datetime"     ?= BaseType' Datetime'
+  parse' "1.0.0" primitive "Datetime" =?= BaseType' (Primitive' Datetime)
+  parse' "1.0.0" atom "Datetime"      =?= BaseType' (Primitive' Datetime)
+
+test_uuid :: TestTree
+test_uuid = testCase "UUID" $ do
+  parse' "1.1.0" primitive "UUID" =?= BaseType' (Primitive' UUID)
+  parse' "1.1.0" atom "UUID"      =?= BaseType' (Primitive' UUID)
 
 
 -- * Containers
 
 test_array :: TestTree
 test_array = testCase "Array" $ do
-  parse' "1.0.0" array  "[String]" ?= BaseType' (Array' (BaseType' String'))
-  parse' "1.0.0" atom  "[String]"  ?= BaseType' (Array' (BaseType' String'))
+  parse' "1.0.0" array  "[String]" =?= BaseType' (Array' (BaseType' (Primitive' String)))
+  parse' "1.0.0" atom  "[String]"  =?= BaseType' (Array' (BaseType' (Primitive' String)))
 
-  parse' "1.0.0" array  "[{Int}]" ?=
-    BaseType' (Array' (BaseType' (Map' (BaseType' Int'))))
-  parse' "1.0.0" atom  "[{Int}]"  ?=
-    BaseType' (Array' (BaseType' (Map' (BaseType' Int'))))
+  parse' "1.0.0" array  "[{Int}]" =?=
+    BaseType' (Array' (BaseType' (Map' (BaseType' (Primitive' Int)))))
+  parse' "1.0.0" atom  "[{Int}]"  =?=
+    BaseType' (Array' (BaseType' (Map' (BaseType' (Primitive' Int)))))
 
-  parse' "1.0.0" array  "[[Long]]" ?=
-    BaseType' (Array' (BaseType' (Array' (BaseType' Long'))))
-  parse' "1.0.0" atom  "[[Long]]"  ?=
-    BaseType' (Array' (BaseType' (Array' (BaseType' Long'))))
+  parse' "1.0.0" array  "[[Long]]" =?=
+    BaseType' (Array' (BaseType' (Array' (BaseType' (Primitive' Long)))))
+  parse' "1.0.0" atom  "[[Long]]"  =?=
+    BaseType' (Array' (BaseType' (Array' (BaseType' (Primitive' Long)))))
 
   -- "Long" is a subset of "Longs"
-  parse' "1.0.0" array "[foo.Longs]" ?=
+  parse' "1.0.0" array "[foo.Longs]" =?=
     BaseType' (Array' (BaseType' (Reference' "foo.Longs")))
-  parse' "1.0.0" atom "[foo.Longs]" ?=
+  parse' "1.0.0" atom "[foo.Longs]" =?=
     BaseType' (Array' (BaseType' (Reference' "foo.Longs")))
 
 test_map :: TestTree
 test_map = testCase "Map" $ do
-  parse' "1.0.0" map  "{String}"  ?= BaseType' (Map' (BaseType' String'))
-  parse' "1.0.0" atom  "{String}" ?= BaseType' (Map' (BaseType' String'))
+  parse' "1.0.0" map  "{String}"  =?= BaseType' (Map' (BaseType' (Primitive' String)))
+  parse' "1.0.0" atom  "{String}" =?= BaseType' (Map' (BaseType' (Primitive' String)))
 
-  parse' "1.0.0" map  "{[Int]}"  ?=
-    BaseType' (Map' (BaseType' (Array' (BaseType' Int'))))
-  parse' "1.0.0" atom  "{[Int]}" ?=
-    BaseType' (Map' (BaseType' (Array' (BaseType' Int'))))
+  parse' "1.0.0" map  "{[Int]}"  =?=
+    BaseType' (Map' (BaseType' (Array' (BaseType' (Primitive' Int)))))
+  parse' "1.0.0" atom  "{[Int]}" =?=
+    BaseType' (Map' (BaseType' (Array' (BaseType' (Primitive' Int)))))
 
-  parse' "1.0.0" map  "{{Long}}"  ?=
-    BaseType' (Map' (BaseType' (Map' (BaseType' Long'))))
-  parse' "1.0.0" atom  "{{Long}}" ?=
-    BaseType' (Map' (BaseType' (Map' (BaseType' Long'))))
+  parse' "1.0.0" map  "{{Long}}"  =?=
+    BaseType' (Map' (BaseType' (Map' (BaseType' (Primitive' Long)))))
+  parse' "1.0.0" atom  "{{Long}}" =?=
+    BaseType' (Map' (BaseType' (Map' (BaseType' (Primitive' Long)))))
 
   -- "Long" is a subset of "Longs"
-  parse' "1.0.0" map "{foo.Longs}" ?=
+  parse' "1.0.0" map "{foo.Longs}" =?=
     BaseType' (Map' (BaseType' (Reference' "foo.Longs")))
-  parse' "1.0.0" atom "{foo.Longs}" ?=
+  parse' "1.0.0" atom "{foo.Longs}" =?=
     BaseType' (Map' (BaseType' (Reference' "foo.Longs")))
 
 test_optional :: TestTree
 test_optional = testCase "Optional" $ do
-  parse' "1.0.0" optional_  "String?"  ?= BaseType' (Optional' (BaseType' String'))
-  parse' "1.0.0" signature'  "String?" ?= BaseType' (Optional' (BaseType' String'))
+  parse' "1.0.0" optional_  "String?"  =?= BaseType' (Optional' (BaseType' (Primitive' String)))
+  parse' "1.0.0" signature'  "String?" =?= BaseType' (Optional' (BaseType' (Primitive' String)))
 
-  parse' "1.0.0" optional_  "[String]?"  ?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' String'))))
-  parse' "1.0.0" signature'  "[String]?" ?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' String'))))
+  parse' "1.0.0" optional_  "[String]?"  =?=
+    BaseType' (Optional' (BaseType' (Array' (BaseType' (Primitive' String)))))
+  parse' "1.0.0" signature'  "[String]?" =?=
+    BaseType' (Optional' (BaseType' (Array' (BaseType' (Primitive' String)))))
 
-  parse' "1.0.0" optional_  "[String?]?"  ?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' String'))))))
-  parse' "1.0.0" signature'  "[String?]?" ?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' String'))))))
+  parse' "1.0.0" optional_  "[String?]?"  =?=
+    BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' (Primitive' String)))))))
+  parse' "1.0.0" signature'  "[String?]?" =?=
+    BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' (Primitive' String)))))))
 
   -- "Long" is a subset of "Longs"
-  parse' "1.0.0" optional_ "foo.Longs?" ?=
+  parse' "1.0.0" optional_ "foo.Longs?" =?=
     BaseType' (Optional' (BaseType' (Reference' "foo.Longs")))
-  parse' "1.0.0" signature' "foo.Longs?" ?=
+  parse' "1.0.0" signature' "foo.Longs?" =?=
     BaseType' (Optional' (BaseType' (Reference' "foo.Longs")))
 
 -- * Named Types
@@ -228,19 +235,19 @@ test_enum = testGroup "Enum"
   [ testCase "one case" $ do
       let one = "enum Foo = Bar"
           expected = BaseType' $ Enum' "test.Foo" ["Bar"]
-      parse' "1.1.0" enumDefinition one ?=
+      parse' "1.1.0" enumDefinition one =?=
         Definition "test.Foo" Nothing expected
 
   , testCase "two cases" $ do
       let two = "enum Foo = Bar | Baz"
           expected = BaseType' $ Enum' "test.Foo" ["Bar", "Baz"]
-      parse' "1.1.0" enumDefinition two ?=
+      parse' "1.1.0" enumDefinition two =?=
         Definition "test.Foo" Nothing expected
 
   , testCase "three cases" $ do
       let three = "enum Foo = Bar | baz | _Baz"
           expected = BaseType' $ Enum' "test.Foo" ["Bar", "baz", "_Baz"]
-      parse' "1.1.0" enumDefinition three ?=
+      parse' "1.1.0" enumDefinition three =?=
         Definition "test.Foo" Nothing expected
   ]
 
@@ -249,7 +256,7 @@ test_record = testGroup "Record"
   [ testCase "empty" $ do
       let empty    = "type Foo = {\n}\n"
           expected = BaseType' $ Record' "test.Foo" []
-      parse' "1.0.0" definition empty ?=
+      parse' "1.0.0" definition empty =?=
         Definition "test.Foo" Nothing expected
 
   , testCase "one field" $ do
@@ -257,8 +264,8 @@ test_record = testGroup "Record"
                      \  foo : Int?\n\
                      \}\n"
           expected = BaseType' $ Record' "test.Foo" [field]
-          field    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' Int'))
-      parse' "1.0.0" definition oneField ?=
+          field    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' (Primitive' Int)))
+      parse' "1.0.0" definition oneField =?=
         Definition "test.Foo" Nothing expected
 
   , testCase "two fields" $ do
@@ -267,9 +274,9 @@ test_record = testGroup "Record"
                       \  bar : test2.Foo\n\
                       \}\n"
           expected  = BaseType' $ Record' "test.Foo" [field1, field2]
-          field1    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' Int'))
+          field1    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' (Primitive' Int)))
           field2    = Field "bar" Nothing $ BaseType' (Reference' "test2.Foo")
-      parse' "1.0.0" definition twoFields ?=
+      parse' "1.0.0" definition twoFields =?=
         Definition "test.Foo" Nothing expected
 
   , testCase "date fields" $ do
@@ -278,9 +285,9 @@ test_record = testGroup "Record"
                       \  bar : Datetime\n\
                       \}\n"
           expected  = BaseType' $ Record' "test.Foo" [field1, field2]
-          field1    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' Date'))
-          field2    = Field "bar" Nothing $ BaseType' Datetime'
-      parse' "1.0.0" definition twoFields ?=
+          field1    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' (Primitive' Date)))
+          field2    = Field "bar" Nothing $ BaseType' (Primitive' Datetime)
+      parse' "1.0.0" definition twoFields =?=
         Definition "test.Foo" Nothing expected
   ]
 
@@ -289,32 +296,32 @@ test_variant = testGroup "Variant"
   [ testCase "single case" $ do
       let withField = "type Foo = Foo { a : String }"
           expected  = BaseType' $ Variant' "test.Foo" [foo]
-          foo       = Case "test.Foo" Nothing [Field "a" Nothing $ BaseType' String']
-      parse' "1.0.0" definition  withField ?=
+          foo       = Case "test.Foo" Nothing [Field "a" Nothing $ BaseType' (Primitive' String)]
+      parse' "1.0.0" definition  withField =?=
         Definition "test.Foo" Nothing expected
 
       let noField  = "type Foo = Foo {}"
           expected = BaseType' $ Variant' "test.Foo" [foo]
           foo       = Case "test.Foo" Nothing []
-      parse' "1.0.0" definition  noField ?=
+      parse' "1.0.0" definition  noField =?=
         Definition "test.Foo" Nothing expected
 
   , testCase "multiple cases" $ do
       let two      = "type Foo = Foo { a : String } | Bar {}"
           expected = BaseType' $ Variant' "test.Foo" [foo, bar]
-          foo      = Case "test.Foo" Nothing [Field "a" Nothing $ BaseType' String']
+          foo      = Case "test.Foo" Nothing [Field "a" Nothing $ BaseType' (Primitive' String)]
           bar      = Case "test.Bar" Nothing []
-      parse' "1.0.0" definition  two ?=
+      parse' "1.0.0" definition  two =?=
         Definition "test.Foo" Nothing expected
 
       let three    = "type Foo = Foo { a : String } \n\
                      \         | Bar {}\n      | Baz { a : Int? }\n"
           expected = BaseType' $ Variant' "test.Foo" [foo, bar, baz]
-          foo      = Case "test.Foo" Nothing [Field "a" Nothing $ BaseType' String']
+          foo      = Case "test.Foo" Nothing [Field "a" Nothing $ BaseType' (Primitive' String)]
           bar      = Case "test.Bar" Nothing []
           baz      = Case "test.Baz" Nothing [Field "a" Nothing $
-                                              BaseType' $ Optional' $ BaseType' Int']
-      parse' "1.0.0" definition  three ?=
+                                              BaseType' $ Optional' $ BaseType' (Primitive' Int)]
+      parse' "1.0.0" definition  three =?=
         Definition "test.Foo" Nothing expected
 
   , testCase "no-argument cases" $ do
@@ -323,15 +330,15 @@ test_variant = testGroup "Variant"
           bar      = Case "test.Bar" Nothing []
           baz      = Case "test.Baz" Nothing []
 
-      parse' "1.0.0" (definition <* eof) two ?=
+      parse' "1.0.0" (definition <* eof) two =?=
         Definition "test.Foo" Nothing expected
 
       let mix      = "type Foo = Bar | Baz { a : Int }"
           expected = BaseType' $ Variant' "test.Foo" [bar, baz]
           bar      = Case "test.Bar" Nothing []
-          baz      = Case "test.Baz" Nothing [Field "a" Nothing $ BaseType' Int']
+          baz      = Case "test.Baz" Nothing [Field "a" Nothing $ BaseType' (Primitive' Int)]
 
-      parse' "1.0.0" (definition <* eof) mix ?=
+      parse' "1.0.0" (definition <* eof) mix =?=
         Definition "test.Foo" Nothing expected
 
       let three    = "type Foo = Bar | Baz\n\n  | Qux"
@@ -340,7 +347,7 @@ test_variant = testGroup "Variant"
           baz      = Case "test.Baz" Nothing []
           qux      = Case "test.Qux" Nothing []
 
-      parse' "1.0.0" (definition <* eof) three ?=
+      parse' "1.0.0" (definition <* eof) three =?=
         Definition "test.Foo" Nothing expected
   ]
 
@@ -348,17 +355,17 @@ test_newtype :: TestTree
 test_newtype = testCase "Newtype" $ do
   let newtype' = "type Foo = Bar"
       expected = BaseType' $ Newtype' "test.Foo" $ BaseType' $ Reference' "test.Bar"
-  parse' "1.0.0" definition  newtype' ?=
+  parse' "1.0.0" definition  newtype' =?=
     Definition "test.Foo" Nothing expected
 
 test_reference :: TestTree
 test_reference = testCase "Reference" $ do
-  parse' "1.0.0" reference "test.Foo" ?= BaseType' (Reference' "test.Foo")
-  parse' "1.0.0" atom "test.Bar"      ?= BaseType' (Reference' "test.Bar")
+  parse' "1.0.0" reference "test.Foo" =?= BaseType' (Reference' "test.Foo")
+  parse' "1.0.0" atom "test.Bar"      =?= BaseType' (Reference' "test.Bar")
 
   -- "Long" is a substring of "Longs"
-  parse' "1.0.0" reference "test.Longs" ?= BaseType' (Reference' "test.Longs")
-  parse' "1.0.0" atom "test.Longs"      ?= BaseType' (Reference' "test.Longs")
+  parse' "1.0.0" reference "test.Longs" =?= BaseType' (Reference' "test.Longs")
+  parse' "1.0.0" atom "test.Longs"      =?= BaseType' (Reference' "test.Longs")
 
 -- * Documentation
 
@@ -366,22 +373,22 @@ test_doc :: TestTree
 test_doc = testGroup "doc comments"
   [ testGroup "block docs"
     [ testCase "simple" $ do
-        parseDoc "/** Some documentation. */"    ?= Doc "Some documentation."
-        parseDoc "/**    Leading whitespace. */" ?= Doc "Leading whitespace."
-        parseDoc "/** */"                        ?= Doc ""
+        parseDoc "/** Some documentation. */"    =?= Doc "Some documentation."
+        parseDoc "/**    Leading whitespace. */" =?= Doc "Leading whitespace."
+        parseDoc "/** */"                        =?= Doc ""
 
         -- make sure docs *require* a comment
         assertFails $ parseDoc "blarg"
 
     , testCase "multiline" $ do
-        parseDoc "/** Some \n documentation. */" ?= Doc "Some\ndocumentation."
+        parseDoc "/** Some \n documentation. */" =?= Doc "Some\ndocumentation."
 
         let multiline = [__i|
           /** This is a multiline block comment.
               I expect to see whitespace... etc managed correctly.
                   */
         |]
-        parseDoc multiline ?= [__i|
+        parseDoc multiline =?= [__i|
           This is a multiline block comment.
           I expect to see whitespace... etc managed correctly.
         |]
@@ -392,7 +399,7 @@ test_doc = testGroup "doc comments"
            * I expect to see whitespace... etc managed correctly.
            */
         |]
-        parseDoc multiline ?= [__i|
+        parseDoc multiline =?= [__i|
           This is a multiline block comment.
           I expect to see whitespace... etc managed correctly.
         |]
@@ -400,13 +407,13 @@ test_doc = testGroup "doc comments"
 
   , testGroup "line docs"
     [ testCase "single line" $ do
-        parseDoc "/// Some documentation."   ?= Doc "Some documentation."
-        parseDoc "///   leading whitespace " ?= Doc "leading whitespace"
-        parseDoc "///    "                   ?= Doc ""
+        parseDoc "/// Some documentation."   =?= Doc "Some documentation."
+        parseDoc "///   leading whitespace " =?= Doc "leading whitespace"
+        parseDoc "///    "                   =?= Doc ""
 
     , testCase "multiline" $ do
-        parseDoc "/// Some\n/// documentation."    ?= Doc "Some\ndocumentation."
-        parseDoc "/// Some\n   /// documentation." ?= Doc "Some\ndocumentation."
+        parseDoc "/// Some\n/// documentation."    =?= Doc "Some\ndocumentation."
+        parseDoc "/// Some\n   /// documentation." =?= Doc "Some\ndocumentation."
     ]
 
   , testCase "misplaced docs" $ do
@@ -429,8 +436,8 @@ test_docTypes = testGroup "docs on types"
               /// Foo is an Int!
               type Foo = Int
             |]
-          type_ = BaseType' (Newtype' "test.Foo" (BaseType' Int'))
-      parse' "1.0.0" (moduleBody "test") newtype_ ?=
+          type_ = BaseType' (Newtype' "test.Foo" (BaseType' (Primitive' Int)))
+      parse' "1.0.0" (moduleBody "test") newtype_ =?=
         [DefinitionStatement
          (Definition "test.Foo" (Just $ Doc "Foo is an Int!") type_)]
 
@@ -439,9 +446,9 @@ test_docTypes = testGroup "docs on types"
           /** Foo is an Int! */
           alias Foo = Int
         |]
-      parse' "1.0.0" (moduleBody "test") alias ?=
+      parse' "1.0.0" (moduleBody "test") alias =?=
         [DefinitionStatement
-         (Definition "test.Foo" (Just $ Doc "Foo is an Int!") (BaseType' Int'))]
+         (Definition "test.Foo" (Just $ Doc "Foo is an Int!") (BaseType' (Primitive' Int)))]
 
   , testCase "enums" $ do
       let enum = wrapModule [__i|
@@ -449,7 +456,7 @@ test_docTypes = testGroup "docs on types"
             enum Foo = Bar | Baz
           |]
           type_ = BaseType' (Enum' "test.Foo" ["Bar", "Baz"])
-      parse' "1.1.0" (moduleBody "test") enum ?=
+      parse' "1.1.0" (moduleBody "test") enum =?=
         [DefinitionStatement
          (Definition "test.Foo" (Just $ Doc "Foo is an enum!") type_)]
 
@@ -460,8 +467,8 @@ test_docTypes = testGroup "docs on types"
             type Foo = { bar : Int }
           |]
             type_ =
-              BaseType' (Record' "test.Foo" [Field "bar" Nothing (BaseType' Int')])
-        parse' "1.0.0" (moduleBody "test") record ?=
+              BaseType' (Record' "test.Foo" [Field "bar" Nothing (BaseType' (Primitive' Int))])
+        parse' "1.0.0" (moduleBody "test") record =?=
           [DefinitionStatement (Definition "test.Foo" (Just $ Doc "Foo docs") type_)]
 
     , testCase "fields" $ do
@@ -476,9 +483,9 @@ test_docTypes = testGroup "docs on types"
           |]
             type_ =
               BaseType' (Record' "test.Foo"
-                         [ Field "bar" (Just "Bar docs") (BaseType' Int')
-                         , Field "baz" (Just "baz\ndocs") (BaseType' String') ])
-        parse' "1.0.0" (moduleBody "test") record ?=
+                         [ Field "bar" (Just "Bar docs") (BaseType' (Primitive' Int))
+                         , Field "baz" (Just "baz\ndocs") (BaseType' (Primitive' String)) ])
+        parse' "1.0.0" (moduleBody "test") record =?=
           [DefinitionStatement (Definition "test.Foo" Nothing type_)]
     ]
 
@@ -491,7 +498,7 @@ test_docTypes = testGroup "docs on types"
             type_ =
               BaseType' (Variant' "test.Foo" [ Case "test.Bar" Nothing []
                                              , Case "test.Baz" Nothing [] ])
-        parse' "1.0.0" (moduleBody "test") variant ?=
+        parse' "1.0.0" (moduleBody "test") variant =?=
           [DefinitionStatement (Definition "test.Foo" (Just "Foo docs") type_)]
 
     , testCase "one case" $ do
@@ -499,7 +506,7 @@ test_docTypes = testGroup "docs on types"
             type Foo = /** One docs */ One {}
           |]
             type_ = BaseType' (Variant' "test.Foo" [Case "test.One" (Just "One docs") []])
-        parse' "1.0.0" (moduleBody "test") variant ?=
+        parse' "1.0.0" (moduleBody "test") variant =?=
           [DefinitionStatement (Definition "test.Foo" Nothing type_)]
 
     , testCase "two cases" $ do
@@ -514,8 +521,8 @@ test_docTypes = testGroup "docs on types"
               BaseType' (Variant' "test.Foo"
                           [ Case "test.One" (Just "One docs") []
                           , Case "test.Two" (Just "Two docs")
-                            [Field "foo" (Just "foo docs") (BaseType' Int')]])
-        parse' "1.0.0" (moduleBody "test") variant ?=
+                            [Field "foo" (Just "foo docs") (BaseType' (Primitive' Int))]])
+        parse' "1.0.0" (moduleBody "test") variant =?=
           [DefinitionStatement (Definition "test.Foo" Nothing type_)]
     ]
   ]
@@ -600,12 +607,12 @@ assertSucceeds = \case
 
 -- | Check whether the given parse result has no errors and returns
 -- the expected value.
-(?=) :: (Show a, Eq a, VisualStream s, TraversableStream s, Stream s, ShowErrorComponent e)
-     => Either (ParseErrorBundle s e) a
-     -> a
-     -> Assertion
-Right result ?= expected = result @?= expected
-Left err ?= expected     = assertFailure [__i|
+(=?=) :: (Show a, Eq a, VisualStream s, TraversableStream s, Stream s, ShowErrorComponent e)
+      => Either (ParseErrorBundle s e) a
+      -> a
+      -> Assertion
+Right result =?= expected = result @?= expected
+Left  err    =?= expected = assertFailure [__i|
     expected correct parse: #{show expected}
     but got parse error:
     #{errorBundlePretty err}

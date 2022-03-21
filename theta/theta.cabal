@@ -8,7 +8,6 @@ category:       Language
 build-type:     Simple
 maintainer:     Tikhon Jelvis <tikhon@jelv.is>
 data-files:
-  test/data/containers/*.avro
   test/data/modules/*.theta
   test/data/transitive/*.theta
   test/data/root-1/*.theta
@@ -60,6 +59,7 @@ common shared
                , tasty-hunit
                , time
                , unordered-containers
+               , uuid ==1.3.*
                , vector
                , versions ==5.*
 
@@ -72,12 +72,14 @@ library
   hs-source-dirs:     src/
 
   exposed-modules:    Theta.Error
+                    , Theta.Hash
                     , Theta.Import
                     , Theta.LoadPath
                     , Theta.Metadata
                     , Theta.Name
                     , Theta.Parser
                     , Theta.Pretty
+                    , Theta.Primitive
                     , Theta.Types
                     , Theta.Value
                     , Theta.Versions

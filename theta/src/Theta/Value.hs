@@ -1,7 +1,8 @@
-{-# LANGUAGE NamedFieldPuns   #-}
-{-# LANGUAGE NumDecimals      #-}
-{-# LANGUAGE ParallelListComp #-}
-{-# LANGUAGE ViewPatterns     #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE NumDecimals        #-}
+{-# LANGUAGE ParallelListComp   #-}
+{-# LANGUAGE ViewPatterns       #-}
 -- | This module defines the 'Value' type which is a generic
 -- representation of values that satisfy some Theta schema. The
 -- 'Value' type gives us an intermediate representation that helps us
@@ -26,6 +27,8 @@ import qualified Data.Text            as Text
 import qualified Data.Time            as Time
 import           Data.Time.Calendar   (Day)
 import           Data.Time.Clock      (UTCTime)
+import           Data.UUID            (UUID)
+import qualified Data.UUID            as UUID
 import           Data.Vector          (Vector)
 import qualified Data.Vector          as Vector
 
@@ -33,19 +36,27 @@ import           Test.QuickCheck      (Arbitrary (arbitrary), Gen, choose,
                                        elements, frequency, listOf, scale)
 
 import           Theta.Name           (Name)
+import qualified Theta.Primitive      as Theta
 import qualified Theta.Types          as Theta
+
+-- | A value of a primitive type.
+data PrimitiveValue =
+    Boolean !Bool
+  | Bytes !ByteString
+  | Int {-# UNPACK #-} !Int32
+  | Long {-# UNPACK #-} !Int64
+  | Float {-# UNPACK #-} !Float
+  | Double {-# UNPACK #-} !Double
+  | String {-# UNPACK #-} !Text
+  | Date !Day
+  | Datetime {-# UNPACK #-} !UTCTime
+  | UUID UUID
+  deriving stock (Show, Eq)
 
 -- | A generic representation of data that could be represented by a
 -- Theta schema.
-data BaseValue = Boolean !Bool
-               | Bytes !ByteString
-               | Int {-# UNPACK #-} !Int32
-               | Long {-# UNPACK #-} !Int64
-               | Float {-# UNPACK #-} !Float
-               | Double {-# UNPACK #-} !Double
-               | String {-# UNPACK #-} !Text
-               | Date !Day
-               | Datetime {-# UNPACK #-} !UTCTime
+data BaseValue = Primitive PrimitiveValue
+                 -- ^ Values of primitive types.
 
                | Array {-# UNPACK #-} !(Vector Value)
                  -- ^ Each 'Value' in an array should have the same
@@ -97,31 +108,34 @@ data Value = Value
 -- called "base" ('Theta.baseModule').
 
 boolean :: Bool -> Value
-boolean = Value Theta.bool' . Boolean
+boolean = Value Theta.bool' . Primitive . Boolean
 
 bytes :: ByteString -> Value
-bytes = Value Theta.bytes' . Bytes
+bytes = Value Theta.bytes' . Primitive . Bytes
 
 int :: Int32 -> Value
-int = Value Theta.int' . Int
+int = Value Theta.int' . Primitive . Int
 
 long :: Int64 -> Value
-long = Value Theta.long' . Long
+long = Value Theta.long' . Primitive . Long
 
 float :: Float -> Value
-float = Value Theta.float' . Float
+float = Value Theta.float' . Primitive . Float
 
 double :: Double -> Value
-double = Value Theta.double' . Double
+double = Value Theta.double' . Primitive . Double
 
 string :: Text -> Value
-string = Value Theta.string' . String
+string = Value Theta.string' . Primitive . String
 
 date :: Day -> Value
-date = Value Theta.date' . Date
+date = Value Theta.date' . Primitive . Date
 
 datetime :: UTCTime -> Value
-datetime = Value Theta.datetime' . Datetime
+datetime = Value Theta.datetime' . Primitive . Datetime
+
+uuid :: UUID -> Value
+uuid = Value Theta.uuid' . Primitive . UUID
 
 -- * Testing
 
@@ -130,15 +144,18 @@ checkBaseValue :: Theta.Type -> BaseValue -> Bool
 checkBaseValue Theta.Type { Theta.baseType, Theta.module_ } baseValue =
   case (baseType, baseValue) of
     -- primitives
-    (Theta.Bool', Boolean{})      -> True
-    (Theta.Bytes', Bytes{})       -> True
-    (Theta.Int', Int{})           -> True
-    (Theta.Long', Long{})         -> True
-    (Theta.Float', Float{})       -> True
-    (Theta.Double', Double{})     -> True
-    (Theta.String', String{})     -> True
-    (Theta.Date', Date{})         -> True
-    (Theta.Datetime', Datetime{}) -> True
+    (Theta.Primitive' t, Primitive v) -> case (t, v) of
+      (Theta.Bool, Boolean _)      -> True
+      (Theta.Bytes, Bytes _)       -> True
+      (Theta.Int, Int _)           -> True
+      (Theta.Long, Long _)         -> True
+      (Theta.Float, Float _)       -> True
+      (Theta.Double, Double _)     -> True
+      (Theta.String, String _)     -> True
+      (Theta.Date, Date _)         -> True
+      (Theta.Datetime, Datetime _) -> True
+      (Theta.UUID, UUID _)         -> True
+      (_, _)                       -> False
 
     -- containers
     (Theta.Array' item, Array values) ->
@@ -210,15 +227,18 @@ checkValue Value { value, type_ } = checkBaseValue type_ value
 genValue' :: HashMap Name (Gen Value) -> Theta.Type -> Gen Value
 genValue' overrides = go
   where go t = case Theta.baseType t of
-          Theta.Bool'          -> boolean <$> arbitrary
-          Theta.Bytes'         -> bytes . LBS.pack <$> arbitrary
-          Theta.Int'           -> int <$> arbitrary
-          Theta.Long'          -> long <$> arbitrary
-          Theta.Float'         -> float <$> arbitrary
-          Theta.Double'        -> double <$> arbitrary
-          Theta.String'        -> string . Text.pack <$> arbitrary
-          Theta.Date'          -> date <$> genDate
-          Theta.Datetime'      -> datetime <$> genDatetime
+          Theta.Primitive' t -> case t of
+            Theta.Bool     -> boolean <$> arbitrary
+            Theta.Bytes    -> bytes . LBS.pack <$> arbitrary
+            Theta.Int      -> int <$> arbitrary
+            Theta.Long     -> long <$> arbitrary
+            Theta.Float    -> float <$> arbitrary
+            Theta.Double   -> double <$> arbitrary
+            Theta.String   -> string . Text.pack <$> arbitrary
+            Theta.Date     -> date <$> genDate
+            Theta.Datetime -> datetime <$> genDatetime
+            Theta.UUID     ->
+              uuid <$> (UUID.fromWords64 <$> arbitrary <*> arbitrary)
 
           Theta.Array' item    -> Value t <$> genArray item
           Theta.Map' item      -> Value t <$> genMap item

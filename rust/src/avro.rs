@@ -6,6 +6,7 @@ use chrono::naive::NaiveDate;
 use chrono::{Date, DateTime, Datelike, Utc};
 use integer_encoding::VarInt;
 use time::Duration;
+use uuid::Uuid;
 
 use nom::{
     branch::alt,
@@ -133,6 +134,12 @@ impl ToAvro for DateTime<Utc> {
             // This is a panic because it represents a bug in our implementation.
             None => panic!("Microsecond time value overflow when parsing DateTime."),
         }
+    }
+}
+
+impl ToAvro for Uuid {
+    fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+        self.to_hyphenated().to_string().to_avro_buffer(buffer);
     }
 }
 
@@ -299,6 +306,18 @@ impl FromAvro for DateTime<Utc> {
             let (input, microseconds) = i64::from_avro(input)?;
             let epoch = DateTime::from_utc(NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0), Utc);
             Ok((input, epoch + Duration::microseconds(microseconds)))
+        })(input)
+    }
+}
+
+impl FromAvro for Uuid {
+    fn from_avro(input: &[u8]) -> IResult<&[u8], Uuid> {
+        context("UUID", |input| {
+            let (input, string) = String::from_avro(input)?;
+            match Uuid::parse_str(&string) {
+                Ok(uuid) => Ok((input, uuid)),
+                Err(_) => Err(Err::Error((input, ErrorKind::Tag))),
+            }
         })(input)
     }
 }

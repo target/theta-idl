@@ -24,9 +24,9 @@ import           Prelude                    hiding (map)
 
 import           Text.Megaparsec            (MonadParsec (eof, lookAhead, notFollowedBy, takeWhileP, try),
                                              Parsec, anySingle, anySingleBut,
-                                             between, many, manyTill, option,
-                                             optional, sepBy, sepBy1, skipMany,
-                                             some, (<|>))
+                                             between, choice, many, manyTill,
+                                             option, optional, sepBy, sepBy1,
+                                             skipMany, some, (<|>))
 import           Text.Megaparsec.Char       (alphaNumChar, char, letterChar,
                                              space1, string)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -35,10 +35,11 @@ import           Theta.Metadata             (Metadata, Version (..))
 import qualified Theta.Metadata             as Metadata
 import qualified Theta.Name                 as Name
 import           Theta.Pretty               (p)
-import           Theta.Types                (BaseType (Array', Bool', Bytes', Date', Datetime', Double', Enum', Float', Int', Long', Map', Newtype', Optional', Record', Reference', String', Variant'),
-                                             BaseType' (..), Case (..),
-                                             Definition (..), Doc (Doc),
-                                             EnumSymbol (EnumSymbol),
+import           Theta.Primitive            (definedIn, primitiveKeyword,
+                                             primitives)
+import           Theta.Types                (BaseType (..), BaseType' (..),
+                                             Case (..), Definition (..),
+                                             Doc (Doc), EnumSymbol (EnumSymbol),
                                              Field (..), FieldName (FieldName),
                                              Fields, HasDoc, Statement (..),
                                              setDoc, wrapFields)
@@ -304,34 +305,14 @@ withDoc parser = do
 
 -- * Types
 
--- ** Primitive Types
+-- | Parse a keyword for a primitive type.
+primitive :: Parser BaseType'
+primitive = do
+  v <- version
+  choice [wrap t <$ try (keyword $ primitiveKeyword t) | t <- supportedAt v]
+  where wrap = BaseType' . Primitive'
 
-bool :: Parser BaseType'
-bool = BaseType' Bool' <$ keyword "Bool"
-
-bytes :: Parser BaseType'
-bytes = BaseType' Bytes' <$ keyword "Bytes"
-
-int :: Parser BaseType'
-int = BaseType' Int' <$ keyword "Int"
-
-long :: Parser BaseType'
-long = BaseType' Long' <$ keyword "Long"
-
-float :: Parser BaseType'
-float = BaseType' Float' <$ keyword "Float"
-
-double :: Parser BaseType'
-double = BaseType' Double' <$ keyword "Double"
-
-str :: Parser BaseType'
-str = BaseType' String' <$ keyword "String"
-
-date :: Parser BaseType'
-date = BaseType' Date' <$ keyword "Date"
-
-datetime :: Parser BaseType'
-datetime = BaseType' Datetime' <$ keyword "Datetime"
+        supportedAt v = [t | t <- primitives, definedIn t <= v]
 
 -- | Parses a reference to some other named type.
 reference :: Parser BaseType'
@@ -366,16 +347,6 @@ atom = array
    <|> map
    <|> try primitive
    <|> reference
-  where primitive = bool
-                <|> bytes
-                <|> int
-                <|> long
-                <|> float
-                <|> double
-                <|> str
-                <|> try datetime
-                <|> date
-
 
 -- | Parses types that can be used in signatures. This includes
 -- everything except for complex, structured declarations like records
