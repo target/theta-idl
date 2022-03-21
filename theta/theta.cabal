@@ -111,6 +111,7 @@ test-suite tests
   hs-source-dirs:     test
   other-modules:      Test.Assertions
                       
+                    , Test.Theta.Error
                     , Test.Theta.Import
                     , Test.Theta.LoadPath
                     , Test.Theta.Name

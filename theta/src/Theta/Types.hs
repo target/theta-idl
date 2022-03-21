@@ -562,8 +562,7 @@ data Module = Module
   { moduleName :: !Name.ModuleName
     -- ^ The name used to import the module.
   , types      :: !(Map Name (Definition Type))
-    -- ^ All of the types defined in this module (including
-    -- definitions imported from other modules).
+    -- ^ All of the types defined in this module.
     --
     -- Note that this map /has/ to be lazy in its values for several
     -- of our internal algorithms to work correctly.
@@ -617,9 +616,19 @@ primitiveModule = Module
           , let name = primitiveName type_
           ]
 
--- | Does the given module define the given name?
-defines :: Name -> Module -> Bool
-defines name = isRight . lookupName name
+-- | The set of names defined in a module, including aliases.
+--
+-- Does not include the names of any imported types.
+definedNames :: Module -> Set Name
+definedNames Module { types } = Map.keysSet types
+
+-- | Does a module define or import a name?
+--
+-- Includes both direct and transitive imports.
+contains :: Name -> Module -> Bool
+contains name = isRight . lookupName name
+
+-- | The names defined 
 
 -- | Look up the definition of the given name.
 --
@@ -697,4 +706,3 @@ moduleDefinitionName ModuleDefinition { header } = Metadata.moduleName header
 data Statement = DefinitionStatement !(Definition BaseType')
                | ImportStatement !ModuleName
                deriving (Show, Eq)
-

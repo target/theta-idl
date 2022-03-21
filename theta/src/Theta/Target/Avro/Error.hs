@@ -23,13 +23,12 @@ import qualified Data.Avro.Schema.Schema     as Schema
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Foldable               (toList)
-import           Data.Hashable               (Hashable)
 import qualified Data.HashMap.Strict         as HashMap
 import           Data.HashSet                (HashSet)
 import qualified Data.HashSet                as HashSet
+import           Data.Hashable               (Hashable)
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Text                   (Text)
-import qualified Data.Text                   as Text
 import qualified Data.Text.Encoding          as Text
 import qualified Data.Vector                 as Vector
 
@@ -37,8 +36,9 @@ import           Text.Printf                 (printf)
 
 import qualified Theta.Error                 as Theta
 import           Theta.Name                  (Name (..))
-import           Theta.Pretty                (Pretty (pretty), p)
-import           Theta.Types
+import           Theta.Pretty                (Pretty (pretty), p, prettyList)
+import Theta.Types
+    ( FieldName, Case(caseName), Type, prettyType, EnumSymbol )
 
 -- | Throw an Avro-specific error, annotating it as coming from the
 -- @"Avro"@ target.
@@ -197,11 +197,7 @@ prettyReason = \case
       Expected a variant encoded as an Avro record but got:
       #{prettyAvro avro}
       |]
-  where prettyCaseList = Text.intercalate "\n" . map (prettyList . caseName) . toList
-
--- | Render a value as an entry in a bulleted list.
-prettyList :: Pretty a => a -> Text
-prettyList name = "  • " <> pretty name
+  where prettyCaseList = prettyList . map caseName . toList
 
 -- | Compare two lists of names and render the difference between them
 -- (ie the names in the first not present in the second) as a
@@ -220,7 +216,7 @@ prettyDifference header a b = case HashSet.toList (HashSet.difference a b) of
       [p|
 
         #{header} fields in Avro:
-        #{Text.intercalate "\n" $ map prettyList difference}
+        #{prettyList difference}
         |]
 
 -- | A version of 'Avro.Value' with a ToJSON instance.

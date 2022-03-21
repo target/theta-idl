@@ -97,9 +97,9 @@ test_importModule = testGroup "importModule"
         -- the PR that defines Eq instance for types gets merged
 
       assertBool "‘test.Foo’ *not* in module before importing." $
-        not $ Theta.defines "test.Foo" importing
+        not $ Theta.contains "test.Foo" importing
       assertBool "‘test.Foo’ *is* in module after importing." $
-        Theta.defines "test.Foo" combined
+        Theta.contains "test.Foo" combined
 
   , -- with the current namespace design modules can't actually shadow
     -- names any more—the module's name is the namespace for each type
@@ -116,10 +116,10 @@ test_importModule = testGroup "importModule"
           combined2 = (shadowed `importModule` shadowing) `importModule` importing
 
       assertBool "‘test.Foo’ *not* in module before importing." $
-        not $ Theta.defines "test.Foo" importing
+        not $ Theta.contains "test.Foo" importing
       assertBool "‘test.Foo’ *in* in module before importing." $
-        and ([ Theta.defines "test.Foo" combined1
-             , Theta.defines "test.Foo" combined2
+        and ([ Theta.contains "test.Foo" combined1
+             , Theta.contains "test.Foo" combined2
              ] :: [Bool])
 
       case Theta.lookupName "test.Foo" combined1 of
