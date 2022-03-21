@@ -622,6 +622,18 @@ primitiveModule = Module
 definedNames :: Module -> Set Name
 definedNames Module { types } = Map.keysSet types
 
+-- | The set of all the names accessible from a module, including:
+--
+--  * names defined in the module
+--  * names defined in imported modules
+--  * names in transitive imports
+--
+-- This last category means that this set includes names that cannot
+-- be used directly in the module without adding an @import@
+-- statement.
+allNames :: Module -> Set Name
+allNames module_ = Set.unions $ definedNames <$> transitiveImports [module_]
+
 -- | Does a module define or import a name?
 --
 -- Includes both direct and transitive imports.

@@ -43,6 +43,8 @@ loadModule "test/data/modules" "enums"
 tests :: TestTree
 tests = testGroup "Types"
   [ test_eq
+  , test_definedNames
+  , test_allNames
   , test_transitiveImports
   , test_underlyingType
   , test_lookupName
@@ -123,6 +125,30 @@ test_eq = testGroup "Eq instance"
           Theta.Record'{}    -> type_ @?= type_
           Theta.Variant'{}   -> type_ @?= type_
           Theta.Newtype'{}   -> type_ @?= type_
+
+test_definedNames :: TestTree
+test_definedNames = testGroup "definedNames"
+  [ testCase "a" $
+      Theta.definedNames theta'a @?= ["a.A"]
+  , testCase "b" $
+      Theta.definedNames theta'b @?= ["b.B"]
+  , testCase "c" $
+      Theta.definedNames theta'c @?= ["c.C"]
+  , testCase "d" $
+      Theta.definedNames theta'd @?= ["d.D"]
+  ]
+
+test_allNames :: TestTree
+test_allNames = testGroup "allNames"
+  [ testCase "a" $
+      Theta.allNames theta'a @?= ["a.A"]
+  , testCase "b" $
+      Theta.allNames theta'b @?= ["a.A", "b.B"]
+  , testCase "c" $
+      Theta.allNames theta'c @?= ["a.A", "b.B", "c.C"]
+  , testCase "d" $
+      Theta.allNames theta'd @?= ["a.A", "b.B", "c.C", "d.D"]
+  ]
 
 test_transitiveImports :: TestTree
 test_transitiveImports = testCase "transitiveImports" $ do
