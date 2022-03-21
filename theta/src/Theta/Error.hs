@@ -16,13 +16,13 @@ import           Control.Exception.Base (Exception (..), displayException)
 import           Control.Monad.Except   (MonadError, throwError)
 
 import qualified Data.Map               as Map
+import qualified Data.Set               as Set
 import           Data.Text              (Text)
 import qualified Data.Text              as Text
 import           Data.Void              (Void)
 
 import qualified Text.Megaparsec        as Megaparsec
 
-import qualified Data.Set               as Set
 import           Theta.LoadPath         (LoadPath)
 import           Theta.Metadata         (Metadata, Version)
 import qualified Theta.Metadata         as Metadata
@@ -249,7 +249,17 @@ prettyModuleError (containingModule, err) =
       primitiveNames = Map.fromList [(pretty p, p) | p <- primitives]
 
       -- looking for *exact matches* for the given name in other modules
-      otherModules Name.Name { Name.name = expected } = 
-        [ pretty name | name <- imported , Name.name name == expected ]
+      otherModules Name.Name { Name.name = expected } =
+        [ suggest name | name <- imported , Name.name name == expected ]
         where imported = Set.toList . Theta.definedNames =<<
                 Theta.transitiveImports [containingModule]
+
+              suggest name@Name.Name { Name.moduleName }
+                | Set.member moduleName directImports =
+                   pretty name
+                | otherwise =
+                   [p|#{pretty name} (import #{pretty moduleName})|]
+              directImports = Set.fromList $
+                Theta.moduleName <$> Theta.imports containingModule
+
+

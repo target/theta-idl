@@ -1,8 +1,9 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
 module Test.Theta.Error where
 
 import           Test.Tasty
@@ -18,6 +19,7 @@ import           Theta.Target.Haskell (loadModule)
 import           Theta.Types          (emptyModule)
 
 loadModule "test/data/modules" "importing_foo"
+loadModule "test/data/transitive" "d"
 
 tests :: TestTree
 tests = testGroup "Error"
@@ -41,6 +43,16 @@ tests = testGroup "Error"
             Suggestions:
               • foo.Bar
           |]
+
+    , testCase "note import for suggested type if needed" $ do
+        prettyModuleError (theta'd, UndefinedType "b.B") ?=
+          [pr|
+            Error in module ‘d’:
+            The type ‘b.B’ is not defined.
+
+            Suggestions:
+              • b.B (import b)
+             |]
     ]
   ]
   where exampleModule = emptyModule "example" (Metadata "1.0.0" "1.0.0" "example")
