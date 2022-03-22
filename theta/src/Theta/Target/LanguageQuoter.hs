@@ -81,6 +81,10 @@ class Interpolable a where
   toText   :: a -> Text
   fromText :: Text -> a
 
+instance Interpolable Text where
+  toText = id
+  fromText = id
+
 -- | Generate a quoter. This needs a specific 'Interpolable' type
 -- specified, which you can do with @VisibleTypeApplication@:
 --

@@ -1,0 +1,17 @@
+language-version: 1.0.0
+avro-version: 1.0.0
+---
+
+import direct_a
+
+import direct_b
+
+/// We define a type with this name in this module *and* every module
+/// it imports (directly or transitively)
+///
+/// This lets us test code (eg suggestions) that should work for
+/// multiple candidates
+///
+/// Note that this currently messes up Haskell code generation, so we
+/// can't use loadModule for this.
+type Importing = Int

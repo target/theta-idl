@@ -562,8 +562,7 @@ data Module = Module
   { moduleName :: !Name.ModuleName
     -- ^ The name used to import the module.
   , types      :: !(Map Name (Definition Type))
-    -- ^ All of the types defined in this module (including
-    -- definitions imported from other modules).
+    -- ^ All of the types defined in this module.
     --
     -- Note that this map /has/ to be lazy in its values for several
     -- of our internal algorithms to work correctly.
@@ -617,9 +616,31 @@ primitiveModule = Module
           , let name = primitiveName type_
           ]
 
--- | Does the given module define the given name?
-defines :: Name -> Module -> Bool
-defines name = isRight . lookupName name
+-- | The set of names defined in a module, including aliases.
+--
+-- Does not include the names of any imported types.
+definedNames :: Module -> Set Name
+definedNames Module { types } = Map.keysSet types
+
+-- | The set of all the names accessible from a module, including:
+--
+--  * names defined in the module
+--  * names defined in imported modules
+--  * names in transitive imports
+--
+-- This last category means that this set includes names that cannot
+-- be used directly in the module without adding an @import@
+-- statement.
+allNames :: Module -> Set Name
+allNames module_ = Set.unions $ definedNames <$> transitiveImports [module_]
+
+-- | Does a module define or import a name?
+--
+-- Includes both direct and transitive imports.
+contains :: Name -> Module -> Bool
+contains name = isRight . lookupName name
+
+-- | The names defined 
 
 -- | Look up the definition of the given name.
 --
@@ -687,10 +708,13 @@ data ModuleDefinition = ModuleDefinition
   , body   :: ![Statement]
   } deriving (Show)
 
+-- | The name of the module for this definition.
+moduleDefinitionName :: ModuleDefinition -> ModuleName
+moduleDefinitionName ModuleDefinition { header } = Metadata.moduleName header
+
 -- | A Theta statement is either a definition or an import. A Theta
 -- file is a sequence of statements; the imports need to be imported
 -- before it represents a module.
 data Statement = DefinitionStatement !(Definition BaseType')
                | ImportStatement !ModuleName
                deriving (Show, Eq)
-
