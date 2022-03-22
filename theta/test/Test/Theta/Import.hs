@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
@@ -9,6 +7,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
+
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Testing how we find, load and resolve Theta modules. This covers
 -- a few distinct areas:
@@ -22,14 +22,9 @@ import           Control.Monad.Except          (runExceptT)
 
 import           Data.String.Interpolate       (__i)
 import qualified Data.Text                     as Text
-import qualified Data.Text.IO                  as Text
 
-import           System.Directory              (canonicalizePath,
-                                                withCurrentDirectory)
-import           System.FilePath               (equalFilePath, joinPath,
-                                                takeExtension, (<.>), (</>))
-
-import           Text.Printf                   (printf)
+import           System.FilePath               (joinPath, takeExtension, (<.>),
+                                                (</>))
 
 import           Theta.Error
 import           Theta.Import
@@ -56,7 +51,6 @@ tests :: TestTree
 tests = testGroup "Imports"
   [ test_toFromPath
   , test_importModule
-  , test_findInPath
   , test_getModuleDefinition
   , test_getDefinition
   ]
@@ -103,9 +97,9 @@ test_importModule = testGroup "importModule"
         -- the PR that defines Eq instance for types gets merged
 
       assertBool "‘test.Foo’ *not* in module before importing." $
-        not $ Theta.defines "test.Foo" importing
+        not $ Theta.contains "test.Foo" importing
       assertBool "‘test.Foo’ *is* in module after importing." $
-        Theta.defines "test.Foo" combined
+        Theta.contains "test.Foo" combined
 
   , -- with the current namespace design modules can't actually shadow
     -- names any more—the module's name is the namespace for each type
@@ -122,10 +116,10 @@ test_importModule = testGroup "importModule"
           combined2 = (shadowed `importModule` shadowing) `importModule` importing
 
       assertBool "‘test.Foo’ *not* in module before importing." $
-        not $ Theta.defines "test.Foo" importing
+        not $ Theta.contains "test.Foo" importing
       assertBool "‘test.Foo’ *in* in module before importing." $
-        and ([ Theta.defines "test.Foo" combined1
-             , Theta.defines "test.Foo" combined2
+        and ([ Theta.contains "test.Foo" combined1
+             , Theta.contains "test.Foo" combined2
              ] :: [Bool])
 
       case Theta.lookupName "test.Foo" combined1 of
@@ -160,109 +154,6 @@ test_importModule = testGroup "importModule"
                                             , Theta.definitionDoc
                                             , Theta.definitionType })
 
-test_findInPath :: TestTree
-test_findInPath = testGroup "findInPath"
-  [ testCase "relative paths" $ do
-      dir <- Paths.getDataDir
-      withCurrentDirectory dir $ do
-        let loadPath = LoadPath [root1, root2]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-
-        let pathB = dir </> "test" </> "data" </> "root-2" </> "b.theta"
-        fileB <- Text.readFile pathB
-        Just (fileB', pathB') <- findInPath loadPath "b.theta"
-        assertEqualPath pathB' pathB
-        fileB' @?= fileB
-
-  , testCase "absolute paths" $ do
-      dir <- Paths.getDataDir
-      let loadPath = LoadPath [dir </> root1, dir </> root2]
-
-      let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-      fileA <- Text.readFile pathA
-      Just (fileA', pathA') <- findInPath loadPath "a.theta"
-      assertEqualPath pathA' pathA
-      fileA' @?= fileA
-
-      let pathB = dir </> "test" </> "data" </> "root-2" </> "b.theta"
-      fileB <- Text.readFile pathB
-      Just (fileB', pathB') <- findInPath loadPath "b.theta"
-      assertEqualPath pathB' pathB
-      fileB' @?= fileB
-
-  -- What if we have a .. or . in the middle of a load path?
-  --
-  -- This has caused problems in the past, for uncertain reasons.
-  , testGroup ".. and ."
-    [ testCase ".. in start" $ do
-        dir <- Paths.getDataDir
-        withCurrentDirectory (dir </> "test") $ do
-          let loadPath = LoadPath [".." </> root1]
-
-          let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-          fileA <- Text.readFile pathA
-          Just (fileA', pathA') <- findInPath loadPath "a.theta"
-          assertEqualPath pathA' pathA
-          fileA' @?= fileA
-
-    , testCase ".. in middle" $ do
-        dir <- Paths.getDataDir
-        let loadPath = LoadPath [dir </> "test" </> ".." </> root1]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-
-    , testCase ". in start" $ do
-        dir <- Paths.getDataDir
-        let loadPath = LoadPath ["." </> dir </> root1]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-
-    , testCase ". in middle" $ do
-        dir <- Paths.getDataDir
-        let loadPath = LoadPath [dir </> "." </> root1]
-
-        let pathA = dir </> "test" </> "data" </> "root-1" </> "a.theta"
-        fileA <- Text.readFile pathA
-        Just (fileA', pathA') <- findInPath loadPath "a.theta"
-        assertEqualPath pathA' pathA
-        fileA' @?= fileA
-    ]
-
-  , testCase "missing files" $ do
-      dir <- Paths.getDataDir
-      let loadPath = LoadPath [dir </> root1, dir </> root2]
-
-      a <- findInPath loadPath ("blarg" </> "foo.theta")
-      a @?= Nothing
-
-      b <- findInPath "nope" "a.theta"
-      b @?= Nothing
-
-      c <- findInPath (LoadPath [dir </> root1]) "b.theta"
-      c @?= Nothing
-  ]
-  where root1 = "test" </> "data" </> "root-1"
-        root2 = "test" </> "data" </> "root-2"
-
-        assertEqualPath got expected = do
-          got'      <- canonicalizePath got
-          expected' <- canonicalizePath expected
-          assertBool (printf "expected: %s\n but got: %s" expected' got') $
-            equalFilePath got' expected'
-
 test_getModuleDefinition :: TestTree
 test_getModuleDefinition = testGroup "getModuleDefinition"
   [ testCase "invalid version" $ do
@@ -285,10 +176,10 @@ test_getModuleDefinition = testGroup "getModuleDefinition"
   ]
   where
     unsupported (name, range, version) = \case
-      Left (UnsupportedVersion name' range' version') -> do
-        name'    @?= name
-        range'   @?= range
-        version' @?= version
+      Left (UnsupportedVersion metadata range' version') -> do
+        Metadata.moduleName metadata @?= name
+        range'                       @?= range
+        version'                     @?= version
       Left err ->
         assertFailure $ "Raised wrong kind of error. Expected UnsupportedVersion, got:\n" <> show err
       Right _  ->
