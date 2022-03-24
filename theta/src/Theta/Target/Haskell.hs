@@ -85,8 +85,8 @@ import           Data.Versions                   (SemVer (..), VUnit (..))
 import qualified GHC.Exts                        as Exts
 import           GHC.Generics                    (Generic)
 
-import           Language.Haskell.TH             as TH
-import           Language.Haskell.TH.Syntax
+import qualified Language.Haskell.TH             as TH
+import qualified Language.Haskell.TH.Syntax      as TH
 
 import           Theta.Error                     (Error)
 import qualified Theta.Import                    as Import
@@ -154,7 +154,7 @@ loadModule :: Import.LoadPath
            -- ^ The fully qualified name of the module written out
            -- with dots. Example: @"com.target.foo"@ for a module
            -- named @"foo"@ in the @"com.target"@ namespace.
-           -> Q [Dec]
+           -> TH.Q [TH.Dec]
 loadModule loadPath moduleName = do
   (module_, moduleFiles) <- runTheta $ do
     (definition, path) <- Import.getModuleDefinition loadPath moduleName
@@ -163,12 +163,12 @@ loadModule loadPath moduleName = do
 
   -- tells GHC it needs to recompile the module if any of the loaded
   -- schema files change
-  traverse_ qAddDependentFile moduleFiles
+  traverse_ TH.qAddDependentFile moduleFiles
 
   generateDefinitions module_
 
-  where runTheta :: ExceptT Error IO a -> Q a
-        runTheta theta = runIO $ runExceptT theta >>= \case
+  where runTheta :: ExceptT Error IO a -> TH.Q a
+        runTheta theta = TH.runIO $ runExceptT theta >>= \case
           Left err  -> fail $ Text.unpack $ Theta.pretty err
           Right res -> return res
 
@@ -191,19 +191,18 @@ loadModule loadPath moduleName = do
 -- from a different Haskell module. If we call 'generateDefinitions'
 -- on a module called @foo@ and @theta'foo@ is in scope, no types or
 -- definitions will be generated.
-generateDefinitions :: Theta.Module -> Q [Dec]
+generateDefinitions :: Theta.Module -> TH.Q [TH.Dec]
 generateDefinitions module_ = concat <$> traverse generate modules
   where modules = Theta.transitiveImports [module_]
 
         generate module_ = do
-          let moduleExp    = generateModule module_
-              topLevelName = globalModuleName module_
+          let topLevelName = globalModuleName module_
 
-          lookupValueName (nameBase topLevelName) >>= \case
+          TH.lookupValueName (TH.nameBase topLevelName) >>= \case
             Just _  -> pure []
             Nothing -> do
-              moduleSignature  <- sigD topLevelName [t| Theta.Module |]
-              moduleDefinition <- valD (varP topLevelName) (normalB moduleExp) []
+              moduleSignature  <- TH.sigD topLevelName [t| Theta.Module |]
+              moduleDefinition <- TH.valD (TH.varP topLevelName) (TH.normalB (TH.lift module_)) []
 
               definitions <-
                 traverse (generateDefinition topLevelName) (Theta.types module_)
@@ -216,8 +215,8 @@ generateDefinitions module_ = concat <$> traverse generate modules
 -- replaced by @'@ and prefixed with @theta'@. The module
 -- @com.example.foo@ would have the Haskell global name
 -- @theta'com'example'foo@.
-globalModuleName :: Theta.Module -> Name
-globalModuleName module_ = mkName $ "theta'" <> Text.unpack fullName
+globalModuleName :: Theta.Module -> TH.Name
+globalModuleName module_ = TH.mkName $ "theta'" <> Text.unpack fullName
   where fullName = Text.intercalate "'" $ Exts.toList $ Theta.moduleName module_
 
 -- | Generate an expression that evaluates to the given
@@ -227,15 +226,15 @@ globalModuleName module_ = mkName $ "theta'" <> Text.unpack fullName
 -- @
 -- HashMap.fromList [("TypeName", <type expression>), …]
 -- @
-generateModule :: Theta.Module -> Q Exp
+generateModule :: Theta.Module -> TH.Q TH.Exp
 generateModule (Theta.Module name (Map.toList -> bindings) imports metadata) =
   [e| Theta.Module { Theta.moduleName = $(generateModuleName name)
                    , Theta.types      = Map.fromList $(moduleExps)
-                   , Theta.imports    = $(listE $ varE . globalModuleName <$> imports)
+                   , Theta.imports    = $(TH.listE $ TH.varE . globalModuleName <$> imports)
                    , Theta.metadata   = $(generateMetadata metadata)
                    }
     |]
-  where moduleExps = listE $ binding <$> bindings
+  where moduleExps = TH.listE $ binding <$> bindings
         binding (name, Theta.Definition {..}) =
           [e| ($(generateName name), Theta.Definition
                 { Theta.definitionName = $(generateName definitionName)
@@ -254,7 +253,7 @@ generateModule (Theta.Module name (Map.toList -> bindings) imports metadata) =
 --    , moduleName      = "module_name"
 --    }
 --  @
-generateMetadata :: Metadata -> Q Exp
+generateMetadata :: Metadata -> TH.Q TH.Exp
 generateMetadata Metadata { languageVersion, avroVersion, moduleName } =
   [e|
    Metadata
@@ -265,21 +264,21 @@ generateMetadata Metadata { languageVersion, avroVersion, moduleName } =
     |]
   where generateVersion (Version SemVer { _svMajor, _svMinor, _svPatch
                                         , _svPreRel, _svMeta }) =
-          [e| SemVer { _svMajor  = $(litE $ integerL $ fromIntegral _svMajor)
-                     , _svMinor  = $(litE $ integerL $ fromIntegral _svMinor)
-                     , _svPatch  = $(litE $ integerL $ fromIntegral _svPatch)
-                     , _svPreRel = $(listE $ units <$> _svPreRel)
+          [e| SemVer { _svMajor  = $(TH.litE $ TH.integerL $ fromIntegral _svMajor)
+                     , _svMinor  = $(TH.litE $ TH.integerL $ fromIntegral _svMinor)
+                     , _svPatch  = $(TH.litE $ TH.integerL $ fromIntegral _svPatch)
+                     , _svPreRel = $(TH.listE $ units <$> _svPreRel)
                      , _svMeta   = $(meta _svMeta)
                      }
             |]
 
-        units = listE . toList . NonEmpty.map unit
+        units = TH.listE . toList . NonEmpty.map unit
 
-        unit (Digits word) = [e| Digits $(litE $ integerL $ fromIntegral word) |]
-        unit (Str text)    = [e| Text $(litE $ stringL $ Text.unpack text) |]
+        unit (Digits word) = [e| Digits $(TH.litE $ TH.integerL $ fromIntegral word) |]
+        unit (Str text)    = [e| Text $(TH.litE $ TH.stringL $ Text.unpack text) |]
 
         meta = \case
-          Just text -> litE $ stringL $ Text.unpack text
+          Just text -> TH.litE $ TH.stringL $ Text.unpack text
           Nothing   -> [e| Nothing |]
 
 -- ** Type Definitions
@@ -299,12 +298,12 @@ generateMetadata Metadata { languageVersion, avroVersion, moduleName } =
 -- See the documentation for 'generateRecord', 'generateVariant' and
 -- 'generateNewtype' for details on what those Haskell types look
 -- like.
-generateDefinition :: Name
+generateDefinition :: TH.Name
                    -- ^ The name of the generated module expression
                    -- for the module this definition comes from (ie
                    -- @theta'foo@ for a module named "foo").
                    -> Theta.Definition Theta.Type
-                   -> Q [Dec]
+                   -> TH.Q [TH.Dec]
 generateDefinition moduleName Theta.Definition {..} =
   case Theta.baseType definitionType of
     -- named types need to be defined explicitly
@@ -316,7 +315,7 @@ generateDefinition moduleName Theta.Definition {..} =
     -- any other type becomes a type synonym
     _                         -> typeSynonym definitionName $ generateType definitionType
   where -- HasTheta, ToTheta and FromTheta instance declarations
-        withInstances :: Dec -> Q [Dec]
+        withInstances :: TH.Dec -> TH.Q [TH.Dec]
         withInstances definition = do
           hasTheta  <- hasThetaInstance moduleName definitionName
           toTheta   <- toThetaInstance moduleName definitionType
@@ -353,10 +352,10 @@ generateDefinition moduleName Theta.Definition {..} =
 -- @
 -- data Foo = Bar | Baz | Baz_
 -- @
-generateEnum :: Name.Name -> NonEmpty Theta.EnumSymbol -> Q Dec
+generateEnum :: Name.Name -> NonEmpty Theta.EnumSymbol -> TH.Q TH.Dec
 generateEnum name symbols =
-  dataD (pure []) (toName name) [] Nothing constructors [defaultClasses]
-  where constructors = [ normalC name [] | name <- enumConstructors name symbols ]
+  TH.dataD (pure []) (toName name) [] Nothing constructors [defaultClasses]
+  where constructors = [ TH.normalC name [] | name <- enumConstructors name symbols ]
 
 -- | Return a list of disambiguated constructor names for the given
 -- set of enum symbols.
@@ -395,9 +394,9 @@ disambiguateConstructors enumName (NonEmpty.toList -> symbols) = names
 --
 -- See 'disambiguateConstructors' for the rules used to convert and
 -- disambiguate constructor names.
-enumConstructors :: Name.Name -> NonEmpty Theta.EnumSymbol -> [Name]
+enumConstructors :: Name.Name -> NonEmpty Theta.EnumSymbol -> [TH.Name]
 enumConstructors enumName symbols =
-  mkName . Text.unpack <$> disambiguateConstructors enumName symbols
+  TH.mkName . Text.unpack <$> disambiguateConstructors enumName symbols
 
 -- | Generates a record with the specified fields, using the given
 -- name for both the type and the data constructor.
@@ -419,9 +418,9 @@ enumConstructors enumName symbols =
 -- @
 -- data Foo = Foo { a :: Text, b :: Int32 }
 -- @
-generateRecord :: Name.Name -> Theta.Fields Theta.Type -> Q Dec
+generateRecord :: Name.Name -> Theta.Fields Theta.Type -> TH.Q TH.Dec
 generateRecord name Theta.Fields { Theta.fields } =
-  dataD (pure []) (toName name) [] Nothing [recordFields name pairs] [defaultClasses]
+  TH.dataD (pure []) (toName name) [] Nothing [recordFields name pairs] [defaultClasses]
   where pairs = [ (fieldName, fieldType)
                 | Theta.Field { Theta.fieldName, Theta.fieldType } <- fields ]
 
@@ -441,11 +440,11 @@ generateRecord name Theta.Fields { Theta.fields } =
 -- @
 -- Foo { a :: Text, b :: Int }
 -- @
-recordFields :: Name.Name -> [(Theta.FieldName, Theta.Type)] -> Q Con
+recordFields :: Name.Name -> [(Theta.FieldName, Theta.Type)] -> TH.Q TH.Con
 recordFields (toName -> name) fields =
-  recC name $ generateField <$> fields
+  TH.recC name $ generateField <$> fields
   where generateField (toFieldName -> fieldName, type_) =
-          varBangType fieldName $ parameter type_
+          TH.varBangType fieldName $ parameter type_
 
 -- | Generate a data type with multiple constructors to deal with
 -- variants.
@@ -489,9 +488,9 @@ recordFields (toName -> name) fields =
 --
 -- This is awkward, but I couldn't find a better solution within
 -- Haskell.
-generateVariant :: Name.Name -> NonEmpty (Theta.Case Theta.Type) -> Q Dec
+generateVariant :: Name.Name -> NonEmpty (Theta.Case Theta.Type) -> TH.Q TH.Dec
 generateVariant (toName -> name) (toList -> cases) =
-  dataD (pure []) name [] Nothing (generateCase <$> disambiguate cases) [defaultClasses]
+  TH.dataD (pure []) name [] Nothing (generateCase <$> disambiguate cases) [defaultClasses]
   where generateCase (caseName, fields) = recordFields caseName fields
 
         disambiguate :: [Theta.Case Theta.Type]
@@ -536,21 +535,21 @@ generateVariant (toName -> name) (toList -> cases) =
 -- @
 -- newtype Blarg = Blarg Text
 -- @
-generateNewtype :: Name.Name -> Theta.Type -> Q Dec
+generateNewtype :: Name.Name -> Theta.Type -> TH.Q TH.Dec
 generateNewtype (toName -> name) type_ =
-  newtypeD (pure []) name [] Nothing (normalC name [param type_]) [defaultClasses]
-  where param = bangType (bang noSourceUnpackedness noSourceStrictness) . generateType
+  TH.newtypeD (pure []) name [] Nothing (TH.normalC name [param type_]) [defaultClasses]
+  where param = TH.bangType (TH.bang TH.noSourceUnpackedness TH.noSourceStrictness) . generateType
 
 -- | This is the default set of classes that types for records,
 -- variants and newtypes derive.
-defaultClasses :: Q DerivClause
-defaultClasses = derivClause Nothing [[t| Eq |], [t| Show |], [t| Generic |]]
+defaultClasses :: TH.Q TH.DerivClause
+defaultClasses = TH.derivClause Nothing [[t| Eq |], [t| Show |], [t| Generic |]]
 
 -- | Produce a parameter with the given type that is strict by
 -- default.
-parameter :: Theta.Type -> BangTypeQ
-parameter type_ = bangType strict $ generateType type_
-  where strict = bang noSourceUnpackedness sourceStrict
+parameter :: Theta.Type -> TH.BangTypeQ
+parameter type_ = TH.bangType strict $ generateType type_
+  where strict = TH.bang TH.noSourceUnpackedness TH.sourceStrict
 
 -- ** Typeclass Instances
 
@@ -566,10 +565,10 @@ parameter type_ = bangType strict $ generateType type_
 --   Right res -> res
 --   Left err  -> error $ "Template Haskell bug: " <> err
 -- @
-thetaType :: Name -> Name.Name -> Q Exp
+thetaType :: TH.Name -> Name.Name -> TH.Q TH.Exp
 thetaType moduleName definitionName =
   [e| let name = $(generateName definitionName) in
-      case Theta.lookupName name $(varE moduleName) of
+      case Theta.lookupName name $(TH.varE moduleName) of
         Right res -> res
         Left err  -> error $ "Template Haskell bug: " <> err
     |]
@@ -591,14 +590,14 @@ thetaType moduleName definitionName =
 --       Right res -> res
 --       Left err  -> error $ "Tempalte Haskell bug: " <> err
 -- @
-hasThetaInstance :: Name
+hasThetaInstance :: TH.Name
                     -- ^ The top-level Haskell name for the module (ie
                     -- @theta'com'example@).
                  -> Name.Name
                     -- ^ The fully qualified name of the Theta type.
-                 -> Q [Dec]
+                 -> TH.Q [TH.Dec]
 hasThetaInstance moduleName definitionName =
-  [d| instance HasTheta $(conT $ toName definitionName) where
+  [d| instance HasTheta $(TH.conT $ toName definitionName) where
         theta = $(thetaType moduleName definitionName)
     |]
 
@@ -608,14 +607,14 @@ hasThetaInstance moduleName definitionName =
 --
 -- The result of 'typeToAvro' might error out, which would mean the TH
 -- code has a bug.
-hasAvroInstance :: Name.Name -> Q [Dec]
+hasAvroInstance :: Name.Name -> TH.Q [TH.Dec]
 hasAvroInstance (toName -> type_) =
-  [d| instance HasAvroSchema $(conT type_) where
+  [d| instance HasAvroSchema $(TH.conT type_) where
         schema = Tagged $ case evalStateT toAvro Set.empty of
           Left err  -> error $ Text.unpack $ Theta.pretty err
           Right res -> res
           where toAvro                = typeToAvro definitionAvroVersion thetaType
-                thetaType             = theta @ $(conT type_)
+                thetaType             = theta @ $(TH.conT type_)
                 definitionAvroVersion = avroVersion $ Theta.metadata $ Theta.module_ thetaType
     |]
 
@@ -626,9 +625,9 @@ hasAvroInstance (toName -> type_) =
 -- instance Avro.ToAvro Foo where
 --   toAvro = Theta.toAvro . toTheta
 -- @
-toAvroInstance :: Name.Name -> Q [Dec]
+toAvroInstance :: Name.Name -> TH.Q [TH.Dec]
 toAvroInstance (toName -> type_) =
-  [d| instance Avro.ToAvro $(conT type_) where
+  [d| instance Avro.ToAvro $(TH.conT type_) where
         toAvro _ value = Conversion.avroEncoding value
     |]
 
@@ -642,14 +641,14 @@ toAvroInstance (toName -> type_) =
 --       Right res -> Avro.Success res
 --     where schema = theta @Foo
 -- @
-fromAvroInstance :: Name.Name -> Q [Dec]
+fromAvroInstance :: Name.Name -> TH.Q [TH.Dec]
 fromAvroInstance (toName -> type_) =
-  [d| instance Avro.FromAvro $(conT type_) where
+  [d| instance Avro.FromAvro $(TH.conT type_) where
         fromAvro avro =
           case Conversion.fromTheta =<< Theta.fromAvro schema avro of
             Left err  -> Left $ Text.unpack $ Theta.pretty err
             Right res -> Right res
-          where schema = theta @ $(conT type_)
+          where schema = theta @ $(TH.conT type_)
     |]
 
 -- *** ToTheta
@@ -671,29 +670,29 @@ fromAvroInstance (toName -> type_) =
 --
 -- Refer to the documentation of 'recordToTheta' and 'variantToTheta'
 -- for what their respective instances look like.
-toThetaInstance :: Name
+toThetaInstance :: TH.Name
                    -- ^ The top-level haskell name for the module (ie
                    -- @theta'com'example@).
                 -> Theta.Type
                    -- ^ The Theta type to generate the
                    -- 'Conversion.ToTheta' instance for.
-                -> Q [Dec]
+                -> TH.Q [TH.Dec]
 toThetaInstance moduleName type_ = case Theta.baseType type_ of
   Theta.Enum' name symbols  -> enumToTheta moduleName name symbols
   Theta.Record' name fields -> recordToTheta moduleName name fields
   Theta.Variant' name cases -> variantToTheta moduleName name cases
   Theta.Newtype' name _     ->
-    [d| instance Conversion.ToTheta $(conT $ toName name) where
-          toTheta $(conP (toName name) [ [p| x |] ]) = Conversion.toTheta x
+    [d| instance Conversion.ToTheta $(TH.conT $ toName name) where
+          toTheta $(TH.conP (toName name) [ [p| x |] ]) = Conversion.toTheta x
 
-          avroEncoding $(conP (toName name) [ [p| x |] ]) = Conversion.avroEncoding x
+          avroEncoding $(TH.conP (toName name) [ [p| x |] ]) = Conversion.avroEncoding x
       |]
             -- primitive types and containers do not need custom instances
   _                          -> [d| |]
 
 -- | A capturable name that we use to define 'toTheta' functions.
-argName :: Name
-argName = mkName "value"
+argName :: TH.Name
+argName = TH.mkName "value"
 
 -- | Generate a 'Conversion.ToTheta' instance for an enum.
 --
@@ -724,26 +723,26 @@ argName = mkName "value"
 --     Baz  -> encodeInt 1
 --     Baz_ -> encodeInt 2
 -- @
-enumToTheta :: Name -> Name.Name -> NonEmpty Theta.EnumSymbol -> Q [Dec]
+enumToTheta :: TH.Name -> Name.Name -> NonEmpty Theta.EnumSymbol -> TH.Q [TH.Dec]
 enumToTheta moduleName enumName symbols =
-  [d| instance Conversion.ToTheta $(conT $ toName enumName) where
-        toTheta $(varP argName) = Theta.Value
+  [d| instance Conversion.ToTheta $(TH.conT $ toName enumName) where
+        toTheta $(TH.varP argName) = Theta.Value
           { Theta.value = enumValue
           , Theta.type_ = $(thetaType moduleName enumName)
           }
-          where enumValue = $(caseE (varE argName) $ symbolToTheta <$> constructors)
+          where enumValue = $(TH.caseE (TH.varE argName) $ symbolToTheta <$> constructors)
 
-        avroEncoding $(varP argName) =
-          $(caseE (varE argName) $
+        avroEncoding $(TH.varP argName) =
+          $(TH.caseE (TH.varE argName) $
               [encodeSymbol i c | i <- [0..] | (_, c) <- constructors])
     |]
-  where symbolToTheta (name, constructor) = match constructor
-          (normalB [e| Theta.Enum (Theta.EnumSymbol $(stringE name)) |]) []
+  where symbolToTheta (name, constructor) = TH.match constructor
+          (TH.normalB [e| Theta.Enum (Theta.EnumSymbol $(TH.stringE name)) |]) []
 
         encodeSymbol i constructor =
-          match constructor (normalB [e| Conversion.encodeInt $(litE $ integerL i) |]) []
+          TH.match constructor (TH.normalB [e| Conversion.encodeInt $(TH.litE $ TH.integerL i) |]) []
 
-        constructors = [ (Text.unpack name, conP constructor [])
+        constructors = [ (Text.unpack name, TH.conP constructor [])
                        | Theta.EnumSymbol name <- NonEmpty.toList symbols
                        | constructor <- enumConstructors enumName symbols
                        ]
@@ -779,40 +778,40 @@ enumToTheta moduleName enumName symbols =
 --                            , let Foo { b = x } = value in avroEncoding x
 --                            ]
 -- @
-recordToTheta :: Name
+recordToTheta :: TH.Name
                  -- ^ The top-level haskell name for the module (ie
                  -- @theta'com'example@).
               -> Name.Name
                  -- ^ The name of the Theta record.
               -> Theta.Fields Theta.Type
                  -- ^ The fields of the Theta record.
-              -> Q [Dec]
+              -> TH.Q [TH.Dec]
 recordToTheta moduleName name Theta.Fields { Theta.fields } =
-  [d| instance Conversion.ToTheta $(conT $ toName name) where
-        toTheta $(varP argName) = Theta.Value
+  [d| instance Conversion.ToTheta $(TH.conT $ toName name) where
+        toTheta $(TH.varP argName) = Theta.Value
           { Theta.value   = record
           , Theta.type_   = $(thetaType moduleName name)
           }
-          where record = Theta.Record $ Vector.fromList $(listE $ field <$> fields)
+          where record = Theta.Record $ Vector.fromList $(TH.listE $ field <$> fields)
 
-        avroEncoding $(varP argName) = mconcat encodedFields
-          where encodedFields = $(listE $ encodeField <$> fields)
+        avroEncoding $(TH.varP argName) = mconcat encodedFields
+          where encodedFields = $(TH.listE $ encodeField <$> fields)
     |]
   where -- an expression for a single field:
         -- ("a", let Foo { a = x } = value in toTheta x)
-        field :: Theta.Field Theta.Type -> Q Exp
+        field :: Theta.Field Theta.Type -> TH.Q TH.Exp
         field Theta.Field { Theta.fieldName } =
-          [e| let $(patternMatch fieldName) = $(varE argName) in Conversion.toTheta x |]
+          [e| let $(patternMatch fieldName) = $(TH.varE argName) in Conversion.toTheta x |]
 
         -- an expression encoding the value of a single field to binary:
         -- let Foo { a = x } = value in avroEncoding x
-        encodeField :: Theta.Field Theta.Type -> Q Exp
+        encodeField :: Theta.Field Theta.Type -> TH.Q TH.Exp
         encodeField Theta.Field { Theta.fieldName } =
-          [e| let $(patternMatch fieldName) = $(varE argName) in
+          [e| let $(patternMatch fieldName) = $(TH.varE argName) in
                 Conversion.avroEncoding x |]
 
         patternMatch fieldName =
-          recP (toName name) [fieldPat (toFieldName fieldName) [p| x |]]
+          TH.recP (toName name) [TH.fieldPat (toFieldName fieldName) [p| x |]]
 
 -- | Generates a 'Conversion.ToTheta' instance for a variant, relying
 -- on the 'ToTheta' of each field type.
@@ -846,37 +845,37 @@ recordToTheta moduleName name Theta.Fields { Theta.fields } =
 --     Baz x   -> encodeInt 0 <> mconcat [avroEncoding x]
 --     Qux x y -> encodeInt 1 <> mconcat [avroEncoding x, avroEncoding y]
 -- @
-variantToTheta :: Name -> Name.Name -> NonEmpty (Theta.Case Theta.Type) -> Q [Dec]
+variantToTheta :: TH.Name -> Name.Name -> NonEmpty (Theta.Case Theta.Type) -> TH.Q [TH.Dec]
 variantToTheta moduleName name cases =
-  [d| instance Conversion.ToTheta $(conT $ toName name) where
-        toTheta $(varP argName) = Theta.Value
+  [d| instance Conversion.ToTheta $(TH.conT $ toName name) where
+        toTheta $(TH.varP argName) = Theta.Value
           { Theta.value   = variant
           , Theta.type_   = $(thetaType moduleName name)
           }
-         where variant = $(caseE (varE argName) $ caseToTheta <$> toList cases)
+         where variant = $(TH.caseE (TH.varE argName) $ caseToTheta <$> toList cases)
 
-        avroEncoding $(varP argName) =
-          $(caseE (varE argName) $ encodeCase <$> [0..] `zip` toList cases)
+        avroEncoding $(TH.varP argName) =
+          $(TH.caseE (TH.varE argName) $ encodeCase <$> [0..] `zip` toList cases)
     |]
    where caseToTheta case_@Theta.Case { Theta.caseName } =
            caseMatch case_ $ \ parameters ->
-             let wrapped = listE $ [[e| Conversion.toTheta $(arg)|] | arg <- parameters]
+             let wrapped = TH.listE $ [[e| Conversion.toTheta $(arg)|] | arg <- parameters]
              in
              [e| Theta.Variant $(generateName caseName) (Vector.fromList $(wrapped)) |]
 
          encodeCase (index, case_) = caseMatch case_ $ \ parameters ->
-           let i        = litE $ integerL index
+           let i        = TH.litE $ TH.integerL index
                wrap exp = [e| Conversion.avroEncoding $(exp) |]
            in
-           [e| Conversion.encodeInt $(i) <> mconcat $(listE $ wrap <$> parameters) |]
+           [e| Conversion.encodeInt $(i) <> mconcat $(TH.listE $ wrap <$> parameters) |]
 
          caseMatch Theta.Case { Theta.caseName, Theta.caseParameters } body = do
-           parameterVars <- replicateM (length $ Theta.fields caseParameters) (newName "x")
+           parameterVars <- replicateM (length $ Theta.fields caseParameters) (TH.newName "x")
 
-           let casePattern = conP constructor (varP <$> parameterVars)
-               constructor = mkName $ Text.unpack $ Name.name caseName
+           let casePattern = TH.conP constructor (TH.varP <$> parameterVars)
+               constructor = TH.mkName $ Text.unpack $ Name.name caseName
 
-           match casePattern (normalB $ body $ varE <$> parameterVars) []
+           TH.match casePattern (TH.normalB $ body $ TH.varE <$> parameterVars) []
 
 -- *** FromTheta
 
@@ -901,18 +900,18 @@ variantToTheta moduleName name cases =
 fromThetaInstance :: Theta.Type
                      -- ^ The schema for whose Haskell representation
                      -- we're generating the instance.
-                  -> Q [Dec]
+                  -> TH.Q [TH.Dec]
 fromThetaInstance type_ = case Theta.baseType type_ of
   Theta.Enum' name symbols  -> enumFromTheta name symbols
   Theta.Record' name fields -> recordFromTheta name fields
   Theta.Variant' name cases -> variantFromTheta name cases
   Theta.Newtype' name _     ->
-    [d| instance Conversion.FromTheta $(conT $ toName name) where
+    [d| instance Conversion.FromTheta $(TH.conT $ toName name) where
           fromTheta' value@Theta.Value { Theta.type_ } =
-            $(conE $ toName name) <$>
+            $(TH.conE $ toName name) <$>
               Conversion.withContext type_ (Conversion.fromTheta' value)
 
-          avroDecoding = $(conE $ toName name) <$> Conversion.avroDecoding
+          avroDecoding = $(TH.conE $ toName name) <$> Conversion.avroDecoding
       |]
 
   _                         -> [d| |]
@@ -948,10 +947,10 @@ fromThetaInstance type_ = case Theta.baseType type_ of
 --       invalid ->
 --         fail ("Invalid enum tag. Expected [0..2] but got " <> show invalid <> ".")
 -- @
-enumFromTheta :: Name.Name -> NonEmpty Theta.EnumSymbol -> Q [Dec]
+enumFromTheta :: Name.Name -> NonEmpty Theta.EnumSymbol -> TH.Q [TH.Dec]
 enumFromTheta name symbols =
   [d|
-   instance Conversion.FromTheta $(conT $ toName name) where
+   instance Conversion.FromTheta $(TH.conT $ toName name) where
      fromTheta' v@Theta.Value { Theta.type_, Theta.value } = case value of
        Theta.Enum symbol -> do
          $(apCheckSchema) v
@@ -963,30 +962,30 @@ enumFromTheta name symbols =
        $(decodingCase)
     |]
   where
-    enumCase = caseE [e| symbol |] $ (caseBranch <$> constructors) <> [baseCase]
+    enumCase = TH.caseE [e| symbol |] $ (caseBranch <$> constructors) <> [baseCase]
       where
         caseBranch (name, constructor) =
-          match (litP $ stringL name) (normalB [e| pure $(constructor) |]) []
+          TH.match (TH.litP $ TH.stringL name) (TH.normalB [e| pure $(constructor) |]) []
 
-        baseCase = match (varP invalid) (normalB errorCall) []
+        baseCase = TH.match (TH.varP invalid) (TH.normalB errorCall) []
         errorCall = [e| error $ "Invalid enum symbol ‘"
-                             <> Text.unpack (Theta.enumSymbol $(varE invalid))
+                             <> Text.unpack (Theta.enumSymbol $(TH.varE invalid))
                              <> "’!"
                       |]
 
     decodingCase =
-      caseE [e| tag |] $ [ decodeTag tag c | tag <- [0..] | (_, c) <- constructors ]
+      TH.caseE [e| tag |] $ [ decodeTag tag c | tag <- [0..] | (_, c) <- constructors ]
                       <> [ baseCase ]
       where
         decodeTag tag constructor =
-          match (litP $ integerL tag) (normalB [e| pure $(constructor) |]) []
-        baseCase = match (varP invalid) (normalB errorCall) []
-        errorCall = [e| fail ($(message) <> show $(varE invalid) <> ".") |]
-        message = stringE $ "Invalid enum tag. Expected [0.."
+          TH.match (TH.litP $ TH.integerL tag) (TH.normalB [e| pure $(constructor) |]) []
+        baseCase = TH.match (TH.varP invalid) (TH.normalB errorCall) []
+        errorCall = [e| fail ($(message) <> show $(TH.varE invalid) <> ".") |]
+        message = TH.stringE $ "Invalid enum tag. Expected [0.."
                          <> show (length symbols - 1)
                          <> "] but got"
 
-    constructors = [ (Text.unpack name, conE constructor)
+    constructors = [ (Text.unpack name, TH.conE constructor)
                    | Theta.EnumSymbol name <- NonEmpty.toList symbols
                    | constructor <- enumConstructors name symbols
                    ]
@@ -994,10 +993,10 @@ enumFromTheta name symbols =
     -- Apply `checkSchema` to _ and then name, since the first
     -- quantified type in checkSchema is `m`
     apCheckSchema =
-      appTypeE [e| Conversion.checkSchema @_ |] (conT $ toName name)
-    apTheta = appTypeE [e| theta |] (conT $ toName name)
+      TH.appTypeE [e| Conversion.checkSchema @_ |] (TH.conT $ toName name)
+    apTheta = TH.appTypeE [e| theta |] (TH.conT $ toName name)
 
-    invalid = mkName "invalid"
+    invalid = TH.mkName "invalid"
 
 -- | Generates a 'Conversion.FromTheta' instance for a record, relying
 -- on the 'Conversion.FromTheta' instances for each field type.
@@ -1026,46 +1025,46 @@ enumFromTheta name symbols =
 --     y <- avroDecoding
 --     pure $ Foo { a = x, b = y }
 -- @
-recordFromTheta :: Name.Name -> Theta.Fields Theta.Type -> Q [Dec]
+recordFromTheta :: Name.Name -> Theta.Fields Theta.Type -> TH.Q [TH.Dec]
 recordFromTheta name Theta.Fields { Theta.fields } = do
   -- names for the do-notation variables
-  names <- replicateM (length fields) (newName "x")
-  [d| instance Conversion.FromTheta $(conT $ toName name) where
+  names <- replicateM (length fields) (TH.newName "x")
+  [d| instance Conversion.FromTheta $(TH.conT $ toName name) where
         fromTheta' v@Theta.Value { Theta.type_, Theta.value } = case value of
-          Theta.Record $(varP $ mkName "fields") -> do
+          Theta.Record $(TH.varP $ TH.mkName "fields") -> do
             $(apCheckSchema) v
             Conversion.withContext type_ $(extractFields names)
           _                   -> Conversion.mismatch $(apTheta) type_
 
-        avroDecoding = $(doE $ (fieldDecoding <$> names)
-                            <> [noBindS [e| pure $(record names) |]])
+        avroDecoding = $(TH.doE $ (fieldDecoding <$> names)
+                            <> [TH.noBindS [e| pure $(record names) |]])
     |]
-  where extractFields :: [Name] -> Q Exp
-        extractFields names = doE $ (field <$> zip names [0..])
-                                 <> [noBindS [e| pure $(record names) |]]
+  where extractFields :: [TH.Name] -> TH.Q TH.Exp
+        extractFields names = TH.doE $ (field <$> zip names [0..])
+                                 <> [TH.noBindS [e| pure $(record names) |]]
 
-        field :: (Name, Integer) -> Q Stmt
-        field (bindingName, index) = bindS (varP bindingName)
-          [e| Conversion.fromTheta' $ $(varE fieldMap) ! $(litE $ integerL index) |]
+        field :: (TH.Name, Integer) -> TH.Q TH.Stmt
+        field (bindingName, index) = TH.bindS (TH.varP bindingName)
+          [e| Conversion.fromTheta' $ $(TH.varE fieldMap) ! $(TH.litE $ TH.integerL index) |]
 
-        fieldDecoding :: Name -> Q Stmt
+        fieldDecoding :: TH.Name -> TH.Q TH.Stmt
         fieldDecoding bindingName =
-          bindS (varP bindingName) [e| Conversion.avroDecoding |]
+          TH.bindS (TH.varP bindingName) [e| Conversion.avroDecoding |]
 
-        record :: [Name] -> Q Exp
-        record names = recConE (toName name) $ binding <$> zip names fields
+        record :: [TH.Name] -> TH.Q TH.Exp
+        record names = TH.recConE (toName name) $ binding <$> zip names fields
 
-        binding :: (Name, Theta.Field Theta.Type) -> Q (Name, Exp)
+        binding :: (TH.Name, Theta.Field Theta.Type) -> TH.Q (TH.Name, TH.Exp)
         binding (bindingName, Theta.Field { Theta.fieldName }) =
-          (toFieldName fieldName,) <$> varE bindingName
+          (toFieldName fieldName,) <$> TH.varE bindingName
 
-        fieldMap = mkName "fields"
+        fieldMap = TH.mkName "fields"
 
         -- Apply `checkSchema` to _ and then name, since the first
         -- quantified type is `m`
-        apCheckSchema = appTypeE [e| Conversion.checkSchema @_ |]
-                        (conT $ toName name)
-        apTheta       = appTypeE [e| theta |] (conT $ toName name)
+        apCheckSchema = TH.appTypeE [e| Conversion.checkSchema @_ |]
+                        (TH.conT $ toName name)
+        apTheta       = TH.appTypeE [e| theta |] (TH.conT $ toName name)
 
 -- | Generate a 'Conversion.FromTheta' instance for a variant, relying
 -- on the 'Conversion.FromTheta' instances for each field type.
@@ -1100,11 +1099,11 @@ recordFromTheta name Theta.Fields { Theta.fields } = do
 --       invalid ->
 --         fail "Invalid case tag. Expected [0..1] but got " <> show invalid <> "!"
 -- @
-variantFromTheta :: Name.Name -> NonEmpty (Theta.Case Theta.Type) -> Q [Dec]
+variantFromTheta :: Name.Name -> NonEmpty (Theta.Case Theta.Type) -> TH.Q [TH.Dec]
 variantFromTheta name (toList -> cases) =
-  [d| instance Conversion.FromTheta $(conT $ toName name) where
+  [d| instance Conversion.FromTheta $(TH.conT $ toName name) where
         fromTheta' v@Theta.Value { Theta.type_, Theta.value } = case value of
-          Theta.Variant $(varP caseName) $(varP parameters) -> do
+          Theta.Variant $(TH.varP caseName) $(TH.varP parameters) -> do
             $(apCheckSchema) v
             Conversion.withContext type_ $(chooseCase)
           _                             ->
@@ -1115,53 +1114,53 @@ variantFromTheta name (toList -> cases) =
           $(decodingCase)
     |]
   where
-    chooseCase = caseE (varE caseName) $ (matchCase <$> cases) <> [baseCase]
+    chooseCase = TH.caseE (TH.varE caseName) $ (matchCase <$> cases) <> [baseCase]
       where
         matchCase Theta.Case { Theta.caseName, Theta.caseParameters } =
-          match caseString (normalB matchBody) []
+          TH.match caseString (TH.normalB matchBody) []
           where
-            caseString = litP $ stringL $ Text.unpack $ Name.render caseName
+            caseString = TH.litP $ TH.stringL $ Text.unpack $ Name.render caseName
             matchBody =
-              foldl' apply [e| pure $(conE $ toName caseName) |] $ getValue <$> indices
+              foldl' apply [e| pure $(TH.conE $ toName caseName) |] $ getValue <$> indices
             indices = [i | i <- [0..] | _ <- Theta.fields caseParameters]
             getValue index =
-              let i = litE $ integerL index in
-              [e| Conversion.fromTheta' ($(varE parameters) ! $(i)) |]
+              let i = TH.litE $ TH.integerL index in
+              [e| Conversion.fromTheta' ($(TH.varE parameters) ! $(i)) |]
 
-        baseCase = match (varP invalid) (normalB errorCall) []
+        baseCase = TH.match (TH.varP invalid) (TH.normalB errorCall) []
         errorCall = [e| error $ "Invalid case name '"
-                             <> Text.unpack (Name.render $(varE invalid)) <> "'!"
+                             <> Text.unpack (Name.render $(TH.varE invalid)) <> "'!"
                       |]
 
-    apCheckSchema = appTypeE [e| Conversion.checkSchema @_ |] (conT $ toName name)
-    apTheta = appTypeE [e| theta |] (conT $ toName name)
+    apCheckSchema = TH.appTypeE [e| Conversion.checkSchema @_ |] (TH.conT $ toName name)
+    apTheta = TH.appTypeE [e| theta |] (TH.conT $ toName name)
 
-    decodingCase = caseE [e| tag |] $ (decodeTag <$> [0..] `zip` cases) <> [baseCase]
+    decodingCase = TH.caseE [e| tag |] $ (decodeTag <$> [0..] `zip` cases) <> [baseCase]
       where
         decodeTag (tag, case_) =
-          match (litP $ integerL tag) (normalB $ matchBody case_) []
+          TH.match (TH.litP $ TH.integerL tag) (TH.normalB $ matchBody case_) []
         matchBody (Theta.Case name _ Theta.Fields { Theta.fields }) =
-          foldl' apply [e| pure $(conE $ toName name) |] $
+          foldl' apply [e| pure $(TH.conE $ toName name) |] $
             [e| Conversion.avroDecoding |] <$ fields
 
         baseCase =
-          match (varP invalid) (normalB [e| fail $ $(litE $ stringL message)
-                                                <> show $(varE invalid) <> "!" |]) []
+          TH.match (TH.varP invalid) (TH.normalB [e| fail $ $(TH.litE $ TH.stringL message)
+                                                <> show $(TH.varE invalid) <> "!" |]) []
         message = "Invalid case tag. Expected [0.." <> show maxTag <> "but got"
         maxTag = length cases - 1
 
-    apply exp arg = infixE (Just exp) [e| (<*>) |] (Just arg)
+    apply exp arg = TH.infixE (Just exp) [e| (<*>) |] (Just arg)
 
-    invalid    = mkName "invalid"
-    caseName   = mkName "caseName"
-    parameters = mkName "_parameters"
+    invalid    = TH.mkName "invalid"
+    caseName   = TH.mkName "caseName"
+    parameters = TH.mkName "_parameters"
 
 -- ** Types
 
 -- | Generate a Haskell expression that evaluates to the given
 -- 'Theta.Type' value. This lets us transfer compile-time 'Theta.Type'
 -- values to runtime.
-generateThetaExp :: Theta.Type -> Q Exp
+generateThetaExp :: Theta.Type -> TH.Q TH.Exp
 generateThetaExp type_ = case Theta.baseType type_ of
   Theta.Primitive' p -> case p of
     Primitive.Bool     -> [e| Theta.bool' |]
@@ -1186,18 +1185,18 @@ generateThetaExp type_ = case Theta.baseType type_ of
   Theta.Reference' name     -> wrap [e| Theta.Reference' $(generateName name) |]
   Theta.Newtype' name type_ -> wrap $ newtypeExp name type_
   where wrap exp =
-          [e| Theta.withModule' $(varE $ globalModuleName $ Theta.module_ type_) $(exp) |]
+          [e| Theta.withModule' $(TH.varE $ globalModuleName $ Theta.module_ type_) $(exp) |]
 
         enumExp name symbols =
           [e| Theta.Enum' $(generateName name) $ NonEmpty.fromList $(symbolsList) |]
-          where symbolsList = listE $
-                  [ [e| Theta.EnumSymbol $(stringE $ Text.unpack symbol) |]
+          where symbolsList = TH.listE $
+                  [ [e| Theta.EnumSymbol $(TH.stringE $ Text.unpack symbol) |]
                   | Theta.EnumSymbol symbol <- NonEmpty.toList symbols
                   ]
 
         recordExp name Theta.Fields { Theta.fields } =
           [e| Theta.Record' $(generateName name)
-                            (Theta.wrapFields $(listE $ fieldExp <$> fields)) |]
+                            (Theta.wrapFields $(TH.listE $ fieldExp <$> fields)) |]
         fieldExp Theta.Field {..} =
           [e| Theta.Field $(generateFieldName fieldName)
                           $(generateDoc fieldDoc)
@@ -1205,11 +1204,11 @@ generateThetaExp type_ = case Theta.baseType type_ of
 
         variantExp name cases =
           [e| Theta.Variant' $(generateName name) (NonEmpty.fromList $(casesExp cases)) |]
-        casesExp = listE . map caseExp . NonEmpty.toList
+        casesExp = TH.listE . map caseExp . NonEmpty.toList
         caseExp (Theta.Case name doc Theta.Fields { Theta.fields }) =
           [e| Theta.Case $(generateName name)
                          $(generateDoc doc)
-                         (Theta.wrapFields $(listE $ fieldExp <$> fields)) |]
+                         (Theta.wrapFields $(TH.listE $ fieldExp <$> fields)) |]
 
         newtypeExp name type_ =
           [e| Theta.Newtype' $(generateName name) $(generateThetaExp type_) |]
@@ -1224,7 +1223,7 @@ generateThetaExp type_ = case Theta.baseType type_ of
 --
 -- Named types (references, records, variants and newtypes) become a
 -- reference to their name.
-generateType :: Theta.Type -> Q Type
+generateType :: Theta.Type -> TH.Q TH.Type
 generateType type_ = case Theta.baseType type_ of
   Theta.Primitive' p    -> case p of
     Primitive.Bool     -> [t| Bool |]
@@ -1253,41 +1252,41 @@ generateType type_ = case Theta.baseType type_ of
 
 -- TODO: how to support namespaces here?
 -- | Wrap a 'Name.Name' into a Template Haskell identifier.
-toName :: Name.Name -> Name
-toName Name.Name { Name.name } = mkName $ Text.unpack name
+toName :: Name.Name -> TH.Name
+toName Name.Name { Name.name } = TH.mkName $ Text.unpack name
 
 -- | Wrap a 'Theta.FieldName' into a Template Haskell identifier.
-toFieldName :: Theta.FieldName -> Name
-toFieldName = mkName . Text.unpack . Theta.textName
+toFieldName :: Theta.FieldName -> TH.Name
+toFieldName = TH.mkName . Text.unpack . Theta.textName
 
 -- | Wrap a 'Name.Name' into a Template Haskell type that references
 -- the same name.
-toType :: Name.Name -> Q Type
-toType = conT . toName
+toType :: Name.Name -> TH.Q TH.Type
+toType = TH.conT . toName
 
 -- | Define a type synonym with the given name and Haskell type. This
 -- can be used to deal with aliases from Theta (ie @type Foo = Bool@).
-typeSynonym :: Name.Name -> Q Type -> Q [Dec]
-typeSynonym (toName -> name) type_ = pure <$> tySynD name [] type_
+typeSynonym :: Name.Name -> TH.Q TH.Type -> TH.Q [TH.Dec]
+typeSynonym (toName -> name) type_ = pure <$> TH.tySynD name [] type_
 
 -- | Generate an expression that evaluates to the given 'Name.Name'.
-generateName :: Name.Name -> Q Exp
+generateName :: Name.Name -> TH.Q TH.Exp
 generateName Name.Name { Name.name, Name.moduleName } =
   [e| Name.Name { Name.name       = $(textExp name)
                 , Name.moduleName = $(generateModuleName moduleName)
                 }
     |]
-  where textExp = litE . stringL . Text.unpack
+  where textExp = TH.litE . TH.stringL . Text.unpack
 
 -- | Generate an expression that evaluates to the given
 -- 'Name.ModuleName'.
-generateModuleName :: Name.ModuleName -> Q Exp
+generateModuleName :: Name.ModuleName -> TH.Q TH.Exp
 generateModuleName Name.ModuleName { Name.baseName, Name.namespace } =
   [e| Name.ModuleName { Name.baseName = $(textExp baseName)
-                      , Name.namespace = $(listE $ textExp <$> namespace)
+                      , Name.namespace = $(TH.listE $ textExp <$> namespace)
                       }
     |]
-  where textExp = litE . stringL . Text.unpack
+  where textExp = TH.litE . TH.stringL . Text.unpack
 
 -- | Generate an expression that evaluates to the given
 -- 'Theta.FieldName'.
@@ -1297,9 +1296,9 @@ generateModuleName Name.ModuleName { Name.baseName, Name.namespace } =
 -- @
 -- Theta.FieldName "foo"
 -- @
-generateFieldName :: Theta.FieldName -> Q Exp
+generateFieldName :: Theta.FieldName -> TH.Q TH.Exp
 generateFieldName (Theta.FieldName name) =
-  [e| Theta.FieldName $(litE $ stringL $ Text.unpack name) |]
+  [e| Theta.FieldName $(TH.litE $ TH.stringL $ Text.unpack name) |]
 
 -- | Generate an expression that evaluates to the given 'Theta.Doc'.
 --
@@ -1308,7 +1307,7 @@ generateFieldName (Theta.FieldName name) =
 -- @
 -- Theta.Doc "doc"
 -- @
-generateDoc :: Maybe Theta.Doc -> Q Exp
+generateDoc :: Maybe Theta.Doc -> TH.Q TH.Exp
 generateDoc (Just doc) =
-  [e| Just $ Theta.Doc $(litE $ stringL $ Text.unpack $ Theta.getText doc) |]
+  [e| Just $ Theta.Doc $(TH.litE $ TH.stringL $ Text.unpack $ Theta.getText doc) |]
 generateDoc Nothing = [e| Nothing |]
