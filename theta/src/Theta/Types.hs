@@ -422,7 +422,10 @@ data Fields t = Fields
     -- ^ A mapping from the name of each field to its position in the
     -- 'fields' list, starting with 0.
   }
-  deriving stock (Functor, Foldable, Traversable, Show, Eq, Lift)
+  deriving stock (Functor, Foldable, Traversable, Show, Eq)
+
+instance Lift t => Lift (Fields t) where
+  liftTyped Fields { fields } = [|| wrapFields fields ||]
 
 -- | Return the 0-based index of the field with the given name if it
 -- is defined in the given field definitions.
