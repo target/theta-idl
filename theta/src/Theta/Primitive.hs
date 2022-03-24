@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift         #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings  #-}
 -- | Theta supports a number of "primitive" types that have built-in
@@ -21,13 +22,15 @@
 --   * Datetime
 module Theta.Primitive where
 
-import           Data.Text      (Text)
-import qualified Data.Text      as Text
+import           Data.Text                  (Text)
+import qualified Data.Text                  as Text
 
-import           Theta.Hash     (Hash)
-import           Theta.Metadata (Version)
-import           Theta.Name     (Name, hashName)
-import           Theta.Pretty   (Pretty, pretty)
+import           Language.Haskell.TH.Syntax (Lift)
+
+import           Theta.Hash                 (Hash)
+import           Theta.Metadata             (Version)
+import           Theta.Name                 (Name, hashName)
+import           Theta.Pretty               (Pretty, pretty)
 
 -- | Theta's primitive types.
 --
@@ -57,7 +60,7 @@ data Primitive = Bool
                -- to [RFC 4122](https://www.ietf.org/rfc/rfc4122.txt)
                --
                -- Example: @f81d4fae-7dec-11d0-a765-00a0c91e6bf6@
- deriving stock (Eq, Show, Ord, Enum, Bounded)
+ deriving stock (Eq, Show, Ord, Enum, Bounded, Lift)
 
 instance Pretty Primitive where pretty = primitiveKeyword
 

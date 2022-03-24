@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveLift                 #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 -- | This module defines types for handling version metadata in Theta
 -- schemas.
@@ -19,17 +22,19 @@
 -- /implementations/—of the Theta compiler.
 module Theta.Metadata where
 
-import qualified Data.Text       as Text
-import           Data.Versions   (SemVer (..), prettySemVer, semver)
+import qualified Data.Text                  as Text
+import           Data.Versions              (SemVer (..), prettySemVer, semver)
 
-import           GHC.Exts        (IsString (..))
+import           GHC.Exts                   (IsString (..))
 
-import           Test.QuickCheck (Arbitrary (arbitrary))
+import           Language.Haskell.TH.Syntax (Lift (liftTyped))
 
-import           Text.Megaparsec (errorBundlePretty)
+import           Test.QuickCheck            (Arbitrary (arbitrary))
 
-import qualified Theta.Name      as Name
-import           Theta.Pretty    (Pretty (..))
+import           Text.Megaparsec            (errorBundlePretty)
+
+import qualified Theta.Name                 as Name
+import           Theta.Pretty               (Pretty (..))
 
 -- | The data included in a module's metadata section.
 data Metadata = Metadata
@@ -42,7 +47,8 @@ data Metadata = Metadata
     -- always generate compatible Avro data.
   , moduleName      :: Name.ModuleName
     -- ^ The name of the module that this section belongs to.
-  } deriving (Show, Eq)
+  }
+  deriving stock (Show, Eq, Lift)
 
 instance Arbitrary Metadata where
   arbitrary = Metadata <$> arbitrary <*> arbitrary <*> arbitrary
@@ -61,6 +67,9 @@ instance Arbitrary Version where
                           <*> arbitrary
                           <*> pure []
                           <*> pure Nothing
+
+instance Lift Version where
+  liftTyped (show -> v) = [|| fromString v ||]
 
 -- | Render a 'Version' in a compact, human-readable format.
 --
