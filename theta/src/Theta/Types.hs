@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DeriveLift                 #-}
@@ -14,6 +13,7 @@
 {-# LANGUAGE ParallelListComp           #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
@@ -68,7 +68,6 @@ data Type = Type
   , hash     :: Hash -- _has_ to be lazy (see hashType for details)
   , module_  :: !Module
   }
-  deriving stock (Lift)
 
 -- | The Show instance only shows the module name, not the whole
 -- module.
@@ -583,7 +582,7 @@ data Module = Module
     -- language it represents and the version of the Theta → Avro
     -- encoding it expects.
   }
-  deriving stock (Show, Lift)
+  deriving stock (Show)
 
 -- | Create an empty module with the given name and metadata.
 --

@@ -22,8 +22,10 @@
 -- /implementations/—of the Theta compiler.
 module Theta.Metadata where
 
+import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
-import           Data.Versions              (SemVer (..), prettySemVer, semver)
+import           Data.Versions              (SemVer (..), prettySemVer)
+import qualified Data.Versions              as Version
 
 import           GHC.Exts                   (IsString (..))
 
@@ -69,7 +71,7 @@ instance Arbitrary Version where
                           <*> pure Nothing
 
 instance Lift Version where
-  liftTyped (show -> v) = [|| fromString v ||]
+  liftTyped (pretty -> v) = [|| either error id (fromText v) ||]
 
 -- | Render a 'Version' in a compact, human-readable format.
 --
@@ -85,6 +87,13 @@ instance Pretty Version where
 -- | Turns a literal "1.2.0" into a 'Version'. Errors out if the
 -- format is not compliant with semver.
 instance IsString Version where
-  fromString str = case semver (Text.pack str) of
-    Left parseError -> error $ errorBundlePretty parseError
-    Right version   -> Version version
+  fromString = either error id . fromText . Text.pack
+
+-- | Parse a 'Version' from a string formatted as semver.
+--
+-- Returns a formatted parse error message if the string is not a
+-- compliant with semver.
+fromText :: Text -> Either String Version
+fromText text = case Version.semver text of
+  Left parseError -> Left $ errorBundlePretty parseError
+  Right version   -> Right $ Version version
