@@ -58,6 +58,7 @@ common shared
                , text
                , tagged
                , tasty-hunit
+               , th-lift-instances ==0.1.*
                , time
                , unordered-containers
                , uuid ==1.3.*

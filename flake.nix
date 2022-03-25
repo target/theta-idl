@@ -22,8 +22,16 @@
           theta-python = python;
         };
 
+        haskell-overlay = final: current: {
+          all-cabal-hashes = current.fetchurl {
+            url = "https://github.com/commercialhaskell/all-cabal-hashes/archive/eb3b21c9f04e3a913efd61346bad427d92df3d1b.tar.gz";
+            sha256 = "0mm6y1zq1h7j17489fkyb18rfc2z0aglp5ly9f12jzhg5c6z85b7";
+          };
+        };
+
         overlays = [
           theta-overlay
+          haskell-overlay
           rust-overlay.overlay
           (import nix/overlays/rust.nix { inherit naersk-flake; })
           (import nix/overlays/python.nix { python-version = "3.8"; })

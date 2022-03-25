@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DeriveLift                 #-}
 {-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -12,45 +13,48 @@
 {-# LANGUAGE ParallelListComp           #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
 
 module Theta.Types where
 
-import           Control.Monad.State     (evalState, get, modify)
+import           Control.Monad.State        (evalState, get, modify)
 
-import           Data.Either             (isRight)
-import qualified Data.Foldable           as Foldable
-import           Data.Functor.Const      (Const (..))
-import           Data.Functor.Identity   (Identity (..))
-import           Data.HashMap.Strict     (HashMap)
-import qualified Data.HashMap.Strict     as HashMap
-import           Data.Hashable           (Hashable)
-import           Data.List               (sortOn)
-import           Data.List.NonEmpty      (NonEmpty)
-import           Data.Map                (Map)
-import qualified Data.Map                as Map
-import           Data.Maybe              (catMaybes, listToMaybe)
-import           Data.Sequence           (Seq ((:<|)), (|>))
-import qualified Data.Sequence           as Seq
-import           Data.Set                (Set)
-import qualified Data.Set                as Set
-import           Data.String.Interpolate (__i)
-import           Data.Text               (Text)
-import qualified Data.Text               as Text
+import           Data.Either                (isRight)
+import qualified Data.Foldable              as Foldable
+import           Data.Functor.Const         (Const (..))
+import           Data.Functor.Identity      (Identity (..))
+import           Data.HashMap.Strict        (HashMap)
+import qualified Data.HashMap.Strict        as HashMap
+import           Data.Hashable              (Hashable)
+import           Data.List                  (sortOn)
+import           Data.List.NonEmpty         (NonEmpty)
+import           Data.Map                   (Map)
+import qualified Data.Map                   as Map
+import           Data.Maybe                 (catMaybes, listToMaybe)
+import           Data.Sequence              (Seq ((:<|)), (|>))
+import qualified Data.Sequence              as Seq
+import           Data.Set                   (Set)
+import qualified Data.Set                   as Set
+import           Data.String.Interpolate    (__i)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as Text
 
-import           GHC.Exts                (IsList (..), IsString)
-import           GHC.Generics            (Generic)
+import           GHC.Exts                   (IsList (..), IsString)
+import           GHC.Generics               (Generic)
 
-import           Theta.Hash              (Hash, hashList, hashText)
-import           Theta.Metadata          (Metadata)
-import qualified Theta.Metadata          as Metadata
-import           Theta.Name              (ModuleName, Name)
-import qualified Theta.Name              as Name
-import           Theta.Pretty            (Pretty (..), p)
-import           Theta.Primitive         (Primitive (..), hashPrimitive,
-                                          primitiveName, primitives)
+import           Language.Haskell.TH.Syntax (Lift (..))
+
+import           Theta.Hash                 (Hash, hashList, hashText)
+import           Theta.Metadata             (Metadata)
+import qualified Theta.Metadata             as Metadata
+import           Theta.Name                 (ModuleName, Name)
+import qualified Theta.Name                 as Name
+import           Theta.Pretty               (Pretty (..), pr)
+import           Theta.Primitive            (Primitive (..), hashPrimitive,
+                                             primitiveName, primitives)
 
 -- * Types
 
@@ -72,7 +76,7 @@ data Type = Type
 -- representation can lose information and change at any time, so do
 -- not rely on it for serialization or testing.
 instance Show Type where
-  show Type { baseType, hash, module_ } = Text.unpack [p|
+  show Type { baseType, hash, module_ } = Text.unpack [pr|
         Type {
           baseType = #{baseType},
           hash     = "#{hash}",
@@ -203,7 +207,8 @@ hashType module_ type_ = evalState (go type_) Set.empty
 -- | A version of 'BaseType' with no module annotations. This is the
 -- type produced by the parser, before we've had a chance to build the
 -- Theta module we're parsing.
-newtype BaseType' = BaseType' (BaseType BaseType') deriving (Show)
+newtype BaseType' = BaseType' (BaseType BaseType')
+  deriving stock (Show, Lift)
 
 -- | Turn a 'Type' into a 'BaseType'', discarding hash and module
 -- information.
@@ -295,10 +300,10 @@ data BaseType t = Primitive' Primitive
                   -- upside is that we can compile Newtypes to different
                   -- types in Haskell while keeping the Avro
                   -- representation the same.
-                deriving (Functor, Foldable, Traversable, Show)
+                deriving stock (Functor, Foldable, Traversable, Show, Lift)
 
 newtype EnumSymbol = EnumSymbol { enumSymbol :: Text }
-  deriving stock (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic, Lift)
   deriving anyclass (Hashable)
   deriving newtype (IsString)
 
@@ -388,7 +393,7 @@ instance Pretty Type where
 -- These names do not have namespaces, and only have to be unique
 -- /within/ a record or variant case.
 newtype FieldName = FieldName { textName :: Text }
-  deriving stock (Show, Eq, Ord)
+  deriving stock (Show, Eq, Ord, Lift)
   deriving newtype (Hashable, IsString)
 
 instance Pretty FieldName where pretty = textName
@@ -398,7 +403,8 @@ data Field t = Field
   { fieldName :: !FieldName
   , fieldDoc  :: !(Maybe Doc)
   , fieldType :: !t
-  } deriving (Functor, Foldable, Traversable, Show, Eq)
+  }
+  deriving stock (Functor, Foldable, Traversable, Show, Eq, Lift)
 
 instance HasDoc (Field t) where
   doc f field = setDoc <$> f (fieldDoc field)
@@ -415,7 +421,11 @@ data Fields t = Fields
   , mapping :: !(HashMap FieldName Int)
     -- ^ A mapping from the name of each field to its position in the
     -- 'fields' list, starting with 0.
-  } deriving (Functor, Foldable, Traversable, Show, Eq)
+  }
+  deriving stock (Functor, Foldable, Traversable, Show, Eq)
+
+instance Lift t => Lift (Fields t) where
+  liftTyped Fields { fields } = [|| wrapFields fields ||]
 
 -- | Return the 0-based index of the field with the given name if it
 -- is defined in the given field definitions.
@@ -446,7 +456,8 @@ data Case t = Case
   { caseName       :: !Name
   , caseDoc        :: !(Maybe Doc)
   , caseParameters :: !(Fields t)
-  } deriving (Functor, Foldable, Traversable, Show, Eq)
+  }
+  deriving stock (Functor, Foldable, Traversable, Show, Eq, Lift)
 
 instance HasDoc (Case t) where
   doc f case_ = setDoc <$> f (caseDoc case_)
@@ -520,7 +531,7 @@ optional' t = Type
 -- | A Theta docstring which can be associated with a type definition,
 -- an alias or a record/variant field.
 newtype Doc = Doc { getText :: Text }
-  deriving stock (Show, Eq, Ord)
+  deriving stock (Show, Eq, Ord, Lift)
   deriving newtype (Hashable, IsString, Semigroup, Monoid)
 
 -- | Theta entities that have documentation attached.
@@ -573,7 +584,8 @@ data Module = Module
     -- ^ Metadata for the module, specifying the version of the Theta
     -- language it represents and the version of the Theta → Avro
     -- encoding it expects.
-  } deriving (Show)
+  }
+  deriving stock (Show)
 
 -- | Create an empty module with the given name and metadata.
 --
@@ -595,7 +607,8 @@ data Definition t = Definition
   , definitionType :: t
     -- ^ The underlying type. If this is an alias, the type could have
     -- a different name than the definition.
-  } deriving (Show, Eq)
+  }
+  deriving stock (Show, Eq, Lift)
 
 instance HasDoc (Definition t) where
   doc f definition = setDoc <$> f (definitionDoc definition)
@@ -639,8 +652,6 @@ allNames module_ = Set.unions $ definedNames <$> transitiveImports [module_]
 -- Includes both direct and transitive imports.
 contains :: Name -> Module -> Bool
 contains name = isRight . lookupName name
-
--- | The names defined 
 
 -- | Look up the definition of the given name.
 --
@@ -717,4 +728,4 @@ moduleDefinitionName ModuleDefinition { header } = Metadata.moduleName header
 -- before it represents a module.
 data Statement = DefinitionStatement !(Definition BaseType')
                | ImportStatement !ModuleName
-               deriving (Show, Eq)
+               deriving (Show, Eq, Lift)

@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveLift                 #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 -- | This module defines types for handling version metadata in Theta
 -- schemas.
@@ -19,17 +22,21 @@
 -- /implementations/—of the Theta compiler.
 module Theta.Metadata where
 
-import qualified Data.Text       as Text
-import           Data.Versions   (SemVer (..), prettySemVer, semver)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as Text
+import           Data.Versions              (SemVer (..), prettySemVer)
+import qualified Data.Versions              as Version
 
-import           GHC.Exts        (IsString (..))
+import           GHC.Exts                   (IsString (..))
 
-import           Test.QuickCheck (Arbitrary (arbitrary))
+import           Language.Haskell.TH.Syntax (Lift (liftTyped))
 
-import           Text.Megaparsec (errorBundlePretty)
+import           Test.QuickCheck            (Arbitrary (arbitrary))
 
-import qualified Theta.Name      as Name
-import           Theta.Pretty    (Pretty (..))
+import           Text.Megaparsec            (errorBundlePretty)
+
+import qualified Theta.Name                 as Name
+import           Theta.Pretty               (Pretty (..))
 
 -- | The data included in a module's metadata section.
 data Metadata = Metadata
@@ -42,7 +49,8 @@ data Metadata = Metadata
     -- always generate compatible Avro data.
   , moduleName      :: Name.ModuleName
     -- ^ The name of the module that this section belongs to.
-  } deriving (Show, Eq)
+  }
+  deriving stock (Show, Eq, Lift)
 
 instance Arbitrary Metadata where
   arbitrary = Metadata <$> arbitrary <*> arbitrary <*> arbitrary
@@ -62,6 +70,9 @@ instance Arbitrary Version where
                           <*> pure []
                           <*> pure Nothing
 
+instance Lift Version where
+  liftTyped (pretty -> v) = [|| either error id (fromText v) ||]
+
 -- | Render a 'Version' in a compact, human-readable format.
 --
 -- @
@@ -76,6 +87,13 @@ instance Pretty Version where
 -- | Turns a literal "1.2.0" into a 'Version'. Errors out if the
 -- format is not compliant with semver.
 instance IsString Version where
-  fromString str = case semver (Text.pack str) of
-    Left parseError -> error $ errorBundlePretty parseError
-    Right version   -> Version version
+  fromString = either error id . fromText . Text.pack
+
+-- | Parse a 'Version' from a string formatted as semver.
+--
+-- Returns a formatted parse error message if the string is not a
+-- compliant with semver.
+fromText :: Text -> Either String Version
+fromText text = case Version.semver text of
+  Left parseError -> Left $ errorBundlePretty parseError
+  Right version   -> Right $ Version version
