@@ -99,6 +99,7 @@ toAvro value@Value { type_ } = do
             (ReadSchema.Int _, Date d)        -> Avro.Int schema $ fromDay d
             (ReadSchema.Long _ _, Datetime t) -> Avro.Long schema $ fromUTCTime t
             (ReadSchema.String _, UUID u)     -> Avro.String schema $ UUID.toText u
+            (ReadSchema.Long _ _, Time t)     -> Avro.Long schema $ fromDayTime t
 
             (_, _) -> error $ "Mismatch between the type_ and value of a Value. \
                               \This is a bug in the Theta implementation.\n"
@@ -236,6 +237,7 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
             (Theta.UUID, Avro.String _ s)   -> case UUID.fromText s of
               Just uuid -> wrapPrimitive $ UUID uuid
               Nothing   -> throw $ InvalidUUID s
+            (Theta.Time, Avro.Long _ l)     -> wrapPrimitive $ Time $ toDayTime l
             (_, got)                        -> throw $ TypeMismatch type_ got
 
           -- containers
@@ -425,6 +427,20 @@ fromUTCTime (Time.UTCTime day inDay) = fromInteger $ days * dayLength + micros
 
         micros = Time.diffTimeToPicoseconds inDay `div` 1e6
 {-# INLINE fromUTCTime #-}
+
+-- | Convert an Avro-style microsecond-precision time to a 'DayTime'.
+--
+-- The Avro format for time is a long storing the number of
+-- microseconds from midnight.
+toDayTime :: Int64 -> DayTime
+toDayTime (fromIntegral -> microseconds) =
+  DayTime $ picosecondsToDiffTime $ microseconds * 1e6
+
+-- | Convert a 'DayTime' to a 'Long' containing the number of
+-- microseconds since midnight.
+fromDayTime :: DayTime -> Int64
+fromDayTime (DayTime time) =
+  fromInteger $ Time.diffTimeToPicoseconds time `div` 1e6
 
 
 -- | Convert an Avro name to the corresponding Theta name.

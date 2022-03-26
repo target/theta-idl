@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::marker::Sized;
 
-use chrono::naive::NaiveDate;
-use chrono::{Date, DateTime, Datelike, Utc};
+use chrono::{Date, DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use integer_encoding::VarInt;
 use time::Duration;
 use uuid::Uuid;
@@ -140,6 +139,18 @@ impl ToAvro for DateTime<Utc> {
 impl ToAvro for Uuid {
     fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
         self.to_hyphenated().to_string().to_avro_buffer(buffer);
+    }
+}
+
+impl ToAvro for NaiveTime {
+    fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+        let midnight = NaiveTime::from_hms(0, 0, 0);
+        match (*self - midnight).num_microseconds() {
+            Some(since_midnight) => since_midnight.to_avro_buffer(buffer),
+
+            // This is a panic because it represents a bug in our implementation.
+            None => panic!("Microsecond time value overflowed when parsing Time.")
+        }
     }
 }
 
@@ -318,6 +329,16 @@ impl FromAvro for Uuid {
                 Ok(uuid) => Ok((input, uuid)),
                 Err(_) => Err(Err::Error((input, ErrorKind::Tag))),
             }
+        })(input)
+    }
+}
+
+impl FromAvro for NaiveTime {
+    fn from_avro(input: &[u8]) -> IResult<&[u8], NaiveTime> {
+        context("Time", |input| {
+            let (input, microseconds) = i64::from_avro(input)?;
+            let midnight = NaiveTime::from_hms(0, 0, 0);
+            Ok((input, midnight + Duration::microseconds(microseconds)))
         })(input)
     }
 }

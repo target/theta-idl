@@ -12,8 +12,7 @@ pub mod enums;
 mod tests {
     use std::str::FromStr;
 
-    use chrono::naive::NaiveDate;
-    use chrono::{Date, DateTime, Utc};
+    use chrono::{Date, DateTime, NaiveDate, NaiveTime, Utc};
     use uuid::{Uuid};
 
     use std::collections::HashMap;
@@ -41,6 +40,7 @@ mod tests {
             date: Date::from_utc(NaiveDate::from_ymd(20, 12, 23), Utc),
             datetime: DateTime::from_utc(NaiveDate::from_ymd(10, 11, 12).and_hms(5, 0, 0), Utc),
             uuid: Uuid::from_str("f81d4fae-7dec-11d0-a765-00a0c91e6bf6").unwrap(),
+            time: NaiveTime::from_hms(12, 23, 10),
         };
         assert!(check_encoding(example));
     }
@@ -127,7 +127,8 @@ mod tests {
             string: "blarg".to_string(),
             date: Date::from_utc(NaiveDate::from_ymd(20, 12, 23), Utc),
             datetime: DateTime::from_utc(NaiveDate::from_ymd(10, 11, 12).and_hms(5, 0, 0), Utc),
-            uuid: Uuid::from_str("f81d4fae-7dec-11d0-a765-00a0c91e6bf6").unwrap()
+            uuid: Uuid::from_str("f81d4fae-7dec-11d0-a765-00a0c91e6bf6").unwrap(),
+            time: NaiveTime::from_hms(12, 23, 10),
         };
         let shadowing_record = shadowing::shadowing::Primitives {
             underlying: shadowed_record.clone(),

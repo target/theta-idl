@@ -19,6 +19,7 @@ import           Data.Time.Clock      (UTCTime)
 import           Data.UUID            (UUID)
 
 import qualified Theta.Types          as Theta
+import           Theta.Value          (DayTime)
 
 -- | A class for Haskell types that correspond to a Theta type. Types
 -- generated via Template Haskell will automatically have an instance
@@ -61,6 +62,9 @@ instance HasTheta UTCTime where
 
 instance HasTheta UUID where
   theta = Theta.uuid'
+
+instance HasTheta DayTime where
+  theta = Theta.time'
 
 instance HasTheta a => HasTheta [a] where
   theta = Theta.array' $ theta @a

@@ -67,6 +67,7 @@ import qualified Theta.Target.Avro.Values      as Values
 
 import           Theta.Target.Haskell.HasTheta (HasTheta (theta))
 import qualified Theta.Target.Haskell.HasTheta as HasTheta
+import Theta.Value (DayTime)
 
 -- * Conversion classes
 
@@ -276,6 +277,18 @@ instance FromTheta UUID where
     case UUID.fromText str of
       Just uuid -> pure uuid
       Nothing   -> fail (printf "Invalid UUID format in string:\n%s" str)
+
+instance ToTheta DayTime where
+  toTheta = Theta.time
+
+  avroEncoding = avroEncoding . Values.fromDayTime
+
+instance FromTheta DayTime where
+  fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
+    Theta.Primitive (Theta.Time time) -> pure time
+    _                                 -> mismatch Theta.time' type_
+
+  avroDecoding = Values.toDayTime <$> DecodeRaw.decodeRaw @Int64
 
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value

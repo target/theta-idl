@@ -1,4 +1,4 @@
-use chrono::{Date, DateTime, Utc};
+use chrono::{Date, DateTime, NaiveTime, Utc};
 use std::collections::HashMap;
 use theta::avro::{FromAvro, ToAvro};
 use nom::{IResult, Err, error::{context, ErrorKind}};

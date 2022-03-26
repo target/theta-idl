@@ -1,8 +1,9 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE NumDecimals        #-}
-{-# LANGUAGE ParallelListComp   #-}
-{-# LANGUAGE ViewPatterns       #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE NumDecimals                #-}
+{-# LANGUAGE ParallelListComp           #-}
+{-# LANGUAGE ViewPatterns               #-}
 -- | This module defines the 'Value' type which is a generic
 -- representation of values that satisfy some Theta schema. The
 -- 'Value' type gives us an intermediate representation that helps us
@@ -26,7 +27,8 @@ import           Data.Text            (Text)
 import qualified Data.Text            as Text
 import qualified Data.Time            as Time
 import           Data.Time.Calendar   (Day)
-import           Data.Time.Clock      (UTCTime)
+import           Data.Time.Clock      (DiffTime, UTCTime)
+import           Data.Time.Format     (FormatTime)
 import           Data.UUID            (UUID)
 import qualified Data.UUID            as UUID
 import           Data.Vector          (Vector)
@@ -50,8 +52,20 @@ data PrimitiveValue =
   | String {-# UNPACK #-} !Text
   | Date !Day
   | Datetime {-# UNPACK #-} !UTCTime
-  | UUID UUID
+  | UUID !UUID
+  | Time !DayTime
   deriving stock (Show, Eq)
+
+-- | The time of day: the 'DiffTime' from midnight during a day.
+newtype DayTime = DayTime { toDiffTime :: DiffTime }
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Enum, Fractional, Num, Real, RealFrac, FormatTime)
+
+instance Arbitrary DayTime where
+  arbitrary = DayTime <$> genTime
+    where genTime = Time.picosecondsToDiffTime . toPico <$> choose (0, dayLength - 1)
+          toPico = (* 1e6)
+          dayLength = 24 * 60 * 60 * 1e6 - 1 -- in μs
 
 -- | A generic representation of data that could be represented by a
 -- Theta schema.
@@ -136,6 +150,9 @@ datetime = Value Theta.datetime' . Primitive . Datetime
 
 uuid :: UUID -> Value
 uuid = Value Theta.uuid' . Primitive . UUID
+
+time :: DayTime -> Value
+time = Value Theta.time' . Primitive . Time
 
 -- * Testing
 
@@ -239,6 +256,7 @@ genValue' overrides = go
             Theta.Datetime -> datetime <$> genDatetime
             Theta.UUID     ->
               uuid <$> (UUID.fromWords64 <$> arbitrary <*> arbitrary)
+            Theta.Time     -> time <$> arbitrary
 
           Theta.Array' item    -> Value t <$> genArray item
           Theta.Map' item      -> Value t <$> genMap item
@@ -284,10 +302,7 @@ genValue' overrides = go
           ]
 
         genDate = Time.ModifiedJulianDay <$> arbitrary
-        genDatetime = Time.UTCTime <$> genDate <*> inDay
-          where inDay = Time.picosecondsToDiffTime . toPico <$> choose (0, dayLength - 1)
-                dayLength = 24 * 60 * 60 * 1e6 - 1 -- in μs
-                toPico = (* 1e6)
+        genDatetime = Time.UTCTime <$> genDate <*> (toDiffTime <$> arbitrary)
 
 -- | Generate values with the given type.
 --

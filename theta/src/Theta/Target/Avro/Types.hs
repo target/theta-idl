@@ -337,6 +337,8 @@ primitiveType contextAvroVersion = \case
 
   Theta.UUID -> Avro.String (Just Avro.UUID)
 
+  Theta.Time -> Avro.Long (Just Avro.TimeMicros)
+
 -- | Transforms any Theta expression into a fragment of an Avro
 -- schema. This schema might not stand alone—for example, it could
 -- just be a reference to a named or built-in Avro type.

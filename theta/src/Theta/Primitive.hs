@@ -29,7 +29,7 @@ import           Language.Haskell.TH.Syntax (Lift)
 
 import           Theta.Hash                 (Hash)
 import           Theta.Metadata             (Version)
-import           Theta.Name                 (Name, hashName)
+import           Theta.Name                 (Name (Name), hashName)
 import           Theta.Pretty               (Pretty, pretty)
 
 -- | Theta's primitive types.
@@ -60,6 +60,8 @@ data Primitive = Bool
                -- to [RFC 4122](https://www.ietf.org/rfc/rfc4122.txt)
                --
                -- Example: @f81d4fae-7dec-11d0-a765-00a0c91e6bf6@
+               | Time
+               -- ^ The time of day, starting at midnight.
  deriving stock (Eq, Show, Ord, Enum, Bounded, Lift)
 
 instance Pretty Primitive where pretty = primitiveKeyword
@@ -71,16 +73,7 @@ instance Pretty Primitive where pretty = primitiveKeyword
 -- @theta.primitive.Int@, @String@ becomes
 -- @theta.primitive.String@... etc.
 primitiveName :: Primitive -> Name
-primitiveName Bool     = "theta.primitive.Bool"
-primitiveName Bytes    = "theta.primitive.Bytes"
-primitiveName Int      = "theta.primitive.Int"
-primitiveName Long     = "theta.primitive.Long"
-primitiveName Float    = "theta.primitive.Float"
-primitiveName Double   = "theta.primitive.Double"
-primitiveName String   = "theta.primitive.String"
-primitiveName Date     = "theta.primitive.Date"
-primitiveName Datetime = "theta.primitive.Datetime"
-primitiveName UUID     = "theta.primitive.UUID"
+primitiveName = Name "theta.primitive" . primitiveKeyword
 
 -- | The canonical keyword for each primitive type.
 --
@@ -106,6 +99,7 @@ definedIn String   = "1.0.0"
 definedIn Date     = "1.0.0"
 definedIn Datetime = "1.0.0"
 definedIn UUID     = "1.1.0"
+definedIn Time     = "1.1.0"
 
 -- | Every single primitive type supported by Theta.
 primitives :: [Primitive]

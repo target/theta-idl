@@ -36,7 +36,8 @@
     "String"
     "Date"
     "Datetime"
-    "UUID")
+    "UUID"
+    "Time")
 
   "Types that are built into Theta, indexed by the version of
   Theta they were introduced in.")

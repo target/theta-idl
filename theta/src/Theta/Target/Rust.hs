@@ -95,7 +95,7 @@ toModule Theta.Module { Theta.types } = definitionLines $ imports : typeDefiniti
   where typeDefinitions = toDefinition <$> Map.elems types
 
         imports = [rust|
-          use chrono::{Date, DateTime, Utc};
+          use chrono::{Date, DateTime, NaiveTime, Utc};
           use std::collections::HashMap;
           use theta::avro::{FromAvro, ToAvro};
           use nom::{IResult, Err, error::{context, ErrorKind}};
@@ -177,6 +177,7 @@ typeIdentifier Theta.Type { Theta.baseType } = case baseType of
     Theta.Date     -> ["Date"]
     Theta.Datetime -> ["DateTime"]
     Theta.UUID     -> ["Uuid"]
+    Theta.Time     -> ["NaiveTime"]
 
   -- containers
   Theta.Array' _        -> ["Vec"]

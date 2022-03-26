@@ -264,6 +264,7 @@ generateThetaExp type_ = case Theta.baseType type_ of
     Primitive.Date     -> [e| Theta.date' |]
     Primitive.Datetime -> [e| Theta.datetime' |]
     Primitive.UUID     -> [e| Theta.uuid' |]
+    Primitive.Time     -> [e| Theta.time' |]
 
   Theta.Array' type_        -> [e| Theta.array' $(generateThetaExp type_) |]
   Theta.Map' type_          -> [e| Theta.map' $(generateThetaExp type_) |]
@@ -1188,6 +1189,7 @@ generateType type_ = case Theta.baseType type_ of
     Primitive.Date     -> [t| Day |]
     Primitive.Datetime -> [t| UTCTime |]
     Primitive.UUID     -> [t| UUID |]
+    Primitive.Time     -> [t| Theta.DayTime |]
 
   Theta.Array' items    -> [t| [$(generateType items)] |]
   Theta.Map' values     -> [t| HashMap Text $(generateType values) |]

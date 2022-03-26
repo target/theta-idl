@@ -13,7 +13,8 @@ type Primitives = {
   string   : String,
   date     : Date,
   datetime : Datetime,
-  uuid : UUID
+  uuid : UUID,
+  time: Time
 }
 
 /// Each kind of container:
