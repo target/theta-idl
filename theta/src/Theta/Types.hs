@@ -508,6 +508,9 @@ uuid' = wrapPrimitive UUID
 time' :: Type
 time' = wrapPrimitive Time
 
+localDatetime' :: Type
+localDatetime' = wrapPrimitive LocalDatetime
+
 array' :: Type -> Type
 array' t = Type
   { baseType = Array' t

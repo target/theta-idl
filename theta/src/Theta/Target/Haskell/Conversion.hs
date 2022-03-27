@@ -42,7 +42,8 @@ import qualified Data.HashMap.Strict           as HashMap
 import           Data.Int                      (Int32, Int64)
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
-import           Data.Time                     (Day, TimeOfDay, UTCTime)
+import           Data.Time                     (Day, LocalTime, TimeOfDay,
+                                                UTCTime)
 import           Data.UUID                     (UUID)
 import qualified Data.UUID                     as UUID
 import qualified Data.Vector                   as Vector
@@ -287,6 +288,18 @@ instance FromTheta TimeOfDay where
     _                                 -> mismatch Theta.time' type_
 
   avroDecoding = Values.toTimeOfDay <$> DecodeRaw.decodeRaw @Int64
+
+instance ToTheta LocalTime where
+  toTheta = Theta.localDatetime
+
+  avroEncoding = avroEncoding . Values.fromLocalTime
+
+instance FromTheta LocalTime where
+  fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
+    Theta.Primitive (Theta.LocalDatetime time) -> pure time
+    _                                          -> mismatch Theta.localDatetime' type_
+
+  avroDecoding = Values.toLocalTime <$> DecodeRaw.decodeRaw @Int64
 
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value

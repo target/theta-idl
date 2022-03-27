@@ -28,7 +28,7 @@ import           Prettyprinter.Render.Terminal (AnsiStyle,
 
 import qualified Test.Tasty.HUnit              as HUnit
 
-import           Data.Time                     (TimeOfDay)
+import           Data.Time                     (TimeOfDay, LocalTime)
 import           Theta.Target.LanguageQuoter   (Interpolable, toText)
 
 -- * Human-Readable Diffs
@@ -126,3 +126,6 @@ a ?= b = when (normalize a /= normalize b) $ do
 
 instance ToExpr TimeOfDay where
   toExpr t = App "TimeOfDay" [toExpr $ show t]
+
+instance ToExpr LocalTime where
+  toExpr t = App "LocalTime" [toExpr $ show t]

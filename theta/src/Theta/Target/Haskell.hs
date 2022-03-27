@@ -80,7 +80,8 @@ import qualified Data.Set                        as Set
 import           Data.Tagged                     (Tagged (..))
 import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
-import           Data.Time                       (Day, TimeOfDay, UTCTime)
+import           Data.Time                       (Day, LocalTime, TimeOfDay,
+                                                  UTCTime)
 import           Data.UUID                       (UUID)
 import           Data.Vector                     ((!))
 import qualified Data.Vector                     as Vector
@@ -253,17 +254,18 @@ generateModule (Theta.Module name (Map.toList -> bindings) imports metadata) =
 generateThetaExp :: Theta.Type -> TH.Q TH.Exp
 generateThetaExp type_ = case Theta.baseType type_ of
   Theta.Primitive' p -> case p of
-    Primitive.Bool     -> [e| Theta.bool' |]
-    Primitive.Bytes    -> [e| Theta.bytes' |]
-    Primitive.Int      -> [e| Theta.int' |]
-    Primitive.Long     -> [e| Theta.long' |]
-    Primitive.Float    -> [e| Theta.float' |]
-    Primitive.Double   -> [e| Theta.double' |]
-    Primitive.String   -> [e| Theta.string' |]
-    Primitive.Date     -> [e| Theta.date' |]
-    Primitive.Datetime -> [e| Theta.datetime' |]
-    Primitive.UUID     -> [e| Theta.uuid' |]
-    Primitive.Time     -> [e| Theta.time' |]
+    Primitive.Bool          -> [e| Theta.bool' |]
+    Primitive.Bytes         -> [e| Theta.bytes' |]
+    Primitive.Int           -> [e| Theta.int' |]
+    Primitive.Long          -> [e| Theta.long' |]
+    Primitive.Float         -> [e| Theta.float' |]
+    Primitive.Double        -> [e| Theta.double' |]
+    Primitive.String        -> [e| Theta.string' |]
+    Primitive.Date          -> [e| Theta.date' |]
+    Primitive.Datetime      -> [e| Theta.datetime' |]
+    Primitive.UUID          -> [e| Theta.uuid' |]
+    Primitive.Time          -> [e| Theta.time' |]
+    Primitive.LocalDatetime -> [e| Theta.localDatetime' |]
 
   Theta.Array' type_        -> [e| Theta.array' $(generateThetaExp type_) |]
   Theta.Map' type_          -> [e| Theta.map' $(generateThetaExp type_) |]
@@ -1178,17 +1180,18 @@ variantFromTheta name (toList -> cases) =
 generateType :: Theta.Type -> TH.Q TH.Type
 generateType type_ = case Theta.baseType type_ of
   Theta.Primitive' p    -> case p of
-    Primitive.Bool     -> [t| Bool |]
-    Primitive.Bytes    -> [t| ByteString |]
-    Primitive.Int      -> [t| Int32 |]
-    Primitive.Long     -> [t| Int64 |]
-    Primitive.Float    -> [t| Float |]
-    Primitive.Double   -> [t| Double |]
-    Primitive.String   -> [t| Text |]
-    Primitive.Date     -> [t| Day |]
-    Primitive.Datetime -> [t| UTCTime |]
-    Primitive.UUID     -> [t| UUID |]
-    Primitive.Time     -> [t| TimeOfDay |]
+    Primitive.Bool          -> [t| Bool |]
+    Primitive.Bytes         -> [t| ByteString |]
+    Primitive.Int           -> [t| Int32 |]
+    Primitive.Long          -> [t| Int64 |]
+    Primitive.Float         -> [t| Float |]
+    Primitive.Double        -> [t| Double |]
+    Primitive.String        -> [t| Text |]
+    Primitive.Date          -> [t| Day |]
+    Primitive.Datetime      -> [t| UTCTime |]
+    Primitive.UUID          -> [t| UUID |]
+    Primitive.Time          -> [t| TimeOfDay |]
+    Primitive.LocalDatetime -> [t| LocalTime |]
 
   Theta.Array' items    -> [t| [$(generateType items)] |]
   Theta.Map' values     -> [t| HashMap Text $(generateType values) |]

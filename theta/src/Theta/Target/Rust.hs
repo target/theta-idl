@@ -95,7 +95,7 @@ toModule Theta.Module { Theta.types } = definitionLines $ imports : typeDefiniti
   where typeDefinitions = toDefinition <$> Map.elems types
 
         imports = [rust|
-          use chrono::{Date, DateTime, NaiveTime, Utc};
+          use chrono::{Date, DateTime, NaiveDateTime, NaiveTime, Utc};
           use std::collections::HashMap;
           use theta::avro::{FromAvro, ToAvro};
           use nom::{IResult, Err, error::{context, ErrorKind}};
@@ -167,17 +167,18 @@ typeIdentifier :: Theta.Type -> [Rust]
 typeIdentifier Theta.Type { Theta.baseType } = case baseType of
   -- primitive types
   Theta.Primitive' p -> case p of
-    Theta.Bool     -> ["bool"]
-    Theta.Bytes    -> ["Vec"]
-    Theta.Int      -> ["i32"]
-    Theta.Long     -> ["i64"]
-    Theta.Float    -> ["f32"]
-    Theta.Double   -> ["f64"]
-    Theta.String   -> ["String"]
-    Theta.Date     -> ["Date"]
-    Theta.Datetime -> ["DateTime"]
-    Theta.UUID     -> ["Uuid"]
-    Theta.Time     -> ["NaiveTime"]
+    Theta.Bool          -> ["bool"]
+    Theta.Bytes         -> ["Vec"]
+    Theta.Int           -> ["i32"]
+    Theta.Long          -> ["i64"]
+    Theta.Float         -> ["f32"]
+    Theta.Double        -> ["f64"]
+    Theta.String        -> ["String"]
+    Theta.Date          -> ["Date"]
+    Theta.Datetime      -> ["DateTime"]
+    Theta.UUID          -> ["Uuid"]
+    Theta.Time          -> ["NaiveTime"]
+    Theta.LocalDatetime -> ["NaiveDateTime"]
 
   -- containers
   Theta.Array' _        -> ["Vec"]

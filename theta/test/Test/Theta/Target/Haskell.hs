@@ -67,7 +67,8 @@ test_primitives = testGroup "primitives"
   , testCase "fromAvro ∘ toAvro = id" $ do
       Avro.decodeValue (Avro.encodeValue primitives) @?= Right primitives
   ]
-  where primitives = Primitives True "blarg" 37 42 1.2 7.4 "foo" today now uuid time
+  where primitives =
+          Primitives True "blarg" 37 42 1.2 7.4 "foo" today now uuid time localTime
         expected = Theta.Record
           [ Theta.boolean True
           , Theta.bytes "blarg"
@@ -80,11 +81,13 @@ test_primitives = testGroup "primitives"
           , Theta.datetime now
           , Theta.uuid uuid
           , Theta.time time
+          , Theta.localDatetime localTime
           ]
 
         today = read "2019-02-11"
         now   = read "2019-02-11 14:23:12 UTC"
         time  = read "14:23:12"
+        localTime = read "2019-02-11 14:23:12"
         uuid  = fromMaybe (error "Invalid UUID literal.") $
           UUID.fromText "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
 

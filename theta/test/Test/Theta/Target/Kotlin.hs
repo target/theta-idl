@@ -156,6 +156,7 @@ test_toModule = testGroup "toModule"
         import java.time.LocalDate
         import java.time.LocalDateTime
         import java.time.LocalTime
+        import java.time.OffsetDateTime
 
         import java.util.UUID
 
@@ -177,6 +178,7 @@ test_toModule = testGroup "toModule"
         import java.time.LocalDate
         import java.time.LocalDateTime
         import java.time.LocalTime
+        import java.time.OffsetDateTime
 
         import java.util.UUID
 
@@ -196,6 +198,7 @@ test_toModule = testGroup "toModule"
         import java.time.LocalDate
         import java.time.LocalDateTime
         import java.time.LocalTime
+        import java.time.OffsetDateTime
 
         import java.util.UUID
 
