@@ -42,8 +42,7 @@ import qualified Data.HashMap.Strict           as HashMap
 import           Data.Int                      (Int32, Int64)
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
-import           Data.Time.Calendar            (Day)
-import           Data.Time.Clock               (UTCTime)
+import           Data.Time                     (Day, TimeOfDay, UTCTime)
 import           Data.UUID                     (UUID)
 import qualified Data.UUID                     as UUID
 import qualified Data.Vector                   as Vector
@@ -67,7 +66,6 @@ import qualified Theta.Target.Avro.Values      as Values
 
 import           Theta.Target.Haskell.HasTheta (HasTheta (theta))
 import qualified Theta.Target.Haskell.HasTheta as HasTheta
-import Theta.Value (DayTime)
 
 -- * Conversion classes
 
@@ -278,17 +276,17 @@ instance FromTheta UUID where
       Just uuid -> pure uuid
       Nothing   -> fail (printf "Invalid UUID format in string:\n%s" str)
 
-instance ToTheta DayTime where
+instance ToTheta TimeOfDay where
   toTheta = Theta.time
 
-  avroEncoding = avroEncoding . Values.fromDayTime
+  avroEncoding = avroEncoding . Values.fromTimeOfDay
 
-instance FromTheta DayTime where
+instance FromTheta TimeOfDay where
   fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
     Theta.Primitive (Theta.Time time) -> pure time
     _                                 -> mismatch Theta.time' type_
 
-  avroDecoding = Values.toDayTime <$> DecodeRaw.decodeRaw @Int64
+  avroDecoding = Values.toTimeOfDay <$> DecodeRaw.decodeRaw @Int64
 
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value

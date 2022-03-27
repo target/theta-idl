@@ -80,8 +80,7 @@ import qualified Data.Set                        as Set
 import           Data.Tagged                     (Tagged (..))
 import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
-import           Data.Time.Calendar              (Day)
-import           Data.Time.Clock                 (UTCTime)
+import           Data.Time                       (Day, TimeOfDay, UTCTime)
 import           Data.UUID                       (UUID)
 import           Data.Vector                     ((!))
 import qualified Data.Vector                     as Vector
@@ -1189,7 +1188,7 @@ generateType type_ = case Theta.baseType type_ of
     Primitive.Date     -> [t| Day |]
     Primitive.Datetime -> [t| UTCTime |]
     Primitive.UUID     -> [t| UUID |]
-    Primitive.Time     -> [t| Theta.DayTime |]
+    Primitive.Time     -> [t| TimeOfDay |]
 
   Theta.Array' items    -> [t| [$(generateType items)] |]
   Theta.Map' values     -> [t| HashMap Text $(generateType values) |]

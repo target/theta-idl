@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns      #-}
+
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | Helper functions for testing: assertions/etc with human-readable
 -- diff outputs.
 module Test.Assertions where
@@ -11,8 +13,9 @@ import qualified Data.Algorithm.Diff           as Diff
 import qualified Data.Algorithm.DiffOutput     as Diff
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
-import           Data.TreeDiff                 (Edit, EditExpr, Expr, GToExpr,
-                                                exprDiff, genericToExpr,
+import           Data.TreeDiff                 (Edit, EditExpr, Expr (App), GToExpr,
+                                                ToExpr (..), exprDiff,
+                                                genericToExpr,
                                                 ppEditExprCompact, ppExpr)
 import           Data.TreeDiff.Pretty          (Pretty (..), ppEditExpr)
 
@@ -25,6 +28,7 @@ import           Prettyprinter.Render.Terminal (AnsiStyle,
 
 import qualified Test.Tasty.HUnit              as HUnit
 
+import           Data.Time                     (TimeOfDay)
 import           Theta.Target.LanguageQuoter   (Interpolable, toText)
 
 -- * Human-Readable Diffs
@@ -117,3 +121,8 @@ humanDiff a b = Text.pack $ Diff.ppDiff (toString <$> diff a b)
 a ?= b = when (normalize a /= normalize b) $ do
   HUnit.assertFailure (Text.unpack $ humanDiff a b)
   where normalize = Text.strip . toText
+
+-- ** Orphan Instances
+
+instance ToExpr TimeOfDay where
+  toExpr t = App "TimeOfDay" [toExpr $ show t]

@@ -14,12 +14,10 @@ import           Data.ByteString.Lazy (ByteString)
 import           Data.HashMap.Strict  (HashMap)
 import           Data.Int             (Int32, Int64)
 import           Data.Text            (Text)
-import           Data.Time.Calendar   (Day)
-import           Data.Time.Clock      (UTCTime)
+import           Data.Time            (Day, TimeOfDay, UTCTime)
 import           Data.UUID            (UUID)
 
 import qualified Theta.Types          as Theta
-import           Theta.Value          (DayTime)
 
 -- | A class for Haskell types that correspond to a Theta type. Types
 -- generated via Template Haskell will automatically have an instance
@@ -63,7 +61,7 @@ instance HasTheta UTCTime where
 instance HasTheta UUID where
   theta = Theta.uuid'
 
-instance HasTheta DayTime where
+instance HasTheta TimeOfDay where
   theta = Theta.time'
 
 instance HasTheta a => HasTheta [a] where
