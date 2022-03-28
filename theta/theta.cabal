@@ -39,6 +39,7 @@ common shared
                , containers
                , deepseq
                , Diff ==0.4.*
+               , directory
                , exceptions
                , filepath
                , hashable
@@ -164,6 +165,7 @@ executable theta
   other-modules:      Apps.Avro
                     , Apps.Hash
                     , Apps.Kotlin
+                    , Apps.List
                     , Apps.Python
                     , Apps.Rust
                     , Apps.Subcommand
