@@ -1,6 +1,7 @@
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -70,23 +71,29 @@
 module Theta.LoadPath where
 
 import           Control.Exception  (IOException, catch, displayException)
-import           Control.Monad      (unless)
+import           Control.Monad      (forM, unless)
 
+import           Data.HashSet       (HashSet)
+import qualified Data.HashSet       as HashSet
 import qualified Data.List          as List
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Sequence      ((|>))
 import           Data.Text          (Text)
 import qualified Data.Text          as Text
 import qualified Data.Text.IO       as Text
 
 import           GHC.Exts           (IsList (..), IsString (..))
 
+import qualified System.Directory   as Directory
 import           System.FilePath    ((</>))
+import qualified System.FilePath    as FilePath
 import           System.IO          (hPutStrLn, stderr)
 import           System.IO.Error    (isDoesNotExistError)
 
 import           Text.Printf        (printf)
 
+import qualified Theta.Name         as Theta
 import           Theta.Pretty       (Pretty (..))
 
 -- | The Theta load path determines which root directories Theta
@@ -156,3 +163,27 @@ findInPath (LoadPath paths) path = go $ NonEmpty.toList paths
             go rest
 
         fetch path = Just . (,path) <$> Text.readFile path
+
+-- | The names and paths of every single Theta module found in the
+-- given load path.
+--
+-- This does not look at the contents of the modules, just at file
+-- names.
+moduleNames :: LoadPath -> IO (HashSet (Theta.ModuleName, FilePath))
+moduleNames (LoadPath (toList -> paths)) = HashSet.fromList . concat <$> modules
+  where modules = forM paths $ \ root -> do
+          contents <- Directory.listDirectory root
+          concat <$> mapM (go root []) contents
+
+        go root namespace path = do
+          isDir <- Directory.doesDirectoryExist (root </> path)
+          if isDir then do
+            contents <- Directory.listDirectory (root </> path)
+            let namespace' = namespace |> Text.pack path
+            concat <$> mapM (go (root </> path) namespace') contents
+          else do
+            case FilePath.splitExtension path of
+              (base, ".theta") ->
+                pure [ (Theta.ModuleName (toList namespace) (Text.pack base)
+                     , root </> path) ]
+              (_, _) -> pure []
