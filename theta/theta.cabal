@@ -12,6 +12,9 @@ data-files:
   test/data/transitive/*.theta
   test/data/root-1/*.theta
   test/data/root-2/*.theta
+  test/data/root-3/com/*.theta
+  test/data/root-3/com/example/*.theta
+  test/data/root-3/com/example/nested/*.theta
 
   test/data/python/*.mustache
   test/data/rust/*.rs
