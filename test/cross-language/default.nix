@@ -6,6 +6,10 @@
 
 , compiler ? pkgs.haskell.packages."${compiler-version}"
 
+, source-overrides ? {}
+
+, overrides ? {}
+
 , extra-build-tools ? []               # extra tools available for nix develop
 }:
 let
@@ -43,14 +47,9 @@ let
 in
 haskell.developPackage {
   name = "theta-tests";
-  root = (pkgs.lib.cleanSourceWith
-    {
-      src = ./.;
-      filter = path: type:
-        !(pkgs.lib.elem (baseNameOf (toString path)) excluded)
-        && !pkgs.lib.hasPrefix ".ghc.environment." (baseNameOf (toString path))
-        && pkgs.lib.cleanSourceFilter path type;
-    }).outPath;
+  root = ./.;
+
+  inherit overrides source-overrides;
 
   modifier = add-build-tools;
 

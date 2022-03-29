@@ -4,24 +4,9 @@
 
 , compiler ? pkgs.haskell.packages."${compiler-version}"
 
-, source-overrides ? {
-  aeson = "2.0.3.0";
-  aeson-pretty = "0.8.9";
-  attoparsec = "0.14.4";
-  avro = "0.6.0.1";
-  hashable = "1.4.0.2";
-  OneTuple = "0.3.1";
-  quickcheck-instances = "0.3.27";
-  semialign = "1.2.0.1";
-  stache = "2.3.1";
-  streamly = "0.8.1.1";
-  streamly-bytestring = "0.1.4";
-  streamly-process = "0.2.0";
-  text-short = "0.1.5";
-  time-compat = "1.9.6.1";
-  unordered-containers = "0.2.16.0";
-  versions = "5.0.2";
-}
+, overrides ? (new: old: {})
+
+, source-overrides ? {}
 
 , build-tools ? [               # extra tools available for nix develop
   compiler.stylish-haskell
@@ -84,20 +69,9 @@ let
 in
 compiler.developPackage {
   name = "theta";
-  root = (pkgs.lib.cleanSourceWith
-    {
-      src = ./.;
-      filter = path: type:
-           !(pkgs.lib.elem (baseNameOf (toString path)) excluded)
-        && !pkgs.lib.hasPrefix ".ghc.environment." (baseNameOf (toString path))
-        && pkgs.lib.cleanSourceFilter path type;
-    }).outPath;
+  root = ./.;
 
-  inherit source-overrides;
-  overrides = new: old: {
-    foldl = lib.doJailbreak old.foldl;
-    streamly-process = lib.dontCheck old.streamly-process;
-  };
+  inherit overrides source-overrides;
 
   # Don't try to build static executables on Darwin systems
   modifier = let
