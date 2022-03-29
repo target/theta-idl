@@ -20,6 +20,9 @@ import           System.FilePath         ((<.>), (</>))
 
 import           Text.Mustache           (compileMustacheFile, renderMustache)
 
+import           Test.Tasty
+import           Test.Tasty.HUnit
+
 import qualified Theta.Error             as Theta
 import           Theta.Metadata          (Metadata (..))
 import qualified Theta.Pretty            as Theta
@@ -29,10 +32,7 @@ import           Theta.Target.Python
 import qualified Theta.Types             as Theta
 import qualified Theta.Versions          as Theta
 
-import           Test.Tasty
-import           Test.Tasty.HUnit
-
-import           Test.Assertions         ((?=))
+import           Theta.Test.Assertions   ((?=))
 
 import qualified Paths_theta             as Paths
 

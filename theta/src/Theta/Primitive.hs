@@ -62,6 +62,10 @@ data Primitive = Bool
                -- Example: @f81d4fae-7dec-11d0-a765-00a0c91e6bf6@
                | Time
                -- ^ The time of day, starting at midnight.
+               --
+               -- Language support for leap seconds is inconsistent,
+               -- so Theta's Time type explicitly does not support
+               -- leap seconds.
                | LocalDatetime
                -- ^ An absolute timestamp in whatever timezone is
                -- considered local. (No timezone/locale is specified.)

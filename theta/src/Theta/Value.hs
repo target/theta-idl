@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE NumDecimals        #-}
 {-# LANGUAGE ParallelListComp   #-}
 {-# LANGUAGE ViewPatterns       #-}
 -- | This module defines the 'Value' type which is a generic
@@ -296,10 +297,11 @@ genValue' overrides = go
         genDate = Time.ModifiedJulianDay <$> arbitrary
         genDatetime = Time.UTCTime <$> genDate <*> genDiffTime
         genLocalTime = Time.LocalTime <$> genDate <*> genTimeOfDay
-        genDiffTime = Time.secondsToDiffTime <$> choose (0, maxSeconds)
+        genDiffTime = microsecondsToDiffTime <$> choose (0, maxMicroseconds)
         genTimeOfDay = Time.timeToTimeOfDay <$> genDiffTime
 
-        maxSeconds = 24 * 60 * 60 -- covers leap seconds
+        maxMicroseconds = (24 * 60 * 60 * 1e6) - 1 -- no leap seconds
+        microsecondsToDiffTime micros = Time.picosecondsToDiffTime  $ micros * 1e6
 
 -- | Generate values with the given type.
 --

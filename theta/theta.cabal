@@ -64,6 +64,7 @@ common shared
                , tasty-hunit
                , th-lift-instances ==0.1.*
                , time
+               , tree-diff >=0.2 && <0.3
                , unordered-containers
                , uuid ==1.3.*
                , vector
@@ -110,14 +111,14 @@ library
                     , Theta.Target.Rust
                     , Theta.Target.Rust.QuasiQuoter
 
+                    , Theta.Test.Assertions
+
 test-suite tests
   import:             shared
   type:               exitcode-stdio-1.0
   main-is:            Test.hs
   hs-source-dirs:     test
-  other-modules:      Test.Assertions
-                      
-                    , Test.Theta.Error
+  other-modules:      Test.Theta.Error
                     , Test.Theta.Import
                     , Test.Theta.LoadPath
                     , Test.Theta.Name
@@ -147,10 +148,7 @@ test-suite tests
 
   build-depends:      theta
 
-                    , directory
                     , stache >=2.3.1 && <3
-                    , tree-diff >=0.2 && <0.3
-
                     , tasty
                     , tasty-golden
                     , tasty-hunit
@@ -161,7 +159,6 @@ executable theta
   hs-source-dirs:     apps/
   build-depends:      theta
 
-                    , directory
                     , optparse-applicative
 
   main-is:            Theta.hs

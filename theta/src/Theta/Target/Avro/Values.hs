@@ -438,15 +438,27 @@ fromUTCTime (Time.UTCTime day inDay) = fromInteger $ days * dayLength + micros
 --
 -- The Avro format for time is a long storing the number of
 -- microseconds from midnight.
+--
+-- Theta's @Time@ type does not support leap seconds; if the given
+-- number of microseconds would include (part of) a leap second, the
+-- time is parsed as @23:59:59.999999@.
 toTimeOfDay :: Int64 -> TimeOfDay
 toTimeOfDay (fromIntegral -> microseconds) =
-  Time.timeToTimeOfDay $ picosecondsToDiffTime $ microseconds * 1e6
+  Time.timeToTimeOfDay $ picosecondsToDiffTime $ microseconds' * 1e6
+  where microseconds' = min microseconds maxTime
+        maxTime = (24 * 60 * 60 * 1e6) - 1
 
 -- | Convert a 'TimeOfDay' to a long containing the number of
 -- microseconds since midnight.
+--
+-- Theta's @Time@ type does not support leap seconds, so this will
+-- treat any time ≥ @"23:59:60"@ as @"23:59:59.99999"@.
 fromTimeOfDay :: TimeOfDay -> Int64
-fromTimeOfDay = fromDiffTime . Time.timeOfDayToTime
+fromTimeOfDay t
+  | t >= read "23:59:60" = maxTime
+  | otherwise            = fromDiffTime $ Time.timeOfDayToTime t
   where fromDiffTime time = fromInteger $ Time.diffTimeToPicoseconds time `div` 1e6
+        maxTime = (24 * 60 * 60 * 1e6) - 1
 
 -- | Convert an Avro-style microsecond-precision timestamp to a
 -- 'LocalTime'.

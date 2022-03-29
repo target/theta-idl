@@ -14,7 +14,8 @@ import           Theta.Target.Haskell            (loadModule)
 import           Theta.Target.Kotlin
 import           Theta.Target.Kotlin.QuasiQuoter
 
-import           Test.Assertions                 ((?=))
+import           Theta.Test.Assertions           ((?=))
+
 import           Test.Tasty
 import           Test.Tasty.HUnit
 

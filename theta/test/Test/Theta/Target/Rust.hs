@@ -22,11 +22,10 @@ import           Theta.Target.Rust
 import           Theta.Target.Rust.QuasiQuoter (normalize)
 import qualified Theta.Types                   as Theta
 
+import           Theta.Test.Assertions         ((?=))
+
 import           Test.Tasty
 import           Test.Tasty.HUnit
-
-
-import           Test.Assertions               ((?=))
 
 import qualified Paths_theta                   as Paths
 

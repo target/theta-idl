@@ -15,6 +15,7 @@ common shared
 
                , mtl
                , text
+               , tree-diff >=0.2 && <0.3
 
                , theta ==1.*
                , tasty
