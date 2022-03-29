@@ -27,7 +27,7 @@ jobs:
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       - name: Build Theta
-        run: nix build .#theta
+        run: nix build .#theta -L
 
       - name: Cross-Language Tests
-        run: nix build .#test
+        run: nix build .#test -L
