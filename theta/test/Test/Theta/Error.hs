@@ -7,23 +7,23 @@
 {-# LANGUAGE TypeApplications      #-}
 module Test.Theta.Error where
 
-import           Control.Monad.Except (runExceptT)
+import           Control.Monad.Except  (runExceptT)
 
-import qualified Data.Algorithm.Diff  as Diff
-import qualified Data.Set             as Set
+import qualified Data.Algorithm.Diff   as Diff
+import qualified Data.Set              as Set
 
 import           Test.Tasty
-import           Test.Tasty.HUnit     (testCase, (@?=))
+import           Test.Tasty.HUnit      (testCase, (@?=))
 
-import           Test.Assertions      ((?=))
+import           Theta.Test.Assertions ((?=))
 
-import           Theta.Metadata       (Metadata (..))
-import           Theta.Pretty         (pr)
-import           Theta.Target.Haskell (loadModule)
-import           Theta.Types          (emptyModule)
+import           Theta.Metadata        (Metadata (..))
+import           Theta.Pretty          (pr)
+import           Theta.Target.Haskell  (loadModule)
+import           Theta.Types           (emptyModule)
 
 import           Theta.Error
-import           Theta.Import         (getModule)
+import           Theta.Import          (getModule)
 
 
 loadModule "test/data/modules" "importing_foo"

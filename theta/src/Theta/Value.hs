@@ -24,9 +24,8 @@ import           Data.Int             (Int32, Int64)
 import qualified Data.List.NonEmpty   as NonEmpty
 import           Data.Text            (Text)
 import qualified Data.Text            as Text
+import           Data.Time            (Day, LocalTime, TimeOfDay, UTCTime)
 import qualified Data.Time            as Time
-import           Data.Time.Calendar   (Day)
-import           Data.Time.Clock      (UTCTime)
 import           Data.UUID            (UUID)
 import qualified Data.UUID            as UUID
 import           Data.Vector          (Vector)
@@ -50,7 +49,9 @@ data PrimitiveValue =
   | String {-# UNPACK #-} !Text
   | Date !Day
   | Datetime {-# UNPACK #-} !UTCTime
-  | UUID UUID
+  | UUID !UUID
+  | Time !TimeOfDay
+  | LocalDatetime !LocalTime
   deriving stock (Show, Eq)
 
 -- | A generic representation of data that could be represented by a
@@ -137,6 +138,12 @@ datetime = Value Theta.datetime' . Primitive . Datetime
 uuid :: UUID -> Value
 uuid = Value Theta.uuid' . Primitive . UUID
 
+time :: TimeOfDay -> Value
+time = Value Theta.time' . Primitive . Time
+
+localDatetime :: LocalTime -> Value
+localDatetime = Value Theta.localDatetime' . Primitive . LocalDatetime
+
 -- * Testing
 
 -- | Does the given type match the given base value?
@@ -145,17 +152,19 @@ checkBaseValue Theta.Type { Theta.baseType, Theta.module_ } baseValue =
   case (baseType, baseValue) of
     -- primitives
     (Theta.Primitive' t, Primitive v) -> case (t, v) of
-      (Theta.Bool, Boolean _)      -> True
-      (Theta.Bytes, Bytes _)       -> True
-      (Theta.Int, Int _)           -> True
-      (Theta.Long, Long _)         -> True
-      (Theta.Float, Float _)       -> True
-      (Theta.Double, Double _)     -> True
-      (Theta.String, String _)     -> True
-      (Theta.Date, Date _)         -> True
-      (Theta.Datetime, Datetime _) -> True
-      (Theta.UUID, UUID _)         -> True
-      (_, _)                       -> False
+      (Theta.Bool, Boolean _)                -> True
+      (Theta.Bytes, Bytes _)                 -> True
+      (Theta.Int, Int _)                     -> True
+      (Theta.Long, Long _)                   -> True
+      (Theta.Float, Float _)                 -> True
+      (Theta.Double, Double _)               -> True
+      (Theta.String, String _)               -> True
+      (Theta.Date, Date _)                   -> True
+      (Theta.Datetime, Datetime _)           -> True
+      (Theta.UUID, UUID _)                   -> True
+      (Theta.Time, Time _)                   -> True
+      (Theta.LocalDatetime, LocalDatetime _) -> True
+      (_, _)                                 -> False
 
     -- containers
     (Theta.Array' item, Array values) ->
@@ -228,17 +237,19 @@ genValue' :: HashMap Name (Gen Value) -> Theta.Type -> Gen Value
 genValue' overrides = go
   where go t = case Theta.baseType t of
           Theta.Primitive' t -> case t of
-            Theta.Bool     -> boolean <$> arbitrary
-            Theta.Bytes    -> bytes . LBS.pack <$> arbitrary
-            Theta.Int      -> int <$> arbitrary
-            Theta.Long     -> long <$> arbitrary
-            Theta.Float    -> float <$> arbitrary
-            Theta.Double   -> double <$> arbitrary
-            Theta.String   -> string . Text.pack <$> arbitrary
-            Theta.Date     -> date <$> genDate
-            Theta.Datetime -> datetime <$> genDatetime
-            Theta.UUID     ->
+            Theta.Bool          -> boolean <$> arbitrary
+            Theta.Bytes         -> bytes . LBS.pack <$> arbitrary
+            Theta.Int           -> int <$> arbitrary
+            Theta.Long          -> long <$> arbitrary
+            Theta.Float         -> float <$> arbitrary
+            Theta.Double        -> double <$> arbitrary
+            Theta.String        -> string . Text.pack <$> arbitrary
+            Theta.Date          -> date <$> genDate
+            Theta.Datetime      -> datetime <$> genDatetime
+            Theta.UUID          ->
               uuid <$> (UUID.fromWords64 <$> arbitrary <*> arbitrary)
+            Theta.Time          -> time <$> genTimeOfDay
+            Theta.LocalDatetime -> localDatetime <$> genLocalTime
 
           Theta.Array' item    -> Value t <$> genArray item
           Theta.Map' item      -> Value t <$> genMap item
@@ -284,10 +295,13 @@ genValue' overrides = go
           ]
 
         genDate = Time.ModifiedJulianDay <$> arbitrary
-        genDatetime = Time.UTCTime <$> genDate <*> inDay
-          where inDay = Time.picosecondsToDiffTime . toPico <$> choose (0, dayLength - 1)
-                dayLength = 24 * 60 * 60 * 1e6 - 1 -- in μs
-                toPico = (* 1e6)
+        genDatetime = Time.UTCTime <$> genDate <*> genDiffTime
+        genLocalTime = Time.LocalTime <$> genDate <*> genTimeOfDay
+        genDiffTime = microsecondsToDiffTime <$> choose (0, maxMicroseconds)
+        genTimeOfDay = Time.timeToTimeOfDay <$> genDiffTime
+
+        maxMicroseconds = (24 * 60 * 60 * 1e6) - 1 -- no leap seconds
+        microsecondsToDiffTime micros = Time.picosecondsToDiffTime  $ micros * 1e6
 
 -- | Generate values with the given type.
 --

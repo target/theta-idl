@@ -6,9 +6,13 @@ module Main where
 
 import qualified Data.Text                       as Text
 
+import           Control.Monad                   (when)
 import           Control.Monad.Except            (runExceptT)
+import           Control.Monad.IO.Class          (liftIO)
 
 import           Data.Int                        (Int32)
+
+import           Text.Printf                     (printf)
 
 import           Test.QuickCheck                 (Arbitrary (arbitrary), Gen,
                                                   forAll, getSize)
@@ -23,6 +27,7 @@ import           Theta.Pretty                    (pretty)
 import           Theta.Target.Avro.Process       (run)
 import           Theta.Target.Haskell.Conversion (genTheta', toTheta)
 import           Theta.Target.Haskell.HasTheta   (HasTheta (theta))
+import           Theta.Test.Assertions           (assertDiff, assertFirstDiff)
 import           Theta.Value                     (Value, genValue)
 
 main :: IO ()
@@ -33,12 +38,12 @@ tests = testGroup "Cross-Lanaugage Tests"
   [ testProperty "Haskell ⇔ Rust" $
       forAll everything $ \ inputs -> handle $ do
         outputs <- run "cat_everything_rust" [] inputs
-        pure $ outputs == inputs
+        assertFirstDiff outputs inputs
 
   , testProperty "Haskell ⇔ Python" $
       forAll everything $ \ inputs -> handle $ do
         outputs <- run "cat_everything_python" [] inputs
-        pure $ outputs == inputs
+        assertFirstDiff outputs inputs
   ]
   where handle action = monadicIO $ runExceptT action >>= \case
           Left err  -> fail $ Text.unpack $ pretty err

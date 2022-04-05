@@ -14,8 +14,7 @@ import           Data.ByteString.Lazy (ByteString)
 import           Data.HashMap.Strict  (HashMap)
 import           Data.Int             (Int32, Int64)
 import           Data.Text            (Text)
-import           Data.Time.Calendar   (Day)
-import           Data.Time.Clock      (UTCTime)
+import           Data.Time            (Day, LocalTime, TimeOfDay, UTCTime)
 import           Data.UUID            (UUID)
 
 import qualified Theta.Types          as Theta
@@ -61,6 +60,12 @@ instance HasTheta UTCTime where
 
 instance HasTheta UUID where
   theta = Theta.uuid'
+
+instance HasTheta TimeOfDay where
+  theta = Theta.time'
+
+instance HasTheta LocalTime where
+  theta = Theta.localDatetime'
 
 instance HasTheta a => HasTheta [a] where
   theta = Theta.array' $ theta @a

@@ -1,9 +1,9 @@
+use std::cmp::min;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::marker::Sized;
 
-use chrono::naive::NaiveDate;
-use chrono::{Date, DateTime, Datelike, Utc};
+use chrono::{Date, DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use integer_encoding::VarInt;
 use time::Duration;
 use uuid::Uuid;
@@ -140,6 +140,34 @@ impl ToAvro for DateTime<Utc> {
 impl ToAvro for Uuid {
     fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
         self.to_hyphenated().to_string().to_avro_buffer(buffer);
+    }
+}
+
+impl ToAvro for NaiveTime {
+    fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+        let midnight = NaiveTime::from_hms(0, 0, 0);
+        let max_micros = (24 * 60 * 60 * 1_000_000) - 1;
+        match (*self - midnight).num_microseconds() {
+            Some(since_midnight) =>
+                min(since_midnight, max_micros).to_avro_buffer(buffer),
+
+            // This is a panic because it represents a bug in our implementation.
+            None => panic!("Microsecond time value overflowed when parsing Time.")
+        }
+    }
+}
+
+impl ToAvro for NaiveDateTime {
+    fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+        let epoch = NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0);
+        let from_epoch = (*self - epoch).num_microseconds();
+
+        match from_epoch {
+            Some(value) => value.to_avro_buffer(buffer),
+
+            // This is a panic because it represents a bug in our implementation.
+            None => panic!("Microsecond time value overflow when parsing DateTime."),
+        }
     }
 }
 
@@ -318,6 +346,31 @@ impl FromAvro for Uuid {
                 Ok(uuid) => Ok((input, uuid)),
                 Err(_) => Err(Err::Error((input, ErrorKind::Tag))),
             }
+        })(input)
+    }
+}
+
+impl FromAvro for NaiveTime {
+    fn from_avro(input: &[u8]) -> IResult<&[u8], NaiveTime> {
+        context("Time", |input| {
+            let (input, microseconds) = i64::from_avro(input)?;
+
+            // Special case for leap seconds, which Theta explicitly
+            // does not support:
+            let microseconds = min(microseconds, (24 * 60 * 60 * 1_000_000) - 1);
+
+            let midnight = NaiveTime::from_hms(0, 0, 0);
+            Ok((input, midnight + Duration::microseconds(microseconds)))
+        })(input)
+    }
+}
+
+impl FromAvro for NaiveDateTime {
+    fn from_avro(input: &[u8]) -> IResult<&[u8], NaiveDateTime> {
+        context("LocalDatetime", |input| {
+            let (input, microseconds) = i64::from_avro(input)?;
+            let epoch = NaiveDate::from_ymd(1970, 1, 1).and_hms(0, 0, 0);
+            Ok((input, epoch + Duration::microseconds(microseconds)))
         })(input)
     }
 }
@@ -518,6 +571,21 @@ mod tests {
     }
 
     #[test]
+    fn test_time() {
+        assert_eq!(NaiveTime::from_hms(0, 0, 0).to_avro(), vec![0]);
+        assert_eq!(
+            NaiveTime::from_hms(1, 0, 0).to_avro(),
+            (60i64 * 60 * 1_000_000).to_avro()
+        );
+
+        // Special leap second handling: round down to 23:59:59.999999
+        assert_eq!(
+            NaiveTime::from_hms_micro(23, 59, 59, 1_123_456).to_avro(),
+            NaiveTime::from_hms_micro(23, 59, 59, 999_999).to_avro()
+        )
+    }
+
+    #[test]
     fn test_array() {
         let empty: Vec<i32> = vec![];
         assert_eq!(empty.to_avro(), vec![0]);
@@ -607,6 +675,22 @@ mod tests {
 
         fn prop_datetime(days: i32, h: u32, m: u32, s: u32) -> bool {
             let date = Date::from_utc(NaiveDate::from_num_days_from_ce(days), Utc);
+            let datetime = date.and_hms(h % 24, m % 60, s % 60);
+            check_encoding(datetime)
+        }
+
+        fn prop_uuid(bytes: u128) -> bool {
+            let uuid = Uuid::from_u128(bytes);
+            check_encoding(uuid)
+        }
+
+        fn prop_time(h: u32, m: u32, s: u32) -> bool {
+            let time = NaiveTime::from_hms(h % 24, m % 60, s % 60);
+            check_encoding(time)
+        }
+
+        fn prop_local_datetime(days: i32, h: u32, m: u32, s: u32) -> bool {
+            let date = NaiveDate::from_num_days_from_ce(days);
             let datetime = date.and_hms(h % 24, m % 60, s % 60);
             check_encoding(datetime)
         }

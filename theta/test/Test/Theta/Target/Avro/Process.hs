@@ -16,14 +16,14 @@ import           Test.QuickCheck.Monadic         (monadicIO)
 import           Test.Tasty                      (TestTree, testGroup)
 import           Test.Tasty.QuickCheck           (forAll, listOf, testProperty)
 
-import           Test.Assertions                 (assertDiff)
-
 import qualified Streamly.Prelude                as Streamly
+
+import           Theta.Test.Assertions           (assertDiff)
+
 import           Theta.Pretty                    (Pretty (pretty))
 import           Theta.Target.Avro.Process       (run, stream)
 import           Theta.Target.Haskell            (loadModule)
 import           Theta.Target.Haskell.Conversion (genTheta)
-
 
 
 loadModule "test/data/modules" "primitives"

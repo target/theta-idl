@@ -68,20 +68,9 @@ test_eq = testGroup "Eq instance"
         in
         assertBool message (s /= t)
   ]
-  where basicTypes :: [Theta.Type]
-        basicTypes =
-          [ Theta.bool'
-          , Theta.bytes'
-          , Theta.int'
-          , Theta.long'
-          , Theta.float'
-          , Theta.double'
-          , Theta.string'
-          , Theta.date'
-          , Theta.datetime'
-          , Theta.uuid'
-
-          , Theta.array' Theta.int'
+  where basicTypes = Theta.primitiveTypes <> structuredTypes
+        structuredTypes = 
+          [ Theta.array' Theta.int'
           , Theta.map' Theta.int'
           , Theta.optional' Theta.int'
 
@@ -102,17 +91,7 @@ test_eq = testGroup "Eq instance"
         -- basicTypes list too
         checkType type_ = case Theta.baseType type_ of
           -- primitive types
-          Theta.Primitive' p -> case p of
-            Theta.Bool     -> type_ @?= type_
-            Theta.Bytes    -> type_ @?= type_
-            Theta.Int      -> type_ @?= type_
-            Theta.Long     -> type_ @?= type_
-            Theta.Float    -> type_ @?= type_
-            Theta.Double   -> type_ @?= type_
-            Theta.String   -> type_ @?= type_
-            Theta.Date     -> type_ @?= type_
-            Theta.Datetime -> type_ @?= type_
-            Theta.UUID     -> type_ @?= type_
+          Theta.Primitive'{} -> type_ @?= type_
 
           -- containers
           Theta.Array'{}     -> type_ @?= type_
@@ -234,16 +213,18 @@ test_hashing = testGroup "hashing"
         -- defining this as a function gives us a warning if we add
         -- new primitive types but don't update this test case
         let expectedPrimitive t = case t of
-              Theta.Bool     -> "368b9de4188c87e7afa1d7867dcf4413"
-              Theta.Bytes    -> "0fa7cf75524be7f38afd4c156a8806ca"
-              Theta.Int      -> "43d51ed7739b75a3636f33b75c599255"
-              Theta.Long     -> "bd1906da131060d558fff8de56142006"
-              Theta.Float    -> "f3e66d7cfcf8cec4e28182bfaee67c00"
-              Theta.Double   -> "d42662766a376211229617337bd427a9"
-              Theta.String   -> "4b041ed503e3481e6341363865732ab2"
-              Theta.Date     -> "f9796917d9806a980c089cae18f6d57e"
-              Theta.Datetime -> "e5158c40b7bc0dd7b50340fdb08e3c2b"
-              Theta.UUID     -> "d2e4edd151c5d24637c63111311b13d1"
+              Theta.Bool          -> "368b9de4188c87e7afa1d7867dcf4413"
+              Theta.Bytes         -> "0fa7cf75524be7f38afd4c156a8806ca"
+              Theta.Int           -> "43d51ed7739b75a3636f33b75c599255"
+              Theta.Long          -> "bd1906da131060d558fff8de56142006"
+              Theta.Float         -> "f3e66d7cfcf8cec4e28182bfaee67c00"
+              Theta.Double        -> "d42662766a376211229617337bd427a9"
+              Theta.String        -> "4b041ed503e3481e6341363865732ab2"
+              Theta.Date          -> "f9796917d9806a980c089cae18f6d57e"
+              Theta.Datetime      -> "e5158c40b7bc0dd7b50340fdb08e3c2b"
+              Theta.UUID          -> "d2e4edd151c5d24637c63111311b13d1"
+              Theta.Time          -> "d25ae4f8007c356e61dcd841309ca82e"
+              Theta.LocalDatetime -> "ff21534ef53c910e81fddf379d04fe26"
             test name t =
               testCase name (Theta.wrapPrimitive t ?= expectedPrimitive t)
         in [ test (show t) t | t <- primitives ]

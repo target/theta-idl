@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 import io
 import math
 import struct
@@ -121,6 +121,21 @@ class Encoder:
         Example: f81d4fae-7dec-11d0-a765-00a0c91e6bf6
         """
         self.string(str(uuid))
+
+    def time(self, t: time):
+        """
+        Write a Theta Time value to the output stream.
+
+        Times are encoded as a long with the number of microseconds
+        since midnight (time-micros in Avro).
+        """
+        micros = t.hour * 60 * 60 * 1000 * 1000
+        micros += t.minute * 60 * 1000 * 1000
+        micros += t.second * 1000 * 1000
+        micros += t.microsecond
+
+        self.integral(micros)
+
 
     # Containers
 
@@ -295,6 +310,21 @@ class Decoder:
         Raises an exception if the encoding does not conform to RFC 4122.
         """
         return UUID(self.string())
+
+    def time(self) -> time:
+        """
+        Decode a Time.
+
+        Times are encoded as a long with the number of microseconds
+        since midnight.
+        """
+        # Midnight on an arbitrary date. Python's time type does not
+        # support arithmetic, so using an arbitrary date is a
+        # workaround.
+        arbitrary = datetime(2000, 1, 1)
+        since_midnight = timedelta(microseconds=self.integral())
+
+        return (arbitrary + since_midnight).time()
 
     A = TypeVar("A")
 

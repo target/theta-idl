@@ -21,6 +21,7 @@ import           Theta.Versions          (packageVersion')
 import qualified Apps.Avro               as Avro
 import qualified Apps.Hash               as Hash
 import qualified Apps.Kotlin             as Kotlin
+import qualified Apps.List               as List
 import qualified Apps.Python             as Python
 import qualified Apps.Rust               as Rust
 import           Apps.Subcommand         (Subcommand, runTheta)
@@ -58,6 +59,7 @@ subcommands = subparser $ mconcat
   [ Avro.avroCommand
   , Hash.hashCommand
   , Kotlin.kotlinCommand
+  , List.listCommand
   , Python.pythonCommand
   , Rust.rustCommand
   ]

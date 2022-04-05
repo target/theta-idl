@@ -5,7 +5,7 @@ pub mod newtype {
     use super::newtype;
     use super::recursive;
 
-    use chrono::{Date, DateTime, Utc};
+    use chrono::{Date, DateTime, NaiveDateTime, NaiveTime, Utc};
     use std::collections::HashMap;
     use theta::avro::{FromAvro, ToAvro};
     use nom::{IResult, Err, error::{context, ErrorKind}};
@@ -54,7 +54,7 @@ pub mod recursive {
     use super::newtype;
     use super::recursive;
 
-    use chrono::{Date, DateTime, Utc};
+    use chrono::{Date, DateTime, NaiveDateTime, NaiveTime, Utc};
     use std::collections::HashMap;
     use theta::avro::{FromAvro, ToAvro};
     use nom::{IResult, Err, error::{context, ErrorKind}};

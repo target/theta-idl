@@ -2,7 +2,7 @@ import datetime
 import io
 from hypothesis import given
 from hypothesis.strategies import binary, booleans, builds, dates, datetimes, \
-     dictionaries, floats, integers, lists, none, one_of, text, uuids
+     dictionaries, floats, integers, lists, none, one_of, text, uuids, times
 import unittest
 
 from theta import avro
@@ -42,7 +42,9 @@ primitives = builds(Primitives,
                     text(),
                     dates(),
                     datetimes(),
-                    uuids())
+                    uuids(),
+                    times(),
+                    datetimes())
 
 containers = builds(Containers,
                     lists(booleans()),

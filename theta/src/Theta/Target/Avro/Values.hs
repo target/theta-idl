@@ -48,7 +48,8 @@ import qualified Data.List.NonEmpty          as NonEmpty
 import qualified Data.Set                    as Set
 import           Data.Text                   (Text)
 import qualified Data.Text                   as Text
-import           Data.Time                   (picosecondsToDiffTime)
+import           Data.Time                   (LocalTime, TimeOfDay,
+                                              picosecondsToDiffTime)
 import qualified Data.Time                   as Time
 import qualified Data.UUID                   as UUID
 import           Data.Vector                 (Vector)
@@ -89,16 +90,18 @@ toAvro value@Value { type_ } = do
 
           -- primitive types
           (readSchema, Primitive v) -> case (readSchema, v) of
-            (ReadSchema.Boolean, Boolean b)   -> Avro.Boolean b
-            (ReadSchema.Bytes _, Bytes bs)    -> Avro.Bytes schema (LBS.toStrict bs)
-            (ReadSchema.Int _, Int i)         -> Avro.Int schema i
-            (ReadSchema.Long _ _, Long l)     -> Avro.Long schema l
-            (ReadSchema.Float _, Float f)     -> Avro.Float schema f
-            (ReadSchema.Double _, Double d)   -> Avro.Double schema d
-            (ReadSchema.String _, String t)   -> Avro.String schema t
-            (ReadSchema.Int _, Date d)        -> Avro.Int schema $ fromDay d
-            (ReadSchema.Long _ _, Datetime t) -> Avro.Long schema $ fromUTCTime t
-            (ReadSchema.String _, UUID u)     -> Avro.String schema $ UUID.toText u
+            (ReadSchema.Boolean, Boolean b)        -> Avro.Boolean b
+            (ReadSchema.Bytes _, Bytes bs)         -> Avro.Bytes schema (LBS.toStrict bs)
+            (ReadSchema.Int _, Int i)              -> Avro.Int schema i
+            (ReadSchema.Long _ _, Long l)          -> Avro.Long schema l
+            (ReadSchema.Float _, Float f)          -> Avro.Float schema f
+            (ReadSchema.Double _, Double d)        -> Avro.Double schema d
+            (ReadSchema.String _, String t)        -> Avro.String schema t
+            (ReadSchema.Int _, Date d)             -> Avro.Int schema $ fromDay d
+            (ReadSchema.Long _ _, Datetime t)      -> Avro.Long schema $ fromUTCTime t
+            (ReadSchema.String _, UUID u)          -> Avro.String schema $ UUID.toText u
+            (ReadSchema.Long _ _, Time t)          -> Avro.Long schema $ fromTimeOfDay t
+            (ReadSchema.Long _ _, LocalDatetime t) -> Avro.Long schema $ fromLocalTime t
 
             (_, _) -> error $ "Mismatch between the type_ and value of a Value. \
                               \This is a bug in the Theta implementation.\n"
@@ -224,19 +227,23 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
 
           -- primitive types
           (Theta.Primitive' t, avro) -> case (t, avro) of
-            (Theta.Bool, Avro.Boolean b)    -> wrapPrimitive $ Boolean b
-            (Theta.Bytes, Avro.Bytes _ bs)  -> wrapPrimitive $ Bytes $ LBS.fromStrict bs
-            (Theta.Int, Avro.Int _ i)       -> wrapPrimitive $ Int i
-            (Theta.Long, Avro.Long _ l)     -> wrapPrimitive $ Long l
-            (Theta.Float, Avro.Float _ f)   -> wrapPrimitive $ Float f
-            (Theta.Double, Avro.Double _ d) -> wrapPrimitive $ Double d
-            (Theta.String, Avro.String _ t) -> wrapPrimitive $ String t
-            (Theta.Date, Avro.Int _ i)      -> wrapPrimitive $ Date $ toDay i
-            (Theta.Datetime, Avro.Long _ l) -> wrapPrimitive $ Datetime $ toUTCTime l
-            (Theta.UUID, Avro.String _ s)   -> case UUID.fromText s of
-              Just uuid -> wrapPrimitive $ UUID uuid
-              Nothing   -> throw $ InvalidUUID s
-            (_, got)                        -> throw $ TypeMismatch type_ got
+            (Theta.Bool, Avro.Boolean b)         -> wrapPrimitive $ Boolean b
+            (Theta.Bytes, Avro.Bytes _ bs)       ->
+              wrapPrimitive $ Bytes $ LBS.fromStrict bs
+            (Theta.Int, Avro.Int _ i)            -> wrapPrimitive $ Int i
+            (Theta.Long, Avro.Long _ l)          -> wrapPrimitive $ Long l
+            (Theta.Float, Avro.Float _ f)        -> wrapPrimitive $ Float f
+            (Theta.Double, Avro.Double _ d)      -> wrapPrimitive $ Double d
+            (Theta.String, Avro.String _ t)      -> wrapPrimitive $ String t
+            (Theta.Date, Avro.Int _ i)           -> wrapPrimitive $ Date $ toDay i
+            (Theta.Datetime, Avro.Long _ l)      -> wrapPrimitive $ Datetime $ toUTCTime l
+            (Theta.UUID, Avro.String _ s)        -> case UUID.fromText s of
+              Just uuid                          -> wrapPrimitive $ UUID uuid
+              Nothing                            -> throw $ InvalidUUID s
+            (Theta.Time, Avro.Long _ l)          -> wrapPrimitive $ Time $ toTimeOfDay l
+            (Theta.LocalDatetime, Avro.Long _ l) ->
+              wrapPrimitive $ LocalDatetime $ toLocalTime l
+            (_, got)                             -> throw $ TypeMismatch type_ got
 
           -- containers
           (Theta.Array' t, Avro.Array xs)   ->
@@ -426,6 +433,45 @@ fromUTCTime (Time.UTCTime day inDay) = fromInteger $ days * dayLength + micros
         micros = Time.diffTimeToPicoseconds inDay `div` 1e6
 {-# INLINE fromUTCTime #-}
 
+-- | Convert an Avro-style microsecond-precision time to a
+-- 'TimeOfDay'.
+--
+-- The Avro format for time is a long storing the number of
+-- microseconds from midnight.
+--
+-- Theta's @Time@ type does not support leap seconds; if the given
+-- number of microseconds would include (part of) a leap second, the
+-- time is parsed as @23:59:59.999999@.
+toTimeOfDay :: Int64 -> TimeOfDay
+toTimeOfDay (fromIntegral -> microseconds) =
+  Time.timeToTimeOfDay $ picosecondsToDiffTime $ microseconds' * 1e6
+  where microseconds' = min microseconds maxTime
+        maxTime = (24 * 60 * 60 * 1e6) - 1
+
+-- | Convert a 'TimeOfDay' to a long containing the number of
+-- microseconds since midnight.
+--
+-- Theta's @Time@ type does not support leap seconds, so this will
+-- treat any time ≥ @"23:59:60"@ as @"23:59:59.99999"@.
+fromTimeOfDay :: TimeOfDay -> Int64
+fromTimeOfDay t
+  | t >= read "23:59:60" = maxTime
+  | otherwise            = fromDiffTime $ Time.timeOfDayToTime t
+  where fromDiffTime time = fromInteger $ Time.diffTimeToPicoseconds time `div` 1e6
+        maxTime = (24 * 60 * 60 * 1e6) - 1
+
+-- | Convert an Avro-style microsecond-precision timestamp to a
+-- 'LocalTime'.
+--
+-- The Avro format for time is a long storing the number of
+-- microseconds from midnight.
+toLocalTime :: Int64 -> LocalTime
+toLocalTime = Time.utcToLocalTime Time.utc . toUTCTime
+
+-- | Convert a 'LocalTime' to a long containing the number of
+-- microseconds since 1970-01-01.
+fromLocalTime :: LocalTime -> Int64
+fromLocalTime = fromUTCTime . Time.localTimeToUTC Time.utc
 
 -- | Convert an Avro name to the corresponding Theta name.
 --

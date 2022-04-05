@@ -21,8 +21,7 @@ import           Data.Int                        (Int32, Int64)
 import           Data.Maybe                      (fromMaybe)
 import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
-import qualified Data.Time.Calendar              as Time
-import qualified Data.Time.Clock                 as Time
+import qualified Data.Time                       as Time
 import qualified Data.UUID                       as UUID
 import           Data.Vector                     (Vector)
 import qualified Data.Vector                     as Vector
@@ -36,10 +35,10 @@ import qualified Theta.Target.Haskell.HasTheta   as Theta
 import qualified Theta.Types                     as Theta
 import qualified Theta.Value                     as Theta
 
+import           Data.UUID                       (UUID)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
-import Data.UUID (UUID)
 
 Theta.loadModule "test/data/modules" "recursive"
 Theta.loadModule "test/data/modules" "enums"
@@ -52,6 +51,7 @@ tests = testGroup "Values"
 
   , test_date
   , test_datetime
+  , test_time
   ]
 
 -- | Testing to/from Avro logic using the realistic example in
@@ -71,7 +71,7 @@ test_recursive = testCase "recursive" $
         unboxed = HashMap.empty
 
 test_date :: TestTree
-test_date = testGroup "Date functions"
+test_date = testGroup "Date"
   [ testCase "toDay" $ do
       Theta.toDay 0       @?= Time.fromGregorian 1970 01 01
       Theta.toDay (-1000) @?= Time.fromGregorian 1967 04 07
@@ -89,7 +89,7 @@ test_date = testGroup "Date functions"
   ]
 
 test_datetime :: TestTree
-test_datetime = testGroup "Datetime functions"
+test_datetime = testGroup "Datetime"
   [ testCase "toUTCTime" $ do
       Theta.toUTCTime 0            @?= read "1970-01-01 00:00:00 UTC"
       Theta.toUTCTime (hours (-3)) @?= read "1969-12-31 21:00:00 UTC"
@@ -107,6 +107,31 @@ test_datetime = testGroup "Datetime functions"
       Theta.fromUTCTime (Theta.toUTCTime n) == n
   ]
   where hours n = n * 60 * 60 * 1e6 -- hours to microseconds
+
+test_time :: TestTree
+test_time = testGroup "Time"
+  [ testCase "toTimeOfDay" $ do
+      Theta.toTimeOfDay 0         @?= read "00:00:00"
+      Theta.toTimeOfDay (hours 3) @?= read "03:00:00"
+
+      -- Theta doesn't support leap seconds, so we round down to
+      -- 23:59:59.999999 if we encounter them
+  , testCase "toTimeOfDay (leap seconds)" $ do
+      Theta.toTimeOfDay (maxMicros + 10) @?= Theta.toTimeOfDay maxMicros
+
+  , testCase "fromTimeOfDay" $ do
+      Theta.fromTimeOfDay (read "00:00:00") @?= 0
+      Theta.fromTimeOfDay (read "03:00:00") @?= hours 3
+
+      -- if a Haskell TimeOfDay value has (part of) a leap second, we
+      -- round down to 23:59:59.999999
+  , testCase "fromTimeOfDay (leap seconds)" $ do
+      Theta.fromTimeOfDay (read "23:59:59.999999") @?= maxMicros
+      Theta.fromTimeOfDay (read "23:59:60.000000") @?= maxMicros
+      Theta.fromTimeOfDay (read "23:59:60.999999") @?= maxMicros
+  ]
+  where hours n = n * 60 * 60 * 1e6 -- hours to microseconds
+        maxMicros = (24 * 60 * 60 * 1e6) - 1
 
 test_toAvro :: TestTree
 test_toAvro = testGroup "toAvro"

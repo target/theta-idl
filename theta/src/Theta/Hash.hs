@@ -1,6 +1,7 @@
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TemplateHaskell            #-}
 -- | Theta types carry a unique, structural hash for quick equality
 -- comparisons.
 --
@@ -12,11 +13,16 @@
 -- releases of the @theta@ package.
 module Theta.Hash where
 
-import           Data.Binary          (Binary, encode)
-import qualified Data.ByteString.Lazy as LBS
-import           Data.Digest.Pure.MD5 (MD5Digest, md5)
-import           Data.Text            (Text)
-import qualified Data.Text.Encoding   as Text
+import           Data.Binary                (Binary, encode)
+import qualified Data.Binary                as Binary
+import qualified Data.ByteString.Lazy       as LBS
+import           Data.Digest.Pure.MD5       (MD5Digest, md5)
+import           Data.Text                  (Text)
+import qualified Data.Text.Encoding         as Text
+
+import           Instances.TH.Lift          ()
+
+import           Language.Haskell.TH.Syntax (Lift (liftTyped))
 
 -- | The output of our hashing function.
 --
@@ -27,6 +33,10 @@ newtype Hash = Hash MD5Digest
 
 instance Semigroup Hash where
   Hash a <> Hash b = toHash $ encode a <> encode b
+
+instance Lift Hash where
+  liftTyped (Hash hash) = [|| Binary.decode encoded ||]
+    where encoded = Binary.encode hash
 
 -- | The hashing function we're using. Designed to be easy to
 -- change—just change this function + the type underneath 'Hash'.

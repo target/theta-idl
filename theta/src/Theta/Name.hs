@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveLift        #-}
 {-# LANGUAGE DerivingVia       #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedLists   #-}
@@ -10,22 +11,24 @@
 -- | A module for working with names and namespaces in Theta.
 module Theta.Name where
 
-import qualified Data.Char       as Char
-import           Data.Hashable   (Hashable)
-import qualified Data.Map        as Map
-import           Data.Maybe      (fromMaybe)
-import           Data.Text       (Text)
-import qualified Data.Text       as Text
-import           Data.Tree       (Tree (..))
+import qualified Data.Char                  as Char
+import           Data.Hashable              (Hashable)
+import qualified Data.Map                   as Map
+import           Data.Maybe                 (fromMaybe)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as Text
+import           Data.Tree                  (Tree (..))
 
-import           GHC.Exts        (IsList (..), IsString (..))
-import           GHC.Generics    (Generic)
+import           GHC.Exts                   (IsList (..), IsString (..))
+import           GHC.Generics               (Generic)
 
-import           Test.QuickCheck (Arbitrary (..))
-import qualified Test.QuickCheck as QuickCheck
+import           Language.Haskell.TH.Syntax (Lift)
 
-import           Theta.Hash      (Hash, hashList, hashText)
-import           Theta.Pretty    (Pretty (..), ShowPretty (..))
+import           Test.QuickCheck            (Arbitrary (..))
+import qualified Test.QuickCheck            as QuickCheck
+
+import           Theta.Hash                 (Hash, hashList, hashText)
+import           Theta.Pretty               (Pretty (..), ShowPretty (..))
 
 -- * Definitions
 
@@ -45,7 +48,7 @@ import           Theta.Pretty    (Pretty (..), ShowPretty (..))
 data Name = Name { moduleName :: ModuleName
                  , name       :: Text
                  }
-  deriving stock (Eq, Ord, Generic)
+  deriving stock (Eq, Ord, Generic, Lift)
   deriving anyclass (Hashable)
   deriving Show via ShowPretty Name
 
@@ -165,7 +168,7 @@ data ModuleName = ModuleName
   { namespace :: [Text]
   , baseName  :: Text
   }
-  deriving stock (Eq, Ord, Generic)
+  deriving stock (Eq, Ord, Generic, Lift)
   deriving anyclass (Hashable)
   deriving Show via ShowPretty ModuleName
 

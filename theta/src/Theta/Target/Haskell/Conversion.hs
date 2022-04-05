@@ -42,8 +42,8 @@ import qualified Data.HashMap.Strict           as HashMap
 import           Data.Int                      (Int32, Int64)
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
-import           Data.Time.Calendar            (Day)
-import           Data.Time.Clock               (UTCTime)
+import           Data.Time                     (Day, LocalTime, TimeOfDay,
+                                                UTCTime)
 import           Data.UUID                     (UUID)
 import qualified Data.UUID                     as UUID
 import qualified Data.Vector                   as Vector
@@ -276,6 +276,30 @@ instance FromTheta UUID where
     case UUID.fromText str of
       Just uuid -> pure uuid
       Nothing   -> fail (printf "Invalid UUID format in string:\n%s" str)
+
+instance ToTheta TimeOfDay where
+  toTheta = Theta.time
+
+  avroEncoding = avroEncoding . Values.fromTimeOfDay
+
+instance FromTheta TimeOfDay where
+  fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
+    Theta.Primitive (Theta.Time time) -> pure time
+    _                                 -> mismatch Theta.time' type_
+
+  avroDecoding = Values.toTimeOfDay <$> DecodeRaw.decodeRaw @Int64
+
+instance ToTheta LocalTime where
+  toTheta = Theta.localDatetime
+
+  avroEncoding = avroEncoding . Values.fromLocalTime
+
+instance FromTheta LocalTime where
+  fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
+    Theta.Primitive (Theta.LocalDatetime time) -> pure time
+    _                                          -> mismatch Theta.localDatetime' type_
+
+  avroDecoding = Values.toLocalTime <$> DecodeRaw.decodeRaw @Int64
 
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value

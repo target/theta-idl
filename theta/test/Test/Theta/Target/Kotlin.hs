@@ -14,7 +14,8 @@ import           Theta.Target.Haskell            (loadModule)
 import           Theta.Target.Kotlin
 import           Theta.Target.Kotlin.QuasiQuoter
 
-import           Test.Assertions                 ((?=))
+import           Theta.Test.Assertions           ((?=))
+
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -155,6 +156,8 @@ test_toModule = testGroup "toModule"
 
         import java.time.LocalDate
         import java.time.LocalDateTime
+        import java.time.LocalTime
+        import java.time.OffsetDateTime
 
         import java.util.UUID
 
@@ -175,6 +178,8 @@ test_toModule = testGroup "toModule"
 
         import java.time.LocalDate
         import java.time.LocalDateTime
+        import java.time.LocalTime
+        import java.time.OffsetDateTime
 
         import java.util.UUID
 
@@ -193,6 +198,8 @@ test_toModule = testGroup "toModule"
 
         import java.time.LocalDate
         import java.time.LocalDateTime
+        import java.time.LocalTime
+        import java.time.OffsetDateTime
 
         import java.util.UUID
 

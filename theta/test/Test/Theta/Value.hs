@@ -32,7 +32,7 @@ tests :: TestTree
 tests = testGroup "Value"
   [ testProperty "primitive types" $ do
       values <- mapM genValue primitiveTypes
-      pure $ and [ type_ v == prim | v <- values | prim <- primitiveTypes ]
+      pure $ all checkValue values
 
   , testProperty "primitives.Primitives" $ do
       value <- genValue (theta @Primitives)
