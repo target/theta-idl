@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-read -s -p "Cachix Token for theta-idl:" token
-cachix authtoken token
+read -s -p $'Cachix Token for theta-idl:\n' token
+cachix authtoken $token
 
 # Push the build dependencies of the given target:
 function push_dependencies {
     nix build --json $1 | jq -r '.[].outputs | to_entries[].value' | cachix push theta-idl
 }
 
-push_dependencies ".#theta"
-push_dependencies ".#test"
+push_dependencies '.#theta'
+push_dependencies '.#theta_902'
+push_dependencies '.#test'
