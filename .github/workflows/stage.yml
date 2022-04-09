@@ -33,7 +33,7 @@ jobs:
       - name: Stack Test
         run: ci/stack-test ./theta
 
- test_ghc_902:
+  test_ghc_902:
     runs-on: ubuntu-latest
 
     steps:

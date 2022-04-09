@@ -23,6 +23,9 @@
 
   # for bin/profile-compile-times
   pkgs.time-ghc-modules
+
+  # not Haskell-specific but eh
+  pkgs.yaml-language-server
 ]
 
 , werror ? true
