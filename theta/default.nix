@@ -1,6 +1,6 @@
 { pkgs
 
-, compiler-version ? "ghc8107"
+, compiler-version
 
 , compiler ? pkgs.haskell.packages."${compiler-version}"
 
@@ -9,7 +9,10 @@
 , source-overrides ? {}
 
 , build-tools ? [               # extra tools available for nix develop
-  compiler.stylish-haskell
+  # hack to work around stylish-haskell not building with
+  # compiler = "ghc902"
+  pkgs.haskellPackages.stylish-haskell
+
   compiler.cabal-install
   compiler.haskell-language-server
   compiler.hlint

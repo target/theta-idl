@@ -627,10 +627,10 @@ hasAvroInstance (toName -> type_) =
         schema = Tagged $ case evalStateT toAvro Set.empty of
           Left err  -> error $ Text.unpack $ Theta.pretty err
           Right res -> res
-          where toAvro                = typeToAvro definitionAvroVersion thetaType
-                thetaType             = theta @ $(TH.conT type_)
-                definitionAvroVersion = avroVersion $ Theta.metadata $ Theta.module_ thetaType
+          where toAvro                = typeToAvro definitionAvroVersion $(thetaType)
+                definitionAvroVersion = avroVersion $ Theta.metadata $ Theta.module_ $(thetaType)
     |]
+ where thetaType = TH.appTypeE [e|theta|] (TH.conT type_)
 
 -- | Generate a 'Avro.ToAvro' instance for the type. This might
 -- generate an error, which would mean this TH code has a bug.
@@ -642,7 +642,7 @@ hasAvroInstance (toName -> type_) =
 toAvroInstance :: Name.Name -> TH.Q [TH.Dec]
 toAvroInstance (toName -> type_) =
   [d| instance Avro.ToAvro $(TH.conT type_) where
-        toAvro _ value = Conversion.avroEncoding value
+        toAvro _ = Conversion.avroEncoding
     |]
 
 -- | Generate a 'Avro.FromAvro' instance for the type.
@@ -659,11 +659,11 @@ fromAvroInstance :: Name.Name -> TH.Q [TH.Dec]
 fromAvroInstance (toName -> type_) =
   [d| instance Avro.FromAvro $(TH.conT type_) where
         fromAvro avro =
-          case Conversion.fromTheta =<< Theta.fromAvro schema avro of
+          case Conversion.fromTheta =<< Theta.fromAvro $(schema) avro of
             Left err  -> Left $ Text.unpack $ Theta.pretty err
             Right res -> Right res
-          where schema = theta @ $(TH.conT type_)
     |]
+ where schema = TH.appTypeE [e|theta|] (TH.conT type_)
 
 -- *** ToTheta
 

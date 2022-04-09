@@ -35,7 +35,18 @@
           streamly-process = pkgs.haskell.lib.dontCheck old.streamly-process;
         };
 
-        theta = import ./theta { inherit pkgs source-overrides overrides; };
+        theta_8107 = import ./theta {
+          inherit pkgs source-overrides overrides;
+          compiler-version = "ghc8107";
+        };
+        theta_902 = import ./theta {
+          inherit pkgs source-overrides overrides;
+          compiler-version = "ghc902";
+        };
+
+        # default is 8.10.7 (for now?)
+        theta = theta_8107;
+
         rust = import ./rust { inherit pkgs; };
         python = import ./python { inherit pkgs; };
         test = import ./test { inherit pkgs lib source-overrides overrides; };
@@ -71,11 +82,13 @@
         inherit overlays lib;
 
         packages = {
-          inherit theta rust python test;
+          inherit theta theta_8107 theta_902 rust python test;
         };
 
         devShells = {
           theta = packages.theta.env;
+          theta_8107 = packages.theta_8107.env;
+          theta_902 = packages.theta_902.env;
           rust = pkgs.mkShell {
             nativeBuildInputs = pkgs.rust-dev-tools;
           };
