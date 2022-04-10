@@ -17,7 +17,7 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use theta::avro::{FromAvro, ToAvro};
+    use theta::avro::{FromAvro, ToAvro, Fixed};
 
     use super::enums::*;
     use super::rust::*;
@@ -42,6 +42,8 @@ mod tests {
             uuid: Uuid::from_str("f81d4fae-7dec-11d0-a765-00a0c91e6bf6").unwrap(),
             time: NaiveTime::from_hms(12, 23, 10),
             local_datetime: NaiveDate::from_ymd(10, 11, 12).and_hms(5, 0, 0),
+            fixed_1: Fixed(vec![0xC0]),
+            fixed_3: Fixed(vec![0xC0, 0xFF, 0xEE]),
         };
         assert!(check_encoding(example));
     }
@@ -131,6 +133,8 @@ mod tests {
             uuid: Uuid::from_str("f81d4fae-7dec-11d0-a765-00a0c91e6bf6").unwrap(),
             time: NaiveTime::from_hms(12, 23, 10),
             local_datetime: NaiveDate::from_ymd(10, 11, 12).and_hms(5, 0, 0),
+            fixed_1: Fixed(vec![0xC0]),
+            fixed_3: Fixed(vec![0xC0, 0xFF, 0xEE]),
         };
         let shadowing_record = shadowing::shadowing::Primitives {
             underlying: shadowed_record.clone(),

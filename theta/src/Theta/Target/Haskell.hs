@@ -93,17 +93,18 @@ import qualified Language.Haskell.TH             as TH
 import qualified Language.Haskell.TH.Syntax      as TH
 
 import           Theta.Error                     (Error)
+import           Theta.Fixed                     (FixedBytes)
 import qualified Theta.Import                    as Import
 import           Theta.Metadata                  (Metadata (..))
 import qualified Theta.Name                      as Name
 import qualified Theta.Pretty                    as Theta
+import qualified Theta.Primitive                 as Primitive
 import qualified Theta.Types                     as Theta
 import qualified Theta.Value                     as Theta
 
 import           Theta.Target.Avro.Types         (typeToAvro)
 import qualified Theta.Target.Avro.Values        as Theta
 
-import qualified Theta.Primitive                 as Primitive
 import qualified Theta.Target.Haskell.Conversion as Conversion
 import           Theta.Target.Haskell.HasTheta   (HasTheta (..))
 
@@ -266,6 +267,8 @@ generateThetaExp type_ = case Theta.baseType type_ of
     Primitive.UUID          -> [e| Theta.uuid' |]
     Primitive.Time          -> [e| Theta.time' |]
     Primitive.LocalDatetime -> [e| Theta.localDatetime' |]
+
+  Theta.Fixed' size         -> [e| Theta.fixed' size |]
 
   Theta.Array' type_        -> [e| Theta.array' $(generateThetaExp type_) |]
   Theta.Map' type_          -> [e| Theta.map' $(generateThetaExp type_) |]
@@ -1192,6 +1195,10 @@ generateType type_ = case Theta.baseType type_ of
     Primitive.UUID          -> [t| UUID |]
     Primitive.Time          -> [t| TimeOfDay |]
     Primitive.LocalDatetime -> [t| LocalTime |]
+
+  Theta.Fixed' size ->
+    let sizeType = TH.litT $ TH.numTyLit $ fromIntegral size in
+    [t| FixedBytes $sizeType |]
 
   Theta.Array' items    -> [t| [$(generateType items)] |]
   Theta.Map' values     -> [t| HashMap Text $(generateType values) |]

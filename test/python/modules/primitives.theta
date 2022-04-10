@@ -16,7 +16,9 @@ type Primitives = {
   datetime : Datetime,
   uuid : UUID, // language-version ≥ 1.1.0
   time : Time, // language-version ≥ 1.1.0
-  local_datetime : LocalDatetime // language-version ≥ 1.1.0
+  local_datetime : LocalDatetime, // language-version ≥ 1.1.0
+  fixed_1 : Fixed(1), // language-version ≥ 1.1.0
+  fixed_3 : Fixed(3) // language-version ≥ 1.1.0
 }
 
 // A record with the various kinds of containers Theta supports.

@@ -33,7 +33,8 @@ import qualified Data.Avro.Internal.EncodeRaw  as EncodeRaw
 import qualified Data.Avro.Internal.Get        as Avro
 
 
-import           Data.Binary.Get               (Get, runGetOrFail)
+import           Data.Binary.Get               (Get, getByteString,
+                                                runGetOrFail)
 import qualified Data.ByteString.Builder       as ByteString
 import           Data.ByteString.Lazy          (ByteString)
 import qualified Data.ByteString.Lazy          as LBS
@@ -50,6 +51,7 @@ import qualified Data.Vector                   as Vector
 import           Data.Word                     (Word64)
 
 import           GHC.Stack                     (HasCallStack)
+import           GHC.TypeLits                  (KnownNat)
 
 import           Test.QuickCheck               (Gen)
 
@@ -65,6 +67,8 @@ import qualified Theta.Value                   as Theta
 
 import qualified Theta.Target.Avro.Values      as Values
 
+import           Theta.Fixed                   (FixedBytes, fixedBytes')
+import qualified Theta.Fixed                   as Fixed
 import           Theta.Target.Haskell.HasTheta (HasTheta (theta))
 import qualified Theta.Target.Haskell.HasTheta as HasTheta
 
@@ -301,6 +305,32 @@ instance FromTheta LocalTime where
 
   avroDecoding = Values.toLocalTime <$> DecodeRaw.decodeRaw @Int64
 
+instance KnownNat size => ToTheta (FixedBytes size) where
+  toTheta = Theta.fixed . Fixed.toByteString
+
+  -- | Raw bytes with no prefix/etc.
+  avroEncoding = ByteString.lazyByteString . Fixed.toByteString
+
+instance KnownNat size => FromTheta (FixedBytes size) where
+  fromTheta' Theta.Value { Theta.type_, Theta.value } = case value of
+    Theta.Fixed bytes -> convert bytes
+    _                 -> mismatch (Theta.fixed' expected) type_
+    where expected = Fixed.size @size
+          convert bytes
+            | expected == got = pure $ fixedBytes' @size bytes
+            | otherwise       = Theta.throw "Haskell" $ FixedSizeMismatch expected got
+            where got = fromIntegral $ LBS.length bytes
+
+  -- | Fails if there are @< size@ bytes available to read.
+  avroDecoding = do
+    let needed = fromIntegral $ Fixed.size @size
+    bytes <- LBS.fromStrict <$> getByteString needed
+    let got = fromIntegral $ LBS.length bytes
+    case Fixed.fixedBytes bytes of
+      Just bytes -> pure bytes
+      Nothing -> fail $
+        Text.unpack $ Theta.pretty $ FixedSizeMismatch (Fixed.size @size) got
+
 instance ToTheta a => ToTheta [a] where
   toTheta values = Theta.Value
     { Theta.value   = Theta.Array $ toTheta <$> Vector.fromList values
@@ -490,6 +520,10 @@ data ConversionError =
   | LeftOver Theta.Type ByteString
     -- ^ We parsed a value of the given schema correctly, but the
     -- input had unconsumed bytes left over.
+
+  | FixedSizeMismatch Word Word
+    -- ^ A mismatch between the expected size of a Fixed type and the
+    -- actual number of bytes that were read.
   deriving (Show)
 
 instance Theta.Pretty ConversionError where
@@ -519,6 +553,11 @@ instance Theta.Pretty ConversionError where
        Error parsing ‘#{prettyType type_}’ from a binary Avro input:
 
        #{LBS.length remainder} bytes of the input remains unconsumed.
+      |]
+
+  pretty (FixedSizeMismatch expected got) =
+    [p|
+      Expected a fixed-size value with #{expected} bytes but got #{got} bytes.
       |]
 
 -- * Testing

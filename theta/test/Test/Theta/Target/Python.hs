@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -52,13 +53,19 @@ tests = testGroup "Python"
 test_toReference :: TestTree
 test_toReference = testGroup "toReference"
   [ testCase "primitive types" $ do
-      toReference' "base" Theta.bool'   ?= [python|bool|]
-      toReference' "base" Theta.bytes'  ?= [python|bytes|]
-      toReference' "base" Theta.int'    ?= [python|int|]
-      toReference' "base" Theta.long'   ?= [python|int|]
-      toReference' "base" Theta.float'  ?= [python|float|]
-      toReference' "base" Theta.double' ?= [python|float|]
-      toReference' "base" Theta.string' ?= [python|str|]
+      toReference' "base" Theta.bool'          ?= [python|bool|]
+      toReference' "base" Theta.bytes'         ?= [python|bytes|]
+      toReference' "base" Theta.int'           ?= [python|int|]
+      toReference' "base" Theta.long'          ?= [python|int|]
+      toReference' "base" Theta.float'         ?= [python|float|]
+      toReference' "base" Theta.double'        ?= [python|float|]
+      toReference' "base" Theta.string'        ?= [python|str|]
+      toReference' "base" Theta.date'          ?= [python|date|]
+      toReference' "base" Theta.datetime'      ?= [python|datetime|]
+      toReference' "base" Theta.uuid'          ?= [python|UUID|]
+      toReference' "base" Theta.time'          ?= [python|time|]
+      toReference' "base" Theta.localDatetime' ?= [python|datetime|]
+      toReference' "base" (Theta.fixed' 10)    ?= [python|bytes|]
 
   , testCase "containers" $ do
       toReference' "base" (Theta.array' Theta.int')       ?= [python|List[int]|]

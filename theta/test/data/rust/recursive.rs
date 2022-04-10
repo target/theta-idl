@@ -1,6 +1,6 @@
 use chrono::{Date, DateTime, NaiveDateTime, NaiveTime, Utc};
 use std::collections::HashMap;
-use theta::avro::{FromAvro, ToAvro};
+use theta::avro::{FromAvro, ToAvro, Fixed};
 use nom::{IResult, Err, error::{context, ErrorKind}};
 use uuid::{Uuid};
 

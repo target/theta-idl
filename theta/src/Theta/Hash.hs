@@ -1,7 +1,7 @@
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TemplateHaskellQuotes      #-}
 -- | Theta types carry a unique, structural hash for quick equality
 -- comparisons.
 --

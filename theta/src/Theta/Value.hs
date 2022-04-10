@@ -1,8 +1,13 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE NumDecimals        #-}
-{-# LANGUAGE ParallelListComp   #-}
-{-# LANGUAGE ViewPatterns       #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE NumDecimals         #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ParallelListComp    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 -- | This module defines the 'Value' type which is a generic
 -- representation of values that satisfy some Theta schema. The
 -- 'Value' type gives us an intermediate representation that helps us
@@ -15,7 +20,6 @@ module Theta.Value where
 
 import           Control.Monad        (replicateM)
 
-import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.HashMap.Strict  (HashMap)
 import qualified Data.HashMap.Strict  as HashMap
@@ -41,7 +45,7 @@ import qualified Theta.Types          as Theta
 -- | A value of a primitive type.
 data PrimitiveValue =
     Boolean !Bool
-  | Bytes !ByteString
+  | Bytes !LBS.ByteString
   | Int {-# UNPACK #-} !Int32
   | Long {-# UNPACK #-} !Int64
   | Float {-# UNPACK #-} !Float
@@ -58,6 +62,8 @@ data PrimitiveValue =
 -- Theta schema.
 data BaseValue = Primitive PrimitiveValue
                  -- ^ Values of primitive types.
+
+               | Fixed !LBS.ByteString
 
                | Array {-# UNPACK #-} !(Vector Value)
                  -- ^ Each 'Value' in an array should have the same
@@ -102,16 +108,18 @@ data Value = Value
     -- ^ The actual value.
   } deriving (Eq, Show)
 
--- * Primitive Values
+-- * Constructing Values
+
+-- ** Primitive Values
 
 -- $ These are the canonical 'Value's for primitive types. Each type
 -- of primitive value is associated with its type and an empty module
--- called "base" ('Theta.baseModule').
+-- called "theta.primitive" ('Theta.baseModule').
 
 boolean :: Bool -> Value
 boolean = Value Theta.bool' . Primitive . Boolean
 
-bytes :: ByteString -> Value
+bytes :: LBS.ByteString -> Value
 bytes = Value Theta.bytes' . Primitive . Bytes
 
 int :: Int32 -> Value
@@ -144,6 +152,23 @@ time = Value Theta.time' . Primitive . Time
 localDatetime :: LocalTime -> Value
 localDatetime = Value Theta.localDatetime' . Primitive . LocalDatetime
 
+-- ** Fixed-Size Types
+
+-- | A fixed-size 'Value'.
+--
+-- The size of the 'Fixed' type will be equal to the number of bytes
+-- in the given bytestring. This can be 0 for an empty bytestring.
+--
+-- >>> value (fixed "abc")
+-- Fixed "abc"
+--
+-- >>> pretty (type_ (fixed "abc"))
+-- "Fixed 3"
+--
+fixed :: LBS.ByteString -> Value
+fixed bytes = Value (Theta.fixed' size) $ Fixed bytes
+  where size = fromIntegral (LBS.length bytes)
+
 -- * Testing
 
 -- | Does the given type match the given base value?
@@ -165,6 +190,8 @@ checkBaseValue Theta.Type { Theta.baseType, Theta.module_ } baseValue =
       (Theta.Time, Time _)                   -> True
       (Theta.LocalDatetime, LocalDatetime _) -> True
       (_, _)                                 -> False
+
+    (Theta.Fixed' _, Fixed _) -> True
 
     -- containers
     (Theta.Array' item, Array values) ->
@@ -251,6 +278,8 @@ genValue' overrides = go
             Theta.Time          -> time <$> genTimeOfDay
             Theta.LocalDatetime -> localDatetime <$> genLocalTime
 
+          Theta.Fixed' size    -> fixed <$> genFixed size
+
           Theta.Array' item    -> Value t <$> genArray item
           Theta.Map' item      -> Value t <$> genMap item
           Theta.Optional' item -> Value t <$> genOptional item
@@ -302,6 +331,8 @@ genValue' overrides = go
 
         maxMicroseconds = (24 * 60 * 60 * 1e6) - 1 -- no leap seconds
         microsecondsToDiffTime micros = Time.picosecondsToDiffTime  $ micros * 1e6
+
+        genFixed (fromIntegral -> size) = LBS.pack <$> replicateM size arbitrary
 
 -- | Generate values with the given type.
 --

@@ -43,6 +43,7 @@ tests = testGroup "Parser"
     , test_date
     , test_datetime
     , test_uuid
+    , test_fixed
     ]
 
   , testGroup "containers"
@@ -72,7 +73,7 @@ tests = testGroup "Parser"
 test_metadata :: TestTree
 test_metadata = testCase "Metadata" $
   go (metadataSection "test") testMetadataSection =?= testMetadata "1.0.0"
-  where go parser input = parse parser "<test>" input
+  where go parser = parse parser "<test>"
 
 test_metadataComments :: TestTree
 test_metadataComments = testGroup "Metadata with comments"
@@ -162,71 +163,120 @@ test_uuid = testCase "UUID" $ do
   parse' "1.1.0" primitive "UUID" =?= BaseType' (Primitive' UUID)
   parse' "1.1.0" atom "UUID"      =?= BaseType' (Primitive' UUID)
 
+test_fixed :: TestTree
+test_fixed = testGroup "Fixed"
+  [ testCase "Fixed(0)" $ do
+      parse' "1.1.0" fixed "Fixed(0)" =?= BaseType' (Fixed' 0)
+      parse' "1.1.0" atom "Fixed(0)" =?= BaseType' (Fixed' 0)
+
+  , testCase "Fixed(1234)" $ do
+      parse' "1.1.0" fixed "Fixed(1234)" =?= BaseType' (Fixed' 1234)
+      parse' "1.1.0" atom "Fixed(1234)" =?= BaseType' (Fixed' 1234)
+  ]
 
 -- * Containers
 
 test_array :: TestTree
-test_array = testCase "Array" $ do
-  parse' "1.0.0" array  "[String]" =?= BaseType' (Array' (BaseType' (Primitive' String)))
-  parse' "1.0.0" atom  "[String]"  =?= BaseType' (Array' (BaseType' (Primitive' String)))
+test_array = testGroup "Array"
+  [ testCase "[String]" $ do
+      parse' "1.0.0" array  "[String]" =?=
+        BaseType' (Array' (BaseType' (Primitive' String)))
+      parse' "1.0.0" atom  "[String]"  =?=
+        BaseType' (Array' (BaseType' (Primitive' String)))
 
-  parse' "1.0.0" array  "[{Int}]" =?=
-    BaseType' (Array' (BaseType' (Map' (BaseType' (Primitive' Int)))))
-  parse' "1.0.0" atom  "[{Int}]"  =?=
-    BaseType' (Array' (BaseType' (Map' (BaseType' (Primitive' Int)))))
+  , testCase "[{Int}]" $ do
+      parse' "1.0.0" array  "[{Int}]" =?=
+        BaseType' (Array' (BaseType' (Map' (BaseType' (Primitive' Int)))))
+      parse' "1.0.0" atom  "[{Int}]"  =?=
+        BaseType' (Array' (BaseType' (Map' (BaseType' (Primitive' Int)))))
 
-  parse' "1.0.0" array  "[[Long]]" =?=
-    BaseType' (Array' (BaseType' (Array' (BaseType' (Primitive' Long)))))
-  parse' "1.0.0" atom  "[[Long]]"  =?=
-    BaseType' (Array' (BaseType' (Array' (BaseType' (Primitive' Long)))))
+  , testCase "[[Long]]" $ do
+      parse' "1.0.0" array  "[[Long]]" =?=
+        BaseType' (Array' (BaseType' (Array' (BaseType' (Primitive' Long)))))
+      parse' "1.0.0" atom  "[[Long]]"  =?=
+        BaseType' (Array' (BaseType' (Array' (BaseType' (Primitive' Long)))))
 
   -- "Long" is a subset of "Longs"
-  parse' "1.0.0" array "[foo.Longs]" =?=
-    BaseType' (Array' (BaseType' (Reference' "foo.Longs")))
-  parse' "1.0.0" atom "[foo.Longs]" =?=
-    BaseType' (Array' (BaseType' (Reference' "foo.Longs")))
+  , testCase "[foo.Longs]" $ do
+      parse' "1.0.0" array "[foo.Longs]" =?=
+        BaseType' (Array' (BaseType' (Reference' "foo.Longs")))
+      parse' "1.0.0" atom "[foo.Longs]" =?=
+        BaseType' (Array' (BaseType' (Reference' "foo.Longs")))
+
+  , testCase "[Fixed(100)]" $ do
+      parse' "1.1.0" array "[Fixed(100)]" =?=
+        BaseType' (Array' (BaseType' (Fixed' 100)))
+      parse' "1.1.0" atom "[Fixed(100)]" =?=
+        BaseType' (Array' (BaseType' (Fixed' 100)))
+  ]
 
 test_map :: TestTree
-test_map = testCase "Map" $ do
-  parse' "1.0.0" map  "{String}"  =?= BaseType' (Map' (BaseType' (Primitive' String)))
-  parse' "1.0.0" atom  "{String}" =?= BaseType' (Map' (BaseType' (Primitive' String)))
+test_map = testGroup "Map"
+  [ testCase "{String}" $ do
+      parse' "1.0.0" map  "{String}"  =?=
+        BaseType' (Map' (BaseType' (Primitive' String)))
+      parse' "1.0.0" atom  "{String}" =?=
+        BaseType' (Map' (BaseType' (Primitive' String)))
 
-  parse' "1.0.0" map  "{[Int]}"  =?=
-    BaseType' (Map' (BaseType' (Array' (BaseType' (Primitive' Int)))))
-  parse' "1.0.0" atom  "{[Int]}" =?=
-    BaseType' (Map' (BaseType' (Array' (BaseType' (Primitive' Int)))))
+  , testCase "{[Int]}" $ do
+      parse' "1.0.0" map  "{[Int]}"  =?=
+        BaseType' (Map' (BaseType' (Array' (BaseType' (Primitive' Int)))))
+      parse' "1.0.0" atom  "{[Int]}" =?=
+        BaseType' (Map' (BaseType' (Array' (BaseType' (Primitive' Int)))))
 
-  parse' "1.0.0" map  "{{Long}}"  =?=
-    BaseType' (Map' (BaseType' (Map' (BaseType' (Primitive' Long)))))
-  parse' "1.0.0" atom  "{{Long}}" =?=
-    BaseType' (Map' (BaseType' (Map' (BaseType' (Primitive' Long)))))
+  , testCase "{{Long}}" $ do
+      parse' "1.0.0" map  "{{Long}}"  =?=
+        BaseType' (Map' (BaseType' (Map' (BaseType' (Primitive' Long)))))
+      parse' "1.0.0" atom  "{{Long}}" =?=
+        BaseType' (Map' (BaseType' (Map' (BaseType' (Primitive' Long)))))
 
   -- "Long" is a subset of "Longs"
-  parse' "1.0.0" map "{foo.Longs}" =?=
-    BaseType' (Map' (BaseType' (Reference' "foo.Longs")))
-  parse' "1.0.0" atom "{foo.Longs}" =?=
-    BaseType' (Map' (BaseType' (Reference' "foo.Longs")))
+  , testCase "{foo.Longs}" $ do
+      parse' "1.0.0" map "{foo.Longs}" =?=
+        BaseType' (Map' (BaseType' (Reference' "foo.Longs")))
+      parse' "1.0.0" atom "{foo.Longs}" =?=
+        BaseType' (Map' (BaseType' (Reference' "foo.Longs")))
+
+  , testCase "{Fixed(100)}" $ do
+      parse' "1.1.0" map "{Fixed(100)}" =?=
+        BaseType' (Map' (BaseType' (Fixed' 100)))
+      parse' "1.1.0" atom "{Fixed(100)}" =?=
+        BaseType' (Map' (BaseType' (Fixed' 100)))
+  ]
 
 test_optional :: TestTree
-test_optional = testCase "Optional" $ do
-  parse' "1.0.0" optional_  "String?"  =?= BaseType' (Optional' (BaseType' (Primitive' String)))
-  parse' "1.0.0" signature'  "String?" =?= BaseType' (Optional' (BaseType' (Primitive' String)))
+test_optional = testGroup "Optional"
+  [ testCase "String?" $ do
+      parse' "1.0.0" optional_  "String?"  =?=
+        BaseType' (Optional' (BaseType' (Primitive' String)))
+      parse' "1.0.0" signature'  "String?" =?=
+        BaseType' (Optional' (BaseType' (Primitive' String)))
 
-  parse' "1.0.0" optional_  "[String]?"  =?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' (Primitive' String)))))
-  parse' "1.0.0" signature'  "[String]?" =?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' (Primitive' String)))))
+  , testCase "[String]?" $ do
+      parse' "1.0.0" optional_  "[String]?"  =?=
+        BaseType' (Optional' (BaseType' (Array' (BaseType' (Primitive' String)))))
+      parse' "1.0.0" signature'  "[String]?" =?=
+        BaseType' (Optional' (BaseType' (Array' (BaseType' (Primitive' String)))))
 
-  parse' "1.0.0" optional_  "[String?]?"  =?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' (Primitive' String)))))))
-  parse' "1.0.0" signature'  "[String?]?" =?=
-    BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' (Primitive' String)))))))
+  , testCase "[String?]?" $ do
+      parse' "1.0.0" optional_  "[String?]?"  =?=
+        BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' (Primitive' String)))))))
+      parse' "1.0.0" signature'  "[String?]?" =?=
+        BaseType' (Optional' (BaseType' (Array' (BaseType' (Optional' (BaseType' (Primitive' String)))))))
 
   -- "Long" is a subset of "Longs"
-  parse' "1.0.0" optional_ "foo.Longs?" =?=
-    BaseType' (Optional' (BaseType' (Reference' "foo.Longs")))
-  parse' "1.0.0" signature' "foo.Longs?" =?=
-    BaseType' (Optional' (BaseType' (Reference' "foo.Longs")))
+  , testCase "foo.Longs?" $ do
+      parse' "1.0.0" optional_ "foo.Longs?" =?=
+        BaseType' (Optional' (BaseType' (Reference' "foo.Longs")))
+      parse' "1.0.0" signature' "foo.Longs?" =?=
+        BaseType' (Optional' (BaseType' (Reference' "foo.Longs")))
+
+  , testCase "Fixed(100)?" $ do
+      parse' "1.1.0" optional_ "Fixed(100)?" =?=
+        BaseType' (Optional' (BaseType' (Fixed' 100)))
+      parse' "1.1.0" signature' "Fixed(100)?" =?=
+        BaseType' (Optional' (BaseType' (Fixed' 100)))
+  ]
 
 -- * Named Types
 
@@ -288,6 +338,17 @@ test_record = testGroup "Record"
           field1    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' (Primitive' Date)))
           field2    = Field "bar" Nothing $ BaseType' (Primitive' Datetime)
       parse' "1.0.0" definition twoFields =?=
+        Definition "test.Foo" Nothing expected
+
+  , testCase "Fixed fields" $ do
+      let twoFields = "type Foo = {\n\
+                      \  foo : Fixed(100)?,\n\
+                      \  bar : Fixed(96)\n\
+                      \}\n"
+          expected  = BaseType' $ Record' "test.Foo" [field1, field2]
+          field1    = Field "foo" Nothing $ BaseType' (Optional' (BaseType' (Fixed' 100)))
+          field2    = Field "bar" Nothing $ BaseType' (Fixed' 96)
+      parse' "1.1.0" definition twoFields =?=
         Definition "test.Foo" Nothing expected
   ]
 
@@ -359,13 +420,23 @@ test_newtype = testCase "Newtype" $ do
     Definition "test.Foo" Nothing expected
 
 test_reference :: TestTree
-test_reference = testCase "Reference" $ do
-  parse' "1.0.0" reference "test.Foo" =?= BaseType' (Reference' "test.Foo")
-  parse' "1.0.0" atom "test.Bar"      =?= BaseType' (Reference' "test.Bar")
+test_reference = testGroup "Reference"
+  [ testCase "normal references" $ do
+      parse' "1.0.0" reference "test.Foo" =?= BaseType' (Reference' "test.Foo")
+      parse' "1.0.0" atom "test.Bar"      =?= BaseType' (Reference' "test.Bar")
 
-  -- "Long" is a substring of "Longs"
-  parse' "1.0.0" reference "test.Longs" =?= BaseType' (Reference' "test.Longs")
-  parse' "1.0.0" atom "test.Longs"      =?= BaseType' (Reference' "test.Longs")
+  , testCase "“Long” is a substring of “Longs”" $ do
+      parse' "1.0.0" reference "test.Longs" =?= BaseType' (Reference' "test.Longs")
+      parse' "1.0.0" atom "test.Longs"      =?= BaseType' (Reference' "test.Longs")
+
+  , testCase "“Fixed” is a valid name with language-version < 1.1.0" $ do
+      parse' "1.0.0" reference "test.Fixed" =?= BaseType' (Reference' "test.Fixed")
+      parse' "1.0.0" atom "test.Fixed" =?= BaseType' (Reference' "test.Fixed")
+
+  , testCase "“Fixed” is a substring of “Fixed_”" $ do
+      parse' "1.1.0" reference "test.Fixed_" =?= BaseType' (Reference' "test.Fixed_")
+      parse' "1.1.0" atom "test.Fixed_" =?= BaseType' (Reference' "test.Fixed_")
+  ]
 
 -- * Documentation
 
@@ -537,6 +608,16 @@ test_backwardsCompatibility = testGroup "backwards compatibility"
       let enum = "enums Foo = Bar | Baz"
           expectedError = versionError "enum" "1.1.0" "1.0.0"
       assertFailsWith expectedError $ parse' "1.0.0" statement enum
+
+  , testCase "Fixed(100) <1.1.0" $ do
+      let fixed = "type F = Fixed(100)"
+          expectedError = versionError "Fixed" "1.1.0" "1.0.0"
+      assertFailsWith expectedError $ parse' "1.0.0" (statement <* eof) fixed
+
+  , testCase "Fixed is a valid name <1.1.0" $ do
+      let expected = BaseType' (Newtype' "test.Fixed" (BaseType' (Primitive' Int)))
+      parse' "1.0.0" (statement <* eof) "type Fixed = Int" =?=
+        DefinitionStatement (Definition "test.Fixed" Nothing expected)
   ]
 
 -- * Utilities

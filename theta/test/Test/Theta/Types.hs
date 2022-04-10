@@ -69,8 +69,10 @@ test_eq = testGroup "Eq instance"
         assertBool message (s /= t)
   ]
   where basicTypes = Theta.primitiveTypes <> structuredTypes
-        structuredTypes = 
-          [ Theta.array' Theta.int'
+        structuredTypes =
+          [ Theta.fixed' 3
+
+          , Theta.array' Theta.int'
           , Theta.map' Theta.int'
           , Theta.optional' Theta.int'
 
@@ -92,6 +94,7 @@ test_eq = testGroup "Eq instance"
         checkType type_ = case Theta.baseType type_ of
           -- primitive types
           Theta.Primitive'{} -> type_ @?= type_
+          Theta.Fixed'{}     -> type_ @?= type_
 
           -- containers
           Theta.Array'{}     -> type_ @?= type_
@@ -228,6 +231,11 @@ test_hashing = testGroup "hashing"
             test name t =
               testCase name (Theta.wrapPrimitive t ?= expectedPrimitive t)
         in [ test (show t) t | t <- primitives ]
+
+    , testGroup "Fixed"
+      [ testCase "Fixed(0)"   $ Theta.fixed' 0 ?= "00d0ceea6bfadb90cbcb4a30a5c7ae48"
+      , testCase "Fixed(100)" $ Theta.fixed' 100 ?= "c63c2d52afcfcdebcc556492971f9ea4"
+      ]
 
     , testGroup "container"
       [ testCase "[Bool]" $ Theta.array' Theta.bool' ?= "a923b66caa3b5848189d5f889979bd36"

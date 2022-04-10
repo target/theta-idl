@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLists       #-}
@@ -33,6 +34,10 @@ tests = testGroup "Value"
   [ testProperty "primitive types" $ do
       values <- mapM genValue primitiveTypes
       pure $ all checkValue values
+
+  , testProperty "Fixed(10)" $ do
+      value <- genValue (Theta.fixed' 10)
+      pure $ checkValue value && type_ value == Theta.fixed' 10
 
   , testProperty "primitives.Primitives" $ do
       value <- genValue (theta @Primitives)

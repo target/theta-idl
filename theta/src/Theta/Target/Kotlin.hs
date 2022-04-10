@@ -191,6 +191,8 @@ toReference Theta.Type { Theta.baseType } = case baseType of
     Theta.Time          -> "LocalTime"
     Theta.LocalDatetime -> "LocalDateTime"
 
+  Theta.Fixed' _ -> "ByteArray"
+
   -- containers
   Theta.Array' a        -> let items = toReference a in [kotlin|Array<$items>|]
   Theta.Map' a          -> let values = toReference a in

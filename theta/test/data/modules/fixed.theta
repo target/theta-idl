@@ -1,0 +1,19 @@
+language-version: 1.1.0
+avro-version: 1.0.0
+---
+
+/// A record with two fields with the same Fixed(·) type.
+///
+/// Multiple occurences of the same Fixed(·) type need special
+/// treatment in Avro since fixed types need to have names.
+type MultiFixed = {
+    fixed_a : Fixed(3), // should define a new type named theta.fixed.Fixed_3
+    fixed_b : Fixed(3), // should be a reference to theta.fixed.Fixed_3
+    fixed_4: Fixed(4),  // should define a new type
+    nested_fixed : NestedFixed
+}
+
+type NestedFixed = {
+    // this one should also just be a reference to theta.fixed.Fixed_3
+    fixed_c : Fixed(3)
+}

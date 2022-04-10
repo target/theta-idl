@@ -27,8 +27,11 @@ import           Language.Haskell.TH.Syntax (Lift)
 import           Test.QuickCheck            (Arbitrary (..))
 import qualified Test.QuickCheck            as QuickCheck
 
+import           Text.Printf                (printf)
+
 import           Theta.Hash                 (Hash, hashList, hashText)
-import           Theta.Pretty               (Pretty (..), ShowPretty (..))
+import           Theta.Pretty               (Pretty (..), ShowPretty (..),
+                                             showPretty)
 
 -- * Definitions
 
@@ -50,7 +53,8 @@ data Name = Name { moduleName :: ModuleName
                  }
   deriving stock (Eq, Ord, Generic, Lift)
   deriving anyclass (Hashable)
-  deriving Show via ShowPretty Name
+
+instance Show Name where show = printf "\"%s\"" . showPretty
 
 -- | Parses string literals as dot-sperated names.
 --
@@ -137,7 +141,7 @@ parse' (Text.splitOn "." -> components)
         valid part = first (Text.head part) && rest (Text.tail part)
 
         first x = Char.isLetter x || x == '_'
-        rest xs = Text.all (\ x -> Char.isAlphaNum x || x == '_') xs
+        rest = Text.all (\ x -> Char.isAlphaNum x || x == '_')
 
 -- | Parse a text representation of a 'Name'.
 --

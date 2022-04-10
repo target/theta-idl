@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DerivingVia        #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE StandaloneDeriving #-}
 -- | This module defines a 'Pretty' class that translates types to
 -- user-friendly 'Text' representations.
 --
@@ -28,6 +30,8 @@ class Pretty a where
   pretty :: a -> Text
 
 instance Pretty Text where pretty x = x
+
+deriving via ShowPretty Word instance Pretty Word
 
 -- | A quasiquoter for interpolating text for 'Pretty' instances.
 --
@@ -59,16 +63,31 @@ prettyList :: Pretty a => [a] -> Text
 prettyList = Text.intercalate "\n" . map (bullet . pretty)
   where bullet = ("  • " <>)
 
--- | A newtype that has a Show instance using 'showPretty' on the
--- underlying type.
+-- | A newtype with:
 --
--- This is primarily designed for @DerivingVia@:
+--   * a Show instance using 'showPretty' on the underlying type
+--
+--   * a Pretty instance using 'show' on the underlying type
+--
+-- You can use this with @DerivingVia@ to get a 'Show' instance for a
+-- type which already has a 'Pretty' instance or vice-versa.
 --
 -- @
 -- data MyType = MyType {...}
---   deriving Show via ShowPretty
+--   deriving Show via ShowPretty MyType
 -- @
+--
+-- @
+-- data MyType = MyType {...}
+--   deriving Pretty via ShowPretty MyType
+-- @
+--
+-- __Note__: doing this for /both/ 'Pretty' /and/ 'Show' on the same
+-- type will lead to an infinite loop.
 newtype ShowPretty a = ShowPretty a
 
 instance Pretty a => Show (ShowPretty a) where
   show (ShowPretty x) = showPretty x
+
+instance Show a => Pretty (ShowPretty a) where
+  pretty (ShowPretty x) = Text.pack (show x)

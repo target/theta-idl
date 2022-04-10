@@ -1,14 +1,14 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedLists   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ParallelListComp  #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE OverloadedLists       #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ParallelListComp      #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 module Theta.Target.Rust
   ( Rust(..)
@@ -97,7 +97,7 @@ toModule Theta.Module { Theta.types } = definitionLines $ imports : typeDefiniti
         imports = [rust|
           use chrono::{Date, DateTime, NaiveDateTime, NaiveTime, Utc};
           use std::collections::HashMap;
-          use theta::avro::{FromAvro, ToAvro};
+          use theta::avro::{FromAvro, ToAvro, Fixed};
           use nom::{IResult, Err, error::{context, ErrorKind}};
           use uuid::{Uuid};
         |]
@@ -179,6 +179,8 @@ typeIdentifier Theta.Type { Theta.baseType } = case baseType of
     Theta.UUID          -> ["Uuid"]
     Theta.Time          -> ["NaiveTime"]
     Theta.LocalDatetime -> ["NaiveDateTime"]
+
+  Theta.Fixed' _        -> ["Fixed"]
 
   -- containers
   Theta.Array' _        -> ["Vec"]
@@ -607,7 +609,11 @@ toNewtype name type_ = [rust|
         copyable = Theta.isPrimitive underlying
                 && underlying /= Theta.string'
                 && underlying /= Theta.bytes'
+                && not (isFixed underlying)
         underlying = Theta.underlyingType type_
+        isFixed Theta.Type { Theta.baseType } = case baseType of
+          Theta.Fixed'{} -> True
+          _              -> False
 
         implToAvro = toAvro typeName [rust|self.0.to_avro_buffer(buffer);|]
 
@@ -691,9 +697,21 @@ fromAvro typeName body = [rust|
 -- @
 -- Foo { bar, input: __input__ }
 -- @
+--
+-- Fixed-size types require special handling because we need to
+-- specify the size of the type we're reading as an extra argument,
+-- which means we have to use @Fixed::parse@ instead of @from_avro@.
+--
+-- @
+-- let (input, fixed_field) = Fixed::from_avro(input, 10)?
+-- @
 callFromAvro :: Rust -> Theta.Type -> Rust
-callFromAvro name fieldType = [rust|
-  let (input, $result) = $fromAvro(input)?
+callFromAvro name fieldType = case Theta.baseType fieldType of
+  Theta.Fixed' (showRust -> size) -> [rust|
+    let (input, $result) = Fixed::from_avro(input, $size)?
+  |]
+  _ -> [rust|
+    let (input, $result) = $fromAvro(input)?
   |]
   where result   = disambiguate name
         fromAvro = path $ typeIdentifier fieldType <> ["from_avro"]
@@ -954,6 +972,7 @@ refersTo t@Theta.Type { Theta.module_ } name =
 
           -- primitive types can never refer to another type
           Theta.Primitive' _ -> pure False
+          Theta.Fixed' _     -> pure False
 
         names cases = Theta.caseName <$> cases
 
@@ -965,3 +984,11 @@ refersTo t@Theta.Type { Theta.module_ } name =
           if Set.member name seen
             then pure False
             else modify (Set.insert name) *> doThis
+
+-- | Wrap a Haskell value into a 'Rust' value using its 'Show' intance
+-- directly.
+--
+-- >>> showRust (10 :: Int)
+-- Rust {fromRust = "10"}
+showRust :: Show a => a -> Rust
+showRust = Rust . Text.pack . show

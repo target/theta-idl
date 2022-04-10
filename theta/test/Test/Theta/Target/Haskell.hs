@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -25,6 +26,7 @@ import qualified Data.Text                       as Text
 import qualified Data.UUID                       as UUID
 import qualified Data.Vector                     as Vector
 
+import qualified Theta.Fixed                     as Fixed
 import           Theta.Metadata                  (Metadata (..))
 import           Theta.Pretty                    (pretty)
 import           Theta.Types
@@ -67,8 +69,21 @@ test_primitives = testGroup "primitives"
   , testCase "fromAvro ∘ toAvro = id" $ do
       Avro.decodeValue (Avro.encodeValue primitives) @?= Right primitives
   ]
-  where primitives =
-          Primitives True "blarg" 37 42 1.2 7.4 "foo" today now uuid time localTime
+  where primitives = Primitives
+          { bool = True
+          , bytes = "blarg"
+          , int = 37
+          , long = 42
+          , float = 1.2
+          , double = 7.4
+          , string = "foo"
+          , date = today
+          , datetime = now
+          , uuid = uuid
+          , time = time
+          , local_datetime = localTime
+          , fixed_3 = Fixed.fixedBytes' "abc"
+          }
         expected = Theta.Record
           [ Theta.boolean True
           , Theta.bytes "blarg"
@@ -82,6 +97,7 @@ test_primitives = testGroup "primitives"
           , Theta.uuid uuid
           , Theta.time time
           , Theta.localDatetime localTime
+          , Theta.fixed "abc"
           ]
 
         today = read "2019-02-11"

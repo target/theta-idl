@@ -61,6 +61,7 @@ import qualified Theta.Primitive            as Theta
 import           Theta.Target.Avro.Error
 import           Theta.Types
 import qualified Theta.Versions             as Versions
+import qualified Theta.Types as Theta
 
 -- | Transform a Theta type into a full Avro schema.
 --
@@ -366,6 +367,20 @@ typeToAvro :: (MonadError Theta.Error m, MonadState (Set Name) m)
            -> m Schema
 typeToAvro contextAvroVersion Type { baseType, module_ } = case baseType of
   Primitive' primitive -> pure $ primitiveType contextAvroVersion primitive
+
+  Fixed' size          -> do
+    let name = Theta.fixedName size
+    included <- get
+    if name `Set.member` included
+       then pure $! namedType name
+       else do
+         modify $ Set.insert name
+         pure $! Avro.Fixed
+           { name         = nameToAvro name
+           , aliases      = []
+           , size         = fromIntegral size
+           , logicalTypeF = Nothing
+           }
 
   Array' item     -> Avro.Array <$!> typeToAvro contextAvroVersion item
   Map' value      -> Avro.Map   <$!> typeToAvro contextAvroVersion value

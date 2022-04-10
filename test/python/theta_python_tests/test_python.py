@@ -44,7 +44,9 @@ primitives = builds(Primitives,
                     datetimes(),
                     uuids(),
                     times(),
-                    datetimes())
+                    datetimes(),
+                    binary(min_size=1, max_size=1),
+                    binary(min_size=3, max_size=3))
 
 containers = builds(Containers,
                     lists(booleans()),

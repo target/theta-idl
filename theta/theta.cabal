@@ -79,6 +79,7 @@ library
   hs-source-dirs:     src/
 
   exposed-modules:    Theta.Error
+                    , Theta.Fixed
                     , Theta.Hash
                     , Theta.Import
                     , Theta.LoadPath
