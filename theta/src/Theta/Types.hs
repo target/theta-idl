@@ -13,7 +13,7 @@
 {-# LANGUAGE ParallelListComp           #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TemplateHaskellQuotes      #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
@@ -150,6 +150,7 @@ hashType module_ type_ = evalState (go type_) Set.empty
       case baseType of
         -- primitive types
         Primitive' t -> pure $ hashPrimitive t
+        Fixed' size -> pure $ Name.hashName $ fixedName size
 
         -- containers
         Array' t    -> hashArray <$> go t
@@ -229,6 +230,7 @@ toBaseType' Type { baseType } = BaseType' $ toBaseType' <$> baseType
 instance Eq BaseType' where
   (BaseType' s) == (BaseType' t) = case (s, t) of
             (Primitive' s, Primitive' t)           -> s == t
+            (Fixed' size, Fixed' size')            -> size == size'
 
             -- containers
             (Array' s, Array' t)                   -> s == t
@@ -262,6 +264,9 @@ instance Eq BaseType' where
 --    Theta module.
 data BaseType t = Primitive' Primitive
                   -- ^ Int, String... etc
+
+                | Fixed' !Word
+                  -- ^ A binary value with the given number of bytes.
 
                 | Array' !t
                   -- ^ Arrays which have a specified type as elements
@@ -328,14 +333,17 @@ underlyingType t@Type { module_, baseType } = case baseType of
 -- | Primitive types are types like Int and Double that are not
 -- defined in Theta and do not have extra structure.
 --
--- Records, variants, arrays, maps, optional type and references are not
--- primitive.
+-- Fixed size types for any size are considered primitive.
+--
+-- Records, variants, arrays, maps, optional type and references are
+-- not primitive.
 --
 -- A newtype is primitive itself if its underlying type is primitive.
 isPrimitive :: Type -> Bool
 isPrimitive Type { baseType } = case baseType of
   -- primitive types
   Primitive' {}    -> True
+  Fixed' {}        -> True
 
   -- non-primitive types
   Array' {}        -> False
@@ -348,6 +356,22 @@ isPrimitive Type { baseType } = case baseType of
 
   -- special handling
   Newtype' _ type_ -> isPrimitive type_
+
+-- | Fixed-size types in Theta have a canonical name in the form
+-- @theta.fixed.Fixed_n@ where @n@ is the size.
+--
+-- >>> fixedName 0
+-- "theta.fixed.Fixed_0"
+--
+-- >>> fixedName 100
+-- "theta.fixed.Fixed_100"
+--
+-- We (currently?) can't use these names to reference fixed-size types
+-- /in Theta/, but they're used for hashing and generating Avro
+-- schemas.
+fixedName :: Word -> Name
+fixedName s = Name.Name "theta.fixed" ("Fixed_" <> s')
+  where s' = Text.pack $ show s
 
 -- | Renders a type in a human-readable way—great for error
 -- messages. The pretty representation looks like the syntax you would
@@ -371,6 +395,8 @@ prettyType :: Type -> Text
 prettyType Type { baseType } = case baseType of
   -- primitive types
   Primitive' t -> pretty t
+
+  Fixed' size -> "Fixed " <> pretty size
 
   -- containers
   Array' t     -> "[" <> prettyType t <> "]"
@@ -510,6 +536,9 @@ time' = wrapPrimitive Time
 
 localDatetime' :: Type
 localDatetime' = wrapPrimitive LocalDatetime
+
+fixed' :: Word -> Type
+fixed' = withModule primitiveModule . BaseType' . Fixed'
 
 array' :: Type -> Type
 array' t = Type

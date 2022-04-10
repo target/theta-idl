@@ -18,6 +18,20 @@ use nom::{
     Err, IResult,
 };
 
+/// A type for fixed-size byte arrays. The size required by the schema
+/// is not tracked, and serializing the wrong size can corrupt the
+/// entire message.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Fixed(pub Vec<u8>);
+
+impl Fixed {
+    pub fn from_avro(input: &[u8], size: u64) -> IResult<&[u8], Fixed> {
+        context("Fixed", |input| {
+            map(take(size as usize), |slice: &[u8]| Fixed(slice.to_vec()))(input)
+        })(input)
+    }
+}
+
 // ToAvro
 
 /// A trait for types that can be serialized directly to the Avro
@@ -168,6 +182,12 @@ impl ToAvro for NaiveDateTime {
             // This is a panic because it represents a bug in our implementation.
             None => panic!("Microsecond time value overflow when parsing DateTime."),
         }
+    }
+}
+
+impl ToAvro for Fixed {
+    fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+        buffer.append(&mut self.0.clone());
     }
 }
 
@@ -693,6 +713,16 @@ mod tests {
             let date = NaiveDate::from_num_days_from_ce(days);
             let datetime = date.and_hms(h % 24, m % 60, s % 60);
             check_encoding(datetime)
+        }
+
+        fn prop_fixed(b: Vec<u8>) -> bool {
+            let size = b.len() as u64;
+            let fixed = Fixed(b);
+            match Fixed::from_avro(fixed.to_avro().as_slice(), size) {
+                Ok(([], result)) => fixed == result,
+                Ok((_, _)) => false, // did not consume all input
+                Err(_) => false,
+            }
         }
 
         fn prop_array(values: Vec<i32>) -> bool {

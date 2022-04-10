@@ -38,6 +38,7 @@ import           Control.Monad.State.Strict  (evalStateT)
 import qualified Data.Avro.Encoding.FromAvro as Avro
 import qualified Data.Avro.Schema.ReadSchema as ReadSchema
 import qualified Data.Avro.Schema.Schema     as Schema
+import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.HashMap.Strict         (HashMap, (!))
 import qualified Data.HashMap.Strict         as HashMap
@@ -107,6 +108,7 @@ toAvro value@Value { type_ } = do
                               \This is a bug in the Theta implementation.\n"
                            <> show readSchema <> "\n" <> show v
 
+          (ReadSchema.Fixed{}, Fixed bytes) -> Avro.Fixed schema (LBS.toStrict bytes)
 
           -- containers
           (ReadSchema.Array t, Array vs)                    ->
@@ -238,12 +240,16 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
             (Theta.Date, Avro.Int _ i)           -> wrapPrimitive $ Date $ toDay i
             (Theta.Datetime, Avro.Long _ l)      -> wrapPrimitive $ Datetime $ toUTCTime l
             (Theta.UUID, Avro.String _ s)        -> case UUID.fromText s of
-              Just uuid                          -> wrapPrimitive $ UUID uuid
-              Nothing                            -> throw $ InvalidUUID s
+              Just uuid -> wrapPrimitive $ UUID uuid
+              Nothing   -> throw $ InvalidUUID s
             (Theta.Time, Avro.Long _ l)          -> wrapPrimitive $ Time $ toTimeOfDay l
             (Theta.LocalDatetime, Avro.Long _ l) ->
               wrapPrimitive $ LocalDatetime $ toLocalTime l
             (_, got)                             -> throw $ TypeMismatch type_ got
+
+          (Theta.Fixed' (fromIntegral -> size), Avro.Fixed _ bytes)
+            | size == BS.length bytes -> pure $ Fixed $ LBS.fromStrict bytes
+            | otherwise               -> throw $ FixedSizeMismatch size (BS.length bytes)
 
           -- containers
           (Theta.Array' t, Avro.Array xs)   ->
@@ -358,7 +364,7 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
               Variant caseName . Vector.fromList <$> traverse (uncurry go) values
             Nothing    -> throw $
               InvalidVariant (ExtraCase cases (ReadSchema.name recordSchema)) variantName
-          where go field avro = fromAvro (Theta.fieldType field) avro
+          where go = fromAvro . Theta.fieldType
 
                                 -- TODO: is there a better way to do this
                                 -- map transformation?

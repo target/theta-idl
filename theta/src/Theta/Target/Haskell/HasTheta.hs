@@ -17,6 +17,10 @@ import           Data.Text            (Text)
 import           Data.Time            (Day, LocalTime, TimeOfDay, UTCTime)
 import           Data.UUID            (UUID)
 
+import           GHC.TypeLits         (KnownNat)
+
+import           Theta.Fixed          (FixedBytes)
+import qualified Theta.Fixed          as Fixed
 import qualified Theta.Types          as Theta
 
 -- | A class for Haskell types that correspond to a Theta type. Types
@@ -66,6 +70,9 @@ instance HasTheta TimeOfDay where
 
 instance HasTheta LocalTime where
   theta = Theta.localDatetime'
+
+instance KnownNat size => HasTheta (FixedBytes size) where
+  theta = Theta.fixed' $ Fixed.size @size
 
 instance HasTheta a => HasTheta [a] where
   theta = Theta.array' $ theta @a

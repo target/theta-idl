@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE NamedFieldPuns    #-}
@@ -45,6 +46,7 @@ import qualified Theta.Target.Haskell.HasTheta as HasTheta
 loadModule "test/data/modules" "documentation"
 loadModule "test/data/modules" "logical_dates"
 loadModule "test/data/modules" "enums"
+loadModule "test/data/modules" "fixed"
 
 tests :: TestTree
 tests = testGroup "Types"
@@ -59,6 +61,7 @@ tests = testGroup "Types"
     , test_date
     , test_datetime
     , test_uuid
+    , test_fixed
     ]
 
   , testGroup "containers"
@@ -123,6 +126,34 @@ test_datetime = testGroup "Datetime"
 test_uuid :: TestTree
 test_uuid = testCase "UUID" $
   check (typeToAvro "1.0.0" uuid') (Avro.String (Just Avro.UUID))
+
+test_fixed :: TestTree
+test_fixed = testGroup "Fixed"
+  [ testCase "Fixed(0)" $ do
+      let expected = Avro.Fixed "theta.fixed.Fixed_0" [] 0 Nothing
+      check (typeToAvro "1.0.0" (fixed' 0)) expected
+
+  , testCase "Fixed(10)" $ do
+      let expected = Avro.Fixed "theta.fixed.Fixed_10" [] 10 Nothing
+      check (typeToAvro "1.0.0" (fixed' 10)) expected
+
+  , testCase "Multiple Fixed(3)" $ do
+      let multiFixed = Avro.Record "fixed.MultiFixed" [] Nothing multiFields
+          multiFields =
+            [ Avro.Field "fixed_a" [] Nothing Nothing fixed_3 Nothing
+            , Avro.Field "fixed_b" [] Nothing Nothing fixed_3_ref Nothing
+            , Avro.Field "fixed_4" [] Nothing Nothing fixed_4 Nothing
+            , Avro.Field "nested_fixed" [] Nothing Nothing nestedFixed Nothing
+            ]
+
+          nestedFixed = Avro.Record "fixed.NestedFixed" [] Nothing nestedFields
+          nestedFields = [Avro.Field "fixed_c" [] Nothing Nothing fixed_3_ref Nothing]
+
+          fixed_3 = Avro.Fixed "theta.fixed.Fixed_3" [] 3 Nothing
+          fixed_4 = Avro.Fixed "theta.fixed.Fixed_4" [] 4 Nothing
+          fixed_3_ref = Avro.NamedType "theta.fixed.Fixed_3"
+      check (typeToAvro "1.0.0" (HasTheta.theta @MultiFixed)) multiFixed
+  ]
 
 -- * Containers
 

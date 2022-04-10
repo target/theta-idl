@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLists       #-}
@@ -51,13 +52,19 @@ test_isValidIdentifier = testGroup "isValidIdentifier"
 test_toReference :: TestTree
 test_toReference = testGroup "toReference"
   [ testCase "primitive types" $ do
-      toReference Theta.bool'   @?= [kotlin|Boolean|]
-      toReference Theta.bytes'  @?= [kotlin|ByteArray|]
-      toReference Theta.int'    @?= [kotlin|Int|]
-      toReference Theta.long'   @?= [kotlin|Long|]
-      toReference Theta.float'  @?= [kotlin|Float|]
-      toReference Theta.double' @?= [kotlin|Double|]
-      toReference Theta.string' @?= [kotlin|String|]
+      toReference Theta.bool'          @?= [kotlin|Boolean|]
+      toReference Theta.bytes'         @?= [kotlin|ByteArray|]
+      toReference Theta.int'           @?= [kotlin|Int|]
+      toReference Theta.long'          @?= [kotlin|Long|]
+      toReference Theta.float'         @?= [kotlin|Float|]
+      toReference Theta.double'        @?= [kotlin|Double|]
+      toReference Theta.string'        @?= [kotlin|String|]
+      toReference Theta.date'          @?= [kotlin|LocalDate|]
+      toReference Theta.datetime'      @?= [kotlin|OffsetDateTime|]
+      toReference Theta.uuid'          @?= [kotlin|UUID|]
+      toReference Theta.time'          @?= [kotlin|LocalTime|]
+      toReference Theta.localDatetime' @?= [kotlin|LocalDateTime|]
+      toReference (Theta.fixed' 10)    @?= [kotlin|ByteArray|]
 
   , testCase "containers" $ do
       toReference (Theta.array' Theta.int')       @?= [kotlin|Array<Int>|]

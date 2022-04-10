@@ -1,4 +1,4 @@
-language-version: 1.0.0
+language-version: 1.1.0
 avro-version: 1.0.0
 ---
 
@@ -7,6 +7,12 @@ avro-version: 1.0.0
 type Foo = {
   input: Int,
   nested: [A]
+}
+
+/// Fixed(n) types require special handling in the Rust codegen
+type FixedFields = {
+    f_1: Fixed(1),
+    f_10: Fixed(10)
 }
 
 alias A = [Long]

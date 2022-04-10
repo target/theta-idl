@@ -96,6 +96,9 @@ data AvroError = InvalidExport Type
                | InvalidUUID Text
                  -- ^ A string encoding a UUID did not have the right
                  -- format.
+               | FixedSizeMismatch Int Int
+                 -- ^ A mismatch between the size of fixed type that
+                 -- was expected and the size that was read.
                deriving (Show)
 
 -- | The reason why a variant encoding is invalid.
@@ -166,6 +169,11 @@ instance Pretty AvroError where
 
         Example: ‘f81d4fae-7dec-11d0-a765-00a0c91e6bf6’
         |]
+    FixedSizeMismatch expected got ->
+     [p|
+       Expected a fixed-size type of #{expected} bytes
+       But got #{got} bytes
+       |]
 
 -- | Render a human-readable description of why a varaint was not
 -- encoded correctly.

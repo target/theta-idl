@@ -1,9 +1,8 @@
-from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 import io
 import math
 import struct
-from typing import Callable, Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, TypeVar
 from uuid import UUID
 
 from hypothesis import example, given
@@ -136,6 +135,15 @@ class Encoder:
 
         self.integral(micros)
 
+    def fixed(self, x: bytes, size: int):
+        """
+        Encode a fixed-size value.
+
+        Raise an exception if the size of the bytes to encode does not
+        match the expected size.
+        """
+        assert len(x) == size, f"Fixed size mistmatch: expected {size} bytes, got {len(x)}."
+        self.raw(x)
 
     # Containers
 
@@ -325,6 +333,14 @@ class Decoder:
         since_midnight = timedelta(microseconds=self.integral())
 
         return (arbitrary + since_midnight).time()
+
+    def fixed(self, size: int) -> bytes:
+        """
+        Read exactly 'size' bytes.  Fails if the stream does not have
+        enough bytes to read.
+        """
+        return self.raw(size)
+
 
     A = TypeVar("A")
 
@@ -700,6 +716,14 @@ class TestRoundTrip(unittest.TestCase):
     def test_datetime(self, x):
         self.check_encoding(x, Encoder.datetime, Decoder.datetime)
 
+    @given(binary())
+    def test_fixed(self, in_):
+        self.check_encoding(
+            in_,
+            lambda encoder, value: Encoder.fixed(encoder, value, len(in_)),
+            lambda decoder: decoder.fixed(len(in_))
+        )
+
     @given(lists(dates()))
     def test_array(self, x):
         def encode(encoder, value):
@@ -753,6 +777,7 @@ class TestRoundTrip(unittest.TestCase):
             assert(math.isnan(decoded))
         else:
             assert(x == decoded)
+
 
 if __name__ == "__main__":
     unittest.main()

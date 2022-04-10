@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveLift                 #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TemplateHaskellQuotes      #-}
 {-# LANGUAGE ViewPatterns               #-}
 
 -- | This module defines types for handling version metadata in Theta

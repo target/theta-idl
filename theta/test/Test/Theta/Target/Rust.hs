@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLists       #-}
@@ -44,6 +45,7 @@ tests = testGroup "Rust"
   , test_toVariant
   , test_toNewtype
   , test_alias
+  , test_fixed
   , test_refersTo
   ]
 
@@ -478,6 +480,34 @@ test_alias = testGroup "alias"
           , Theta.imports    = []
           , Theta.metadata   = Theta.Metadata "1.0.0" "1.0.0" "foo"
           }
+
+test_fixed :: TestTree
+test_fixed = testCase "Fixed" $ do
+  toDefinition (Theta.Definition "rust.FixedFields" Nothing (theta @FixedFields)) ??=
+    [rust|
+      #[derive(Clone, Debug, PartialEq)]
+      pub struct FixedFields {
+        pub f_1: Fixed,
+        pub f_10: Fixed,
+      }
+
+      impl ToAvro for FixedFields {
+        fn to_avro_buffer(&self, buffer: &mut Vec<u8>) {
+          self.f_1.to_avro_buffer(buffer);
+          self.f_10.to_avro_buffer(buffer);
+        }
+      }
+
+      impl FromAvro for FixedFields {
+        fn from_avro(input: &[u8]) -> IResult<&[u8], Self> {
+          context("rust.FixedFields", |input| {
+            let (input, f_1) = Fixed::from_avro(input, 1)?;
+            let (input, f_10) = Fixed::from_avro(input, 10)?;
+            Ok((input, FixedFields { f_1: f_1, f_10: f_10 }))
+          })(input)
+        }
+      }
+    |]
 
 test_refersTo :: TestTree
 test_refersTo = testGroup "refersTo"

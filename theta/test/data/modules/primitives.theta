@@ -16,7 +16,8 @@ type Primitives = {
   datetime : Datetime,
   uuid : UUID,
   time : Time,
-  local_datetime : LocalDatetime
+  local_datetime : LocalDatetime,
+  fixed_3 : Fixed(3)
 }
 
 type Containers = {

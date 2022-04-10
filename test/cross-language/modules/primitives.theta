@@ -15,7 +15,10 @@ type Primitives = {
   datetime       : Datetime,
   uuid           : UUID,
   time           : Time,
-  local_datetime : LocalDatetime
+  local_datetime : LocalDatetime,
+  fixed_0        : Fixed(0),
+  fixed_10       : Fixed(10),
+  fixed_10_again : Fixed(10)
 }
 
 /// Each kind of container:

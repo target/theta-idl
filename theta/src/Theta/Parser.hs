@@ -28,13 +28,13 @@ import           Text.Megaparsec            (MonadParsec (eof, lookAhead, notFol
                                              option, optional, sepBy, sepBy1,
                                              skipMany, some, (<|>))
 import           Text.Megaparsec.Char       (alphaNumChar, char, letterChar,
-                                             space1, string)
+                                             space1, string, digitChar)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import           Theta.Metadata             (Metadata, Version (..))
 import qualified Theta.Metadata             as Metadata
 import qualified Theta.Name                 as Name
-import           Theta.Pretty               (p)
+import           Theta.Pretty               (p, pretty)
 import           Theta.Primitive            (definedIn, primitiveKeyword,
                                              primitives)
 import           Theta.Types                (BaseType (..), BaseType' (..),
@@ -102,8 +102,8 @@ versionError :: Text
              -- ^ The version of the current module.
              -> String
 versionError feature minVersion v = [p|
-    Support for #{feature} requires language-version ≥ #{minVersion}
-    Current module being parsed has language-version = #{v}
+    Support for #{feature} requires language-version ≥ #{pretty minVersion}
+    Current module being parsed has language-version = #{pretty v}
   |]
 
 -- * Metadata
@@ -217,7 +217,9 @@ reservedWords = [ ("1.0.0", v1_0_0)
                  , "String"
                  ]
 
-        v1_1_0 = [ "enum" ]
+        v1_1_0 = [ "enum"
+                 , "Fixed"
+                 ]
 
 identifier :: Parser Text
 identifier = do
@@ -314,6 +316,23 @@ primitive = do
 
         supportedAt v = [t | t <- primitives, definedIn t <= v]
 
+-- | Parses a fixed-size type.
+--
+-- Fixed types are written as @Fixed(n)@ where n is a non-negative
+-- integer:
+--
+-- @
+-- Fixed(0)
+-- Fixed(100)
+-- @
+fixed :: Parser BaseType'
+fixed = do
+  void $ symbol "Fixed"
+  size <- between (symbol "(") (symbol ")") n
+  requireVersion "1.1.0" "Fixed"
+  pure $ BaseType' $ Fixed' size
+  where n = read <$> some digitChar
+
 -- | Parses a reference to some other named type.
 reference :: Parser BaseType'
 reference = BaseType' . Reference' <$> name
@@ -346,6 +365,7 @@ atom :: Parser BaseType'
 atom = array
    <|> map
    <|> try primitive
+   <|> fixed
    <|> reference
 
 -- | Parses types that can be used in signatures. This includes

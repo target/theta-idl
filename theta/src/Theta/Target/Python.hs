@@ -117,6 +117,7 @@ toReference :: Maybe Python -> Name.ModuleName -> Theta.Type -> Python
 toReference prefix currentModule Theta.Type { Theta.baseType } = case baseType of
   -- primitive
   Theta.Primitive' t -> primitive t
+  Theta.Fixed' _     -> "bytes"
 
   -- containers
   Theta.Array' a        ->
@@ -234,13 +235,10 @@ toEnum prefix currentModule enumName symbols = [python|
                       return $name.$symbol
                 |]
 
-        pythonSymbols = [ (Python symbol, i)
+        pythonSymbols = [ (Python symbol, showPython i)
                         | Theta.EnumSymbol symbol <- symbols
-                        | i' <- [0..]
-                        , let i = Python (Text.pack $ show i')
+                        | i <- [0..]
                         ]
-
-
 
 -- | Compile a Theta record to a Python dataclass.
 toRecord :: MonadError Theta.Error m
@@ -482,6 +480,10 @@ encodingFunction Theta.Type { Theta.baseType, Theta.module_ } = case baseType of
     Theta.Time          -> "encoder.time"
     Theta.LocalDatetime -> "encoder.datetime"
 
+  Theta.Fixed' (showPython -> size) -> pure [python|
+    lambda b: encoder.fixed(b, $size)
+  |]
+
   -- Containers
   Theta.Array' type_    -> do
     elementFunction <- encodingFunction type_
@@ -547,6 +549,9 @@ decodingFunction prefix currentModule Theta.Type { Theta.baseType, Theta.module_
       Theta.UUID          -> "decoder.uuid()"
       Theta.Time          -> "decoder.time()"
       Theta.LocalDatetime -> "decoder.datetime()"
+
+    Theta.Fixed' (showPython -> size) ->
+      pure [python|decoder.fixed($size)|]
 
     -- Containers
     Theta.Array' type_ -> do
@@ -690,3 +695,13 @@ toIdentifier prefix currentModule name
 -- name.
 toFieldName :: Theta.FieldName -> Python
 toFieldName (Theta.FieldName name) = Python name
+
+-- | Convert a value to 'Python' using its 'Show' instance directly.
+--
+-- >>> showPython (10 :: Word)
+-- Python {fromPython = "10"}
+--
+-- >>> showPython ("abc" :: String)
+-- Python {fromPython = "\"abc\""}
+showPython :: Show a => a -> Python
+showPython = Python . Text.pack . show
