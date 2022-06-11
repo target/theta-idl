@@ -62,6 +62,12 @@ deriving via ShowPretty Word instance Pretty Word
 pr :: QuasiQuoter
 pr = PyF.fmtTrim
 
+-- | Original name for 'pr', but it conflicts with Template Haskell,
+-- so use 'pr' instead.
+p :: QuasiQuoter
+p = pr
+{-# DEPRECATED p "Use pr instead" #-}
+
 -- | The same as 'pretty' but returns a 'String'.
 showPretty :: Pretty a => a -> String
 showPretty = Text.unpack . pretty
