@@ -35,7 +35,6 @@ common shared
 
                , aeson
                , aeson-pretty >=0.8.9 && <0.9
-               , aeson-qq
                , avro >=0.6 && <0.7
                , binary
                , bytestring
