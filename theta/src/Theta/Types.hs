@@ -38,7 +38,6 @@ import           Data.Sequence              (Seq ((:<|)), (|>))
 import qualified Data.Sequence              as Seq
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
-import           Data.String.Interpolate    (__i)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 
@@ -77,11 +76,11 @@ data Type = Type
 -- not rely on it for serialization or testing.
 instance Show Type where
   show Type { baseType, hash, module_ } = Text.unpack [pr|
-        Type {
-          baseType = #{baseType},
-          hash     = "#{hash}",
-          module_  = "#{pretty $ moduleName module_}"
-        }
+        Type {{
+          baseType = {pretty baseType},
+          hash     = "{show hash}",
+          module_  = "{pretty $ moduleName module_}"
+        }}
   |]
 
 -- | Types are compared for equality structurally.
@@ -307,6 +306,27 @@ data BaseType t = Primitive' Primitive
                   -- representation the same.
                 deriving stock (Functor, Foldable, Traversable, Show, Lift)
 
+-- | see 'prettyType'
+instance Pretty (BaseType Type) where
+  pretty = \case
+    -- primitive types
+    Primitive' t -> pretty t
+
+    Fixed' size  -> "Fixed " <> pretty size
+
+    -- containers
+    Array' t     -> "[" <> pretty t <> "]"
+    Map' t       -> "{" <> pretty t <> "]"
+    Optional' t  -> pretty t <> "?"
+
+    -- named types
+    Enum' n _    -> pretty n
+    Reference' n -> pretty n
+    Record' n _  -> pretty n
+    Variant' n _ -> pretty n
+    Newtype' n _ -> pretty n
+
+
 newtype EnumSymbol = EnumSymbol { enumSymbol :: Text }
   deriving stock (Show, Eq, Ord, Generic, Lift)
   deriving anyclass (Hashable)
@@ -392,24 +412,9 @@ fixedName s = Name.Name "theta.fixed" ("Fixed_" <> s')
 -- Optional types are rendered as the underlying type with a question
 -- mark (?) (@Int?@, @[Int]?@, @[[com.example.Foo]?]@).
 prettyType :: Type -> Text
-prettyType Type { baseType } = case baseType of
-  -- primitive types
-  Primitive' t -> pretty t
+prettyType Type { baseType } = pretty baseType
 
-  Fixed' size -> "Fixed " <> pretty size
-
-  -- containers
-  Array' t     -> "[" <> prettyType t <> "]"
-  Map' t       -> "{" <> prettyType t <> "]"
-  Optional' t  -> prettyType t <> "?"
-
-  -- named types
-  Enum' n _    -> pretty n
-  Reference' n -> pretty n
-  Record' n _  -> pretty n
-  Variant' n _ -> pretty n
-  Newtype' n _ -> pretty n
-
+-- | see 'prettyType'
 instance Pretty Type where
   pretty = prettyType
 
@@ -700,8 +705,8 @@ lookupDefinition :: Name -> Module -> Either String (Definition Type)
 lookupDefinition name module_ =
   case listToMaybe $ catMaybes $ Map.lookup name <$> definitions of
     Just res -> pure res
-    Nothing  -> Left [__i|
-      #{pretty name} is not defined in module #{pretty $ moduleName module_}.
+    Nothing  -> Left [pr|
+      {pretty name} is not defined in module {pretty $ moduleName module_}.
     |]
   where definitions = types <$> transitiveImports [module_]
 

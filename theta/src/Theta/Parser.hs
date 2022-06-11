@@ -34,7 +34,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import           Theta.Metadata             (Metadata, Version (..))
 import qualified Theta.Metadata             as Metadata
 import qualified Theta.Name                 as Name
-import           Theta.Pretty               (p, pretty)
+import           Theta.Pretty               (pr, pretty)
 import           Theta.Primitive            (definedIn, primitiveKeyword,
                                              primitives)
 import           Theta.Types                (BaseType (..), BaseType' (..),
@@ -101,9 +101,9 @@ versionError :: Text
              -> Version
              -- ^ The version of the current module.
              -> String
-versionError feature minVersion v = [p|
-    Support for #{feature} requires language-version ≥ #{pretty minVersion}
-    Current module being parsed has language-version = #{pretty v}
+versionError feature minVersion v = [pr|
+    Support for {feature} requires language-version ≥ {pretty minVersion}
+    Current module being parsed has language-version = {pretty v}
   |]
 
 -- * Metadata

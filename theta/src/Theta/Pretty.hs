@@ -13,18 +13,20 @@ module Theta.Pretty
   , showPretty
 
   , prettyList
+  , indentBy
 
-  , p
   , pr
+  , p
   )
 where
 
 import           Data.Text                 (Text)
 import qualified Data.Text                 as Text
 
-import           Data.String.Interpolate   (__i)
-
 import           Language.Haskell.TH.Quote (QuasiQuoter)
+
+import qualified Data.Char                 as Char
+import qualified PyF
 
 class Pretty a where
   pretty :: a -> Text
@@ -33,17 +35,32 @@ instance Pretty Text where pretty x = x
 
 deriving via ShowPretty Word instance Pretty Word
 
--- | A quasiquoter for interpolating text for 'Pretty' instances.
+-- | A quasiquoter for interpolating text, good for writing 'Pretty'
+-- instances/etc.
 --
--- For now this just uses '__i' from @string-interpolate@, but it
--- might change to something Theta-specific in the future.
-p :: QuasiQuoter
-p = __i
-
--- | Version of 'p' with a name that doesn't conflict with Template
--- Haskell.
+-- At the moment there is no 'Pretty'-specific support, but that is
+-- likely to change in the future.
+--
+-- Leading whitespace is trimmed from each line of the quoted
+-- string. The first line is ignored if it is all whitespace.
+--
+-- __Example__
+--
+-- @
+-- let name = "com.example.Name"
+--     moduleName = "com.example"
+-- in [pr|
+--      {pretty name} is not defined in the module {pretty moduleName}.
+--    |]
+-- @
+--
+-- would produce:
+--
+-- @
+-- "com.example.Name is not defined in the module com.example.\n"
+-- @
 pr :: QuasiQuoter
-pr = p
+pr = PyF.fmtTrim
 
 -- | The same as 'pretty' but returns a 'String'.
 showPretty :: Pretty a => a -> String
@@ -60,8 +77,17 @@ showPretty = Text.unpack . pretty
 --   • ghi
 -- @
 prettyList :: Pretty a => [a] -> Text
-prettyList = Text.intercalate "\n" . map (bullet . pretty)
-  where bullet = ("  • " <>)
+prettyList = Text.intercalate "\n" . map (("• " <>) . pretty)
+
+-- | Indent every line in the given string using the specified number
+-- of spaces.
+indentBy :: Int -> Text -> Text
+indentBy level str = case Text.lines str of
+  []    -> ""
+  lines -> foldr1 (\ a b -> a <> "\n" <> b) $ indent <$> lines
+  where indent line
+          | Text.all Char.isSpace line = line
+          | otherwise                  = Text.replicate level " " <> line
 
 -- | A newtype with:
 --

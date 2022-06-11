@@ -5,24 +5,24 @@
 {-# LANGUAGE QuasiQuotes       #-}
 module Test.Theta.Parser where
 
-import           Prelude                 hiding (map)
+import           Prelude              hiding (map)
 
-import           Control.Monad.Reader    (runReaderT)
+import           Control.Monad.Reader (runReaderT)
 
-import           Data.Maybe              (fromJust)
-import           Data.String.Interpolate (__i)
-import           Data.Text               (Text)
-import           Data.Void               (Void)
+import           Data.Maybe           (fromJust)
+import           Data.Text            (Text)
+import           Data.Void            (Void)
 
-import           Text.Megaparsec         hiding (optional)
+import           Text.Megaparsec      hiding (optional)
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import           Theta.Metadata          (Version)
-import qualified Theta.Metadata          as Metadata
+import           Theta.Metadata       (Version)
+import qualified Theta.Metadata       as Metadata
 import           Theta.Parser
-import           Theta.Primitive         (Primitive (..))
+import           Theta.Pretty         (pr)
+import           Theta.Primitive      (Primitive (..))
 import           Theta.Types
 
 tests :: TestTree
@@ -77,13 +77,13 @@ test_metadata = testCase "Metadata" $
 
 test_metadataComments :: TestTree
 test_metadataComments = testGroup "Metadata with comments"
-  [ testCase "end-of-line" $ check [__i|
+  [ testCase "end-of-line" $ check [pr|
       language-version: 1.0.0 // some language version
       avro-version: 1.0.0 /* yay */
       ---
     |]
 
-  , testCase "before" $ check [__i|
+  , testCase "before" $ check [pr|
       // Comments before
       /* More comments before
        */
@@ -92,7 +92,7 @@ test_metadataComments = testGroup "Metadata with comments"
       ---
     |]
 
-   , testCase "after" $ check [__i|
+   , testCase "after" $ check [pr|
        language-version: 1.0.0
        avro-version: 1.0.0
        /* after */
@@ -101,7 +101,7 @@ test_metadataComments = testGroup "Metadata with comments"
        // also after?
      |]
 
-    , testCase "interspersed" $ check [__i|
+    , testCase "interspersed" $ check [pr|
         language-version: /* blarg? */ 1.0.0
         // stuff
         avro-version: /* yep */ 1.0.0
@@ -454,26 +454,22 @@ test_doc = testGroup "doc comments"
     , testCase "multiline" $ do
         parseDoc "/** Some \n documentation. */" =?= Doc "Some\ndocumentation."
 
-        let multiline = [__i|
+        let multiline = [pr|
           /** This is a multiline block comment.
               I expect to see whitespace... etc managed correctly.
-                  */
-        |]
-        parseDoc multiline =?= [__i|
+                  */|]
+        parseDoc multiline =?= [pr|
           This is a multiline block comment.
-          I expect to see whitespace... etc managed correctly.
-        |]
+          I expect to see whitespace... etc managed correctly.|]
 
     , testCase "leading *" $ do
-        let multiline = [__i|
+        let multiline = [pr|
           /** This is a multiline block comment.
            * I expect to see whitespace... etc managed correctly.
-           */
-        |]
-        parseDoc multiline =?= [__i|
+           */|]
+        parseDoc multiline =?= [pr|
           This is a multiline block comment.
-          I expect to see whitespace... etc managed correctly.
-        |]
+          I expect to see whitespace... etc managed correctly.|]
     ]
 
   , testGroup "line docs"
@@ -488,11 +484,10 @@ test_doc = testGroup "doc comments"
     ]
 
   , testCase "misplaced docs" $ do
-      let wrong = wrapModule [__i|
+      let wrong = wrapModule [pr|
         type TCIN = Long
         /// This doc comment is not attached to a definition
-        /// so it should cause a parse error
-      |]
+        /// so it should cause a parse error|]
 
       assertFails $ parse' "1.0.0" (moduleBody "foo") wrong
   ]
@@ -503,7 +498,7 @@ test_doc = testGroup "doc comments"
 test_docTypes :: TestTree
 test_docTypes = testGroup "docs on types"
   [ testCase "newtypes" $ do
-      let newtype_ = wrapModule [__i|
+      let newtype_ = wrapModule [pr|
               /// Foo is an Int!
               type Foo = Int
             |]
@@ -513,7 +508,7 @@ test_docTypes = testGroup "docs on types"
          (Definition "test.Foo" (Just $ Doc "Foo is an Int!") type_)]
 
   , testCase "aliases" $ do
-      let alias = wrapModule [__i|
+      let alias = wrapModule [pr|
           /** Foo is an Int! */
           alias Foo = Int
         |]
@@ -522,7 +517,7 @@ test_docTypes = testGroup "docs on types"
          (Definition "test.Foo" (Just $ Doc "Foo is an Int!") (BaseType' (Primitive' Int)))]
 
   , testCase "enums" $ do
-      let enum = wrapModule [__i|
+      let enum = wrapModule [pr|
             /// Foo is an enum!
             enum Foo = Bar | Baz
           |]
@@ -533,9 +528,9 @@ test_docTypes = testGroup "docs on types"
 
   , testGroup "records"
     [ testCase "definitions" $ do
-        let record = wrapModule [__i|
+        let record = wrapModule [pr|
             /// Foo docs
-            type Foo = { bar : Int }
+            type Foo = {{ bar : Int }}
           |]
             type_ =
               BaseType' (Record' "test.Foo" [Field "bar" Nothing (BaseType' (Primitive' Int))])
@@ -543,14 +538,14 @@ test_docTypes = testGroup "docs on types"
           [DefinitionStatement (Definition "test.Foo" (Just $ Doc "Foo docs") type_)]
 
     , testCase "fields" $ do
-        let record = wrapModule [__i|
-            type Foo = {
+        let record = wrapModule [pr|
+            type Foo = {{
               /// Bar docs
               bar : Int,
               /** baz
                   docs */
               baz : String
-            }
+            }}
           |]
             type_ =
               BaseType' (Record' "test.Foo"
@@ -562,7 +557,7 @@ test_docTypes = testGroup "docs on types"
 
   , testGroup "variants"
     [ testCase "definitions" $ do
-        let variant = wrapModule [__i|
+        let variant = wrapModule [pr|
             /// Foo docs
             type Foo = Bar | Baz
           |]
@@ -573,20 +568,20 @@ test_docTypes = testGroup "docs on types"
           [DefinitionStatement (Definition "test.Foo" (Just "Foo docs") type_)]
 
     , testCase "one case" $ do
-        let variant = wrapModule [__i|
-            type Foo = /** One docs */ One {}
+        let variant = wrapModule [pr|
+            type Foo = /** One docs */ One {{}}
           |]
             type_ = BaseType' (Variant' "test.Foo" [Case "test.One" (Just "One docs") []])
         parse' "1.0.0" (moduleBody "test") variant =?=
           [DefinitionStatement (Definition "test.Foo" Nothing type_)]
 
     , testCase "two cases" $ do
-        let variant = wrapModule [__i|
-            type Foo = /** One docs */ One {}
+        let variant = wrapModule [pr|
+            type Foo = /** One docs */ One {{}}
                      | /// Two docs
-                       Two { /** foo docs
+                       Two {{ /** foo docs
                                */
-                             foo : Int }
+                             foo : Int }}
           |]
             type_ =
               BaseType' (Variant' "test.Foo"
@@ -633,7 +628,7 @@ testMetadata languageVersion = Metadata.Metadata
   }
 
 testMetadataSection :: Text
-testMetadataSection = [__i|
+testMetadataSection = [pr|
     language-version: 1.0.0
     avro-version: 1.0.0
     ---
@@ -642,9 +637,9 @@ testMetadataSection = [__i|
 -- | Add version metadata on top of the given module body so that it
 -- can be parsed with moduleBody.
 wrapModule :: Text -> Text
-wrapModule body = [__i|
-    #{testMetadataSection}
-    #{body}
+wrapModule body = [pr|
+    {testMetadataSection}
+    {body}
   |]
 
 -- | Assert that the parser fails with an error and doesn't return a
@@ -652,9 +647,9 @@ wrapModule body = [__i|
 assertFails :: Show b => Either a b -> Assertion
 assertFails = \case
   Left _    -> pure ()
-  Right res -> assertFailure [__i|
+  Right res -> assertFailure [pr|
       expected: parser to fail with error
-      but got: #{show res}
+      but got: {show res}
     |]
 
 -- | Assert that a parser fails with a fancy error that has the given
@@ -664,13 +659,13 @@ assertFailsWith expectedMessage = \case
   Left (ParseErrorBundle [FancyError _ [ErrorFail message]] _) ->
     message @?= expectedMessage
   Left unexpected ->
-    assertFailure [__i|
+    assertFailure [pr|
       Expected a single fancy error from fail but got:
-      #{errorBundlePretty unexpected}
+      {errorBundlePretty unexpected}
     |]
-  Right res -> assertFailure [__i|
+  Right res -> assertFailure [pr|
       expected: parser to fail with error
-      but got: #{show res}
+      but got: {show res}
     |]
 
 -- | Assert that the parser succeeds without specifying what the
@@ -680,10 +675,10 @@ assertSucceeds :: (VisualStream s, TraversableStream s, Stream s, ShowErrorCompo
                -> Assertion
 assertSucceeds = \case
   Right _  -> pure ()
-  Left err -> assertFailure [__i|
+  Left err -> assertFailure [pr|
       expected correct parse
       but got parse error:
-      #{errorBundlePretty err}
+      {errorBundlePretty err}
     |]
 
 -- | Check whether the given parse result has no errors and returns
@@ -693,8 +688,8 @@ assertSucceeds = \case
       -> a
       -> Assertion
 Right result =?= expected = result @?= expected
-Left  err    =?= expected = assertFailure [__i|
-    expected correct parse: #{show expected}
+Left  err    =?= expected = assertFailure [pr|
+    expected correct parse: {show expected}
     but got parse error:
-    #{errorBundlePretty err}
+    {errorBundlePretty err}
   |]
