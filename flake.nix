@@ -18,6 +18,7 @@
           avro = "0.6.0.1";
           hashable = "1.4.0.2";
           OneTuple = "0.3.1";
+          PyF = "0.10.2.0";
           quickcheck-instances = "0.3.27";
           semialign = "1.2.0.1";
           stache = "2.3.1";

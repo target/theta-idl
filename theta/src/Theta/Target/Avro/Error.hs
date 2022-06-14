@@ -36,7 +36,7 @@ import           Text.Printf                 (printf)
 
 import qualified Theta.Error                 as Theta
 import           Theta.Name                  (Name (..))
-import           Theta.Pretty                (Pretty (pretty), p, prettyList)
+import           Theta.Pretty                (Pretty (pretty), pr, prettyList)
 import Theta.Types
     ( FieldName, Case(caseName), Type, prettyType, EnumSymbol )
 
@@ -122,57 +122,57 @@ data Reason = ConstructorField Avro.Value
 instance Pretty AvroError where
   pretty = \case
     InvalidExport type_ ->
-      [p|
+      [pr|
         Cannot export the chosen type as a top-level Avro schema:
 
-        #{prettyType type_}
+        {prettyType type_}
 
         Only records and variants can be exported as stand-alone Avro schemas.
            |]
     NonExistentType name ->
-      [p| The name ‘#{name}’ is not defined. |]
+      [pr| The name ‘{pretty name}’ is not defined. |]
     InvalidName name ->
-      [p| The name ‘#{name}’ is not a valid Theta name. |]
+      [pr| The name ‘{show name}’ is not a valid Theta name. |]
     DuplicateName name ->
-      [p| The name ‘#{name}’ has multiple definitions. |]
+      [pr| The name ‘{pretty name}’ has multiple definitions. |]
     DuplicateFieldName name ->
-      [p| The record ‘#{name}’ has multiple fields with the same name. |]
+      [pr| The record ‘{pretty name}’ has multiple fields with the same name. |]
     InvalidEnumSymbol enum symbol ->
-      [p| The enum ‘#{enum}’ does not contain the symbol ‘#{symbol}’. |]
+      [pr| The enum ‘{pretty enum}’ does not contain the symbol ‘{pretty symbol}’. |]
     MissingField record field ->
-      [p| The record ‘#{record}’ is missing the expected field ‘#{field}’. |]
+      [pr| The record ‘{pretty record}’ is missing the expected field ‘{pretty field}’. |]
     InvalidVariant reason variant ->
-      [p|
-        The variant ‘#{variant}’ was not encoded correctly in Avro:
+      [pr|
+        The variant ‘{pretty variant}’ was not encoded correctly in Avro:
 
-        #{prettyReason reason}
+        {prettyReason reason}
            |]
     TypeMismatch expected got ->
-      [p|
+      [pr|
         Type mismatch.
         Expected a:
-          #{prettyType expected}
+          {prettyType expected}
         But got the following Avro object:
-          #{prettyAvro got}
+          {prettyAvro got}
            |]
     FieldNameMismatch record theta avro ->
       let header  =
-            [p| "The Avro record ‘#{record}’ has a different set of fields than expected." |]
+            [pr| "The Avro record ‘{pretty record}’ has a different set of fields than expected." |]
           missing = prettyDifference "Missing" theta avro
           extra   = prettyDifference "Extra" avro theta
       in header <> missing <> extra
     InvalidUUID uuid ->
-      [p|
-        ‘#{uuid}’ is not valid syntax for a UUID.
+      [pr|
+        ‘{uuid}’ is not valid syntax for a UUID.
 
         UUIDs need to be strings conforming to RFC 4122.
 
         Example: ‘f81d4fae-7dec-11d0-a765-00a0c91e6bf6’
         |]
     FixedSizeMismatch expected got ->
-     [p|
-       Expected a fixed-size type of #{expected} bytes
-       But got #{got} bytes
+     [pr|
+       Expected a fixed-size type of {expected} bytes
+       But got {got} bytes
        |]
 
 -- | Render a human-readable description of why a varaint was not
@@ -180,20 +180,20 @@ instance Pretty AvroError where
 prettyReason :: Reason -> Text
 prettyReason = \case
   ConstructorField avro ->
-    [p|
+    [pr|
       Expected the “constructor” field to be a union but got:
-      #{prettyAvro avro}
+      {prettyAvro avro}
       |]
   InvalidRecord avro ->
-    [p|
+    [pr|
       Expected a record with a single “constructor” field but got:
-      #{prettyAvro avro}
+      {prettyAvro avro}
       |]
   ExtraCase cases name ->
-    [p|
-      The case #{Schema.renderFullname name} is not in the variant. The possible cases are:
+    [pr|
+      The case {Schema.renderFullname name} is not in the variant. The possible cases are:
 
-      #{prettyCaseList cases}
+      {prettyCaseList cases}
       |]
   DifferentFields theta avro ->
     let header  = "The Avro object has a different set of fields than expected from the Theta type."
@@ -201,9 +201,9 @@ prettyReason = \case
         extra   = prettyDifference "Extra" avro theta
     in header <> missing <> extra
   InvalidBranch avro ->
-    [p|
+    [pr|
       Expected a variant encoded as an Avro record but got:
-      #{prettyAvro avro}
+      {prettyAvro avro}
       |]
   where prettyCaseList = prettyList . map caseName . toList
 
@@ -221,10 +221,10 @@ prettyDifference :: (Eq name, Hashable name, Pretty name)
 prettyDifference header a b = case HashSet.toList (HashSet.difference a b) of
   []         -> ""
   difference ->
-      [p|
+      [pr|
 
-        #{header} fields in Avro:
-        #{prettyList difference}
+        {header} fields in Avro:
+        {prettyList difference}
         |]
 
 -- | A version of 'Avro.Value' with a ToJSON instance.

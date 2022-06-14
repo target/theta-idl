@@ -6,7 +6,6 @@ module Apps.Rust where
 
 import           Control.Monad.Except
 
-import           Data.String.Interpolate       (__i)
 import qualified Data.Text.IO                  as Text
 
 
@@ -16,6 +15,7 @@ import qualified Theta.Import                  as Theta
 import qualified Theta.Name                    as Theta
 import qualified Theta.Types                   as Theta
 
+import           Theta.Pretty                  (pr)
 import           Theta.Target.Rust             (toFile)
 import           Theta.Target.Rust.QuasiQuoter (Rust (..))
 
@@ -28,7 +28,7 @@ rustCommand = command "rust" $ runRust <$> opts
           (fullDesc <> progDesc rustDescription)
 
 rustDescription :: String
-rustDescription = [__i|
+rustDescription = [pr|
   Compile the given Theta modules and their transitive imports to Rust modules.
 |]
 

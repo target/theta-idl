@@ -7,17 +7,16 @@
 
 module Apps.Hash where
 
-import           Control.Monad           (forM_, unless)
-import           Control.Monad.IO.Class  (liftIO)
-
-import           Data.String.Interpolate (i)
+import           Control.Monad          (forM_, unless)
+import           Control.Monad.IO.Class (liftIO)
 
 import           Options.Applicative
 
-import qualified Theta.Import            as Theta
-import           Theta.Name              (ModuleName, Name (..))
-import qualified Theta.Name              as Name
-import qualified Theta.Types             as Theta
+import qualified Theta.Import           as Theta
+import           Theta.Name             (ModuleName, Name (..))
+import qualified Theta.Name             as Name
+import           Theta.Pretty           (pr)
+import qualified Theta.Types            as Theta
 
 import           Apps.Subcommand
 
@@ -48,15 +47,15 @@ hashTypes types loadPath = forM_ types $ \ typeName -> do
 
            -- Note the tab character
   let hash = Theta.hash . Theta.definitionType
-  liftIO $ putStrLn [i|#{Name.render typeName}	#{hash definition}|]
+  liftIO $ putStrLn [pr|{Name.render typeName}	{show $ hash definition}|]
 
 hashModules :: [ModuleName] -> Subcommand
 hashModules moduleNames loadPath = do
   modules <- traverse (Theta.getModule loadPath) moduleNames
 
-  forM_ (Theta.transitiveImports modules) $ \ module_ -> 
+  forM_ (Theta.transitiveImports modules) $ \ module_ ->
     forM_ (Theta.types module_) $ \ Theta.Definition
     { Theta.definitionType = type_, Theta.definitionName = name } ->
          -- Note the tab character
-    liftIO $ putStrLn [i|#{Name.render name}	#{Theta.hash type_}|]
+    liftIO $ putStrLn [pr|{Name.render name}	{show $ Theta.hash type_}|]
 

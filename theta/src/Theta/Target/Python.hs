@@ -40,7 +40,7 @@ import qualified Data.Text.Encoding              as Text
 
 import qualified Theta.Error                     as Theta
 import qualified Theta.Name                      as Name
-import           Theta.Pretty                    (p)
+import           Theta.Pretty                    (pr)
 import qualified Theta.Pretty                    as Theta
 import qualified Theta.Types                     as Theta
 
@@ -422,7 +422,7 @@ data PythonError = NonExistentType Name.Name
 instance Theta.Pretty PythonError where
   pretty = \case
     NonExistentType name ->
-      [p| The name ‘#{Theta.pretty name}’ is not defined. |]
+      [pr| The name ‘{Theta.pretty name}’ is not defined. |]
 
 -- | Throw a Python 3 error.
 throw :: MonadError Theta.Error m => PythonError -> m a

@@ -59,7 +59,7 @@ import           Text.Printf                   (printf)
 
 import qualified Theta.Error                   as Theta
 import           Theta.Name                    (Name)
-import           Theta.Pretty                  (p)
+import           Theta.Pretty                  (pr)
 import qualified Theta.Pretty                  as Theta
 import           Theta.Types                   (prettyType)
 import qualified Theta.Types                   as Theta
@@ -528,12 +528,12 @@ data ConversionError =
 
 instance Theta.Pretty ConversionError where
   pretty (TypeMismatch expected got context) =
-    [p|
+    [pr|
        Type mismatch.
 
-       Expected: ‘#{prettyType expected}’
-       But got:  ‘#{prettyType got}’
-         #{renderedContext}
+       Expected: ‘{prettyType expected}’
+       But got:  ‘{prettyType got}’
+         {renderedContext}
       |]
       where renderedContext :: Text
             renderedContext = case context of
@@ -542,22 +542,22 @@ instance Theta.Pretty ConversionError where
                 "\nin:\n" <> Text.intercalate "\n" (("↳ " <>) . prettyType <$> context)
 
   pretty (BinaryError type_ message) =
-    [p|
-       Error parsing ‘#{prettyType type_}’ from a binary Avro input:
+    [pr|
+       Error parsing ‘{prettyType type_}’ from a binary Avro input:
 
-       #{message}
+       {message}
       |]
 
   pretty (LeftOver type_ remainder) =
-    [p|
-       Error parsing ‘#{prettyType type_}’ from a binary Avro input:
+    [pr|
+       Error parsing ‘{prettyType type_}’ from a binary Avro input:
 
-       #{LBS.length remainder} bytes of the input remains unconsumed.
+       {LBS.length remainder} bytes of the input remains unconsumed.
       |]
 
   pretty (FixedSizeMismatch expected got) =
-    [p|
-      Expected a fixed-size value with #{expected} bytes but got #{got} bytes.
+    [pr|
+      Expected a fixed-size value with {expected} bytes but got {got} bytes.
       |]
 
 -- * Testing

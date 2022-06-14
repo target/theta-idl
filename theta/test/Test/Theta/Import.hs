@@ -20,7 +20,6 @@ module Test.Theta.Import where
 
 import           Control.Monad.Except          (runExceptT)
 
-import           Data.String.Interpolate       (__i)
 import qualified Data.Text                     as Text
 
 import           System.FilePath               (joinPath, takeExtension, (<.>),
@@ -30,7 +29,7 @@ import           Theta.Error
 import           Theta.Import
 import qualified Theta.Metadata                as Metadata
 import qualified Theta.Name                    as Name
-import           Theta.Pretty                  (pretty)
+import           Theta.Pretty                  (pr, pretty)
 import qualified Theta.Primitive               as Theta
 import           Theta.Types                   (Module (..))
 import qualified Theta.Types                   as Theta
@@ -186,10 +185,10 @@ test_getModuleDefinition = testGroup "getModuleDefinition"
         assertFailure "Did not raise an error as expected."
 
     assertValid Right{}    = pure ()
-    assertValid (Left err) = assertFailure [__i|
+    assertValid (Left err) = assertFailure [pr|
       Expected module to load without errors, but got:
 
-      #{pretty err}
+      {pretty err}
     |]
 
 test_getDefinition :: TestTree
@@ -202,9 +201,9 @@ test_getDefinition = testGroup "getDefinition"
       definition <- runExceptT $ getDefinition loadPath "foo.Bar"
       case Theta.definitionType <$> definition of
         Right t  -> t @?= expected
-        Left err -> assertFailure [__i|
-          Except type #{pretty expected} but got error:
-          #{pretty err}
+        Left err -> assertFailure [pr|
+          Except type {pretty expected} but got error:
+          {pretty err}
         |]
 
   , testCase "missing" $ do
@@ -214,24 +213,24 @@ test_getDefinition = testGroup "getDefinition"
       failed <- runExceptT $ getDefinition loadPath "foo.NotInScope"
       case Theta.definitionType <$> failed of
         Left (MissingName name) -> name @?= "foo.NotInScope"
-        Left err -> assertFailure [__i|
+        Left err -> assertFailure [pr|
           Wrong kind of error. Expected missing name, got:
-          #{pretty err}
+          {pretty err}
         |]
-        Right type_ -> assertFailure [__i|
+        Right type_ -> assertFailure [pr|
           Expected missing name error but got:
-          #{pretty type_}
+          {pretty type_}
         |]
 
       noModule <- runExceptT $ getDefinition loadPath "notInScope.NotInScope"
       case Theta.definitionType <$> noModule of
         Left (MissingModule _ name) -> name @?= "notInScope"
-        Left err -> assertFailure [__i|
+        Left err -> assertFailure [pr|
           Wrong kind of error. Expected missing name, got:
-          #{pretty err}
+          {pretty err}
         |]
-        Right type_ -> assertFailure [__i|
+        Right type_ -> assertFailure [pr|
           Expected missing name error but got:
-          #{pretty type_}
+          {pretty type_}
         |]
   ]
