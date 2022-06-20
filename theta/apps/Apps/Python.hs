@@ -2,29 +2,28 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE ViewPatterns      #-}
 module Apps.Python where
 
-import           Control.Monad           (forM_)
-import           Control.Monad.Trans     (liftIO)
+import           Control.Monad       (forM_)
+import           Control.Monad.Trans (liftIO)
 
-import qualified Data.List               as List
-import           Data.String.Interpolate (__i)
-import qualified Data.Text               as Text
-import qualified Data.Text.IO            as Text
+import qualified Data.List           as List
+import qualified Data.Text           as Text
+import qualified Data.Text.IO        as Text
 
 import           Options.Applicative
 
-import           System.Directory        (createDirectoryIfMissing)
-import           System.FilePath         ((<.>), (</>), joinPath)
+import           System.Directory    (createDirectoryIfMissing)
+import           System.FilePath     (joinPath, (<.>), (</>))
 
-import           Theta.Import            (getModule)
-import           Theta.Name              (ModuleName)
-import qualified Theta.Name              as Name
-import qualified Theta.Types             as Theta
+import           Theta.Import        (getModule)
+import           Theta.Name          (ModuleName)
+import qualified Theta.Name          as Name
+import qualified Theta.Types         as Theta
 
-import           Theta.Target.Python     (Python (..))
-import qualified Theta.Target.Python     as Python
+import           Theta.Pretty        (pr)
+import           Theta.Target.Python (Python (..))
+import qualified Theta.Target.Python as Python
 
 import           Apps.Subcommand
 
@@ -35,7 +34,7 @@ pythonCommand = command "python" $ runPython <$> parser
           (fullDesc <> progDesc pythonDescription)
 
 pythonDescription :: String
-pythonDescription = [__i|
+pythonDescription = [pr|
   Compile a Theta module and its transitive dependencies to Python modules.
 |]
 

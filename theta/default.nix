@@ -6,7 +6,7 @@
 
 , overrides ? (new: old: {})
 
-, source-overrides ? {}
+, source-overrides
 
 , build-tools ? [               # extra tools available for nix develop
   # hack to work around stylish-haskell not building with

@@ -9,23 +9,22 @@
 --  * list all modules in the load path with @theta list modules@
 module Apps.List where
 
-import           Data.String.Interpolate (__i)
+import           Options.Applicative    (CommandFields, Mod, Parser, command,
+                                         fullDesc, help, helper, info, long,
+                                         progDesc, subparser, switch, (<**>))
 
-import           Options.Applicative     (CommandFields, Mod, Parser, command,
-                                          fullDesc, help, helper, info, long,
-                                          progDesc, subparser, switch, (<**>))
+import           Control.Monad          (forM_)
+import           Control.Monad.IO.Class (liftIO)
 
-import           Apps.Subcommand         (Subcommand)
+import           Data.Foldable          (Foldable (toList))
+import qualified Data.List              as List
 
-import           Control.Monad           (forM_)
-import           Control.Monad.IO.Class  (liftIO)
+import           Text.Printf            (printf)
 
-import           Text.Printf             (printf)
+import qualified Theta.LoadPath         as LoadPath
+import           Theta.Pretty           (pr, showPretty)
 
-import qualified Theta.LoadPath          as LoadPath
-import           Theta.Pretty            (showPretty)
-import qualified Data.List as List
-import Data.Foldable (Foldable(toList))
+import           Apps.Subcommand        (Subcommand)
 
 -- * list
 
@@ -38,7 +37,7 @@ listCommand = command "list" opts
         subcommands = subparser $ mconcat [ modulesCommand ]
 
 listDescription :: String
-listDescription = [__i|
+listDescription = [pr|
   Commands for listing available Theta objects.
   |]
 
@@ -61,7 +60,7 @@ runModules options@ModuleOptions { paths, names } loadPath
         | otherwise      -> putStrLn (showPretty moduleName)
 
 modulesDescription :: String
-modulesDescription = [__i|
+modulesDescription = [pr|
   List every Theta module available in the Theta load path:
 
     • list module names: `theta list modules` or `theta list modules --names`

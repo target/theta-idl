@@ -21,7 +21,6 @@ import qualified Data.Avro.Schema.Schema       as Avro
 import           Data.Foldable                 (toList)
 import           Data.Set                      (Set)
 import qualified Data.Set                      as Set
-import           Data.String.Interpolate       (__i)
 import           Data.Tagged                   (Tagged (..))
 import qualified Data.Text                     as Text
 import qualified Data.Vector                   as Vector
@@ -34,6 +33,7 @@ import           Test.Tasty.HUnit
 import qualified Theta.Error                   as Theta
 import qualified Theta.Metadata                as Metadata
 import           Theta.Name                    (Name)
+import           Theta.Pretty                  (pr)
 import qualified Theta.Pretty                  as Theta
 import           Theta.Types
 import qualified Theta.Versions                as Theta
@@ -304,10 +304,9 @@ test_documentation = testGroup "documentation"
       let user = typeToAvro "1.0.0" $ HasTheta.theta @User
       check (Avro.doc <$> user) (Just "User metadata.")
 
-      let username_id_doc = [__i|
+      let username_id_doc = [pr|
         An opaque identifier to distinguish users with identical
-        usernames.
-      |]
+        usernames.|]
       check (Avro.fldDoc . head . Avro.fields <$> user) (Just username_id_doc)
 
   , testCase "variant" $ do
@@ -354,10 +353,9 @@ test_toSchema = testCase "toSchema" $ do
   let expected = Avro.Record "test.OneField" [] docs [foo]
       foo      = Avro.Field "foo" [] Nothing Nothing (Avro.String Nothing) Nothing
       docs     = Just
-        [__i|
-          Generated with Theta #{Theta.packageVersion'}
-          Type hash: 00c870b76a493aaac9709ea3b9968cc5
-            |]
+        [pr|
+          Generated with Theta {Theta.packageVersion'}
+          Type hash: 00c870b76a493aaac9709ea3b9968cc5|]
 
   case toSchema $ getDefinition "test.OneField" of
     Left err  -> fail $ Text.unpack $ Theta.pretty err

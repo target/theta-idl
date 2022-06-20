@@ -16,7 +16,6 @@ import           Control.Monad                 (forM_)
 import qualified Data.List.NonEmpty            as NonEmpty
 import qualified Data.Map                      as Map
 import qualified Data.Set                      as Set
-import           Data.String.Interpolate       (i)
 import qualified Data.Text                     as Text
 
 import           Text.Printf                   (printf)
@@ -24,7 +23,7 @@ import           Text.Printf                   (printf)
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import           Theta.Pretty                  (pretty)
+import           Theta.Pretty                  (pr, pretty)
 import           Theta.Primitive               (primitives)
 import qualified Theta.Primitive               as Theta
 import           Theta.Target.Haskell          (loadModule)
@@ -147,7 +146,7 @@ test_lookupName = testCase "lookupName" $ do
   assertPresent "d.D" theta'd
   where assertPresent name module_ = case Theta.lookupName name module_ of
           Left _ -> assertFailure
-            [i|Could not find #{pretty name} in #{pretty $ Theta.moduleName module_}.|]
+            [pr|Could not find {pretty name} in {pretty $ Theta.moduleName module_}.|]
           Right _  -> pure ()
 
 test_underlyingType :: TestTree

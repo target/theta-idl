@@ -12,17 +12,17 @@ import           Control.Monad.IO.Class  (liftIO)
 
 import qualified Data.Aeson              as Aeson
 import qualified Data.ByteString.Lazy    as LBS
-import           Data.String.Interpolate (__i)
 import qualified Data.Text               as Text
 
 import           Options.Applicative
 
 import           System.Directory        (createDirectoryIfMissing)
-import           System.FilePath         ((<.>), (</>), joinPath)
+import           System.FilePath         (joinPath, (<.>), (</>))
 
 import qualified Theta.Import            as Theta
 import           Theta.Name              (ModuleName, Name (..))
 import qualified Theta.Name              as Name
+import           Theta.Pretty            (pr)
 import           Theta.Target.Avro.Types (toSchema)
 import qualified Theta.Types             as Theta
 
@@ -40,7 +40,7 @@ avroCommand = command "avro" opts
           [ typeCommand, allCommand ]
 
 avroDescription :: String
-avroDescription = [__i|
+avroDescription = [pr|
   Commands for working with Avro schemas generate from Theta types.
 |]
 
@@ -97,7 +97,7 @@ allCommand = command "all" $ runAll <$> opts
           (fullDesc <> progDesc allDescription)
 
 allDescription :: String
-allDescription = [__i|
+allDescription = [pr|
   Compile every exportable type from the given module and every module
   it (transitively) imports to an Avro schema, placing all the schemas
   in $TARGET_DIRECTORY/avro.
@@ -121,7 +121,7 @@ runAll AllOptions { target, moduleNames } loadPath = do
     forM_ (Theta.types module_) $ \ definition ->
       export (Theta.moduleName module_) definition
 
-  where 
+  where
       export moduleName definition = do
         schema <- toSchema definition
         liftIO $ do

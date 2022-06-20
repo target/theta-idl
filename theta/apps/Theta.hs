@@ -1,30 +1,31 @@
-{-# LANGUAGE LambdaCase     #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE QuasiQuotes    #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
 module Main where
 
-import           Data.String.Interpolate (__i, i)
-import qualified Data.Text.IO            as Text
+import qualified Data.Text.IO        as Text
 
-import           GHC.Exts                (fromString)
-import qualified GHC.IO.Encoding         as Encoding
+import           GHC.Exts            (fromString)
+import qualified GHC.IO.Encoding     as Encoding
 
 import           Options.Applicative
 
-import           System.Environment      (lookupEnv)
-import           System.Exit             (exitFailure)
-import           System.IO               (stderr)
+import           System.Environment  (lookupEnv)
+import           System.Exit         (exitFailure)
+import           System.IO           (stderr)
 
-import qualified Theta.Import            as Theta
-import           Theta.Versions          (packageVersion')
+import qualified Theta.Import        as Theta
+import           Theta.Pretty        (pr, pretty)
+import           Theta.Versions      (packageVersion')
 
-import qualified Apps.Avro               as Avro
-import qualified Apps.Hash               as Hash
-import qualified Apps.Kotlin             as Kotlin
-import qualified Apps.List               as List
-import qualified Apps.Python             as Python
-import qualified Apps.Rust               as Rust
-import           Apps.Subcommand         (Subcommand, runTheta)
+import qualified Apps.Avro           as Avro
+import qualified Apps.Hash           as Hash
+import qualified Apps.Kotlin         as Kotlin
+import qualified Apps.List           as List
+import qualified Apps.Python         as Python
+import qualified Apps.Rust           as Rust
+import           Apps.Subcommand     (Subcommand, runTheta)
 
 main :: IO ()
 main = do
@@ -39,12 +40,12 @@ main = do
 -- * Help
 
 title :: InfoMod a
-title = header [__i|
-  theta (#{packageVersion'}) - define interfaces with algebraic data types
+title = header [pr|
+  theta ({pretty packageVersion'}) - define interfaces with algebraic data types
 |]
 
 description :: InfoMod a
-description = progDesc [__i|
+description = progDesc [pr|
   Theta is a language for formally specifying interfaces using
   algebraic data types.
 
@@ -90,14 +91,14 @@ thetaOptions = ThetaOptions <$> (mconcat <$> loadPath) <*> subcommands
           )
 
 run :: ThetaOptions -> IO ()
-run Version = putStrLn [i|Theta #{packageVersion'}|]
+run Version = putStrLn [pr|Theta {packageVersion'}|]
 run ThetaOptions { loadPath, subcommand } = do
   path <- maybe lookupPath pure loadPath
   runTheta $ subcommand path
   where lookupPath = lookupEnv "THETA_LOAD_PATH" >>= \case
           Just path -> pure $ fromString path
           Nothing   -> do
-            Text.hPutStrLn stderr [__i|
+            Text.hPutStrLn stderr [pr|
               No Theta load path set. You can either:
                 • specify the load path on the command line with the (--path|-p) argument
                 • set the THETA_LOAD_PATH environment variable

@@ -3,23 +3,23 @@
 {-# LANGUAGE ViewPatterns #-}
 module Apps.Subcommand where
 
-import           Control.Monad.Except    (ExceptT, runExceptT)
+import           Control.Monad.Except (ExceptT, runExceptT)
 
-import           Data.String.Interpolate (i)
-import           Data.Text               (Text)
-import qualified Data.Text               as Text
-import qualified Data.Text.IO            as Text
+import           Data.Text            (Text)
+import qualified Data.Text            as Text
+import qualified Data.Text.IO         as Text
 
-import           System.Exit             (exitFailure)
-import           System.IO               (stderr)
+import           System.Exit          (exitFailure)
+import           System.IO            (stderr)
 
 import           Options.Applicative
 
-import           Theta.Error             (Error (..))
-import qualified Theta.Import            as Theta
-import           Theta.Name              (ModuleName, Name)
-import qualified Theta.Name              as Name
-import qualified Theta.Pretty            as Theta
+import           Theta.Error          (Error (..))
+import qualified Theta.Import         as Theta
+import           Theta.Name           (ModuleName, Name)
+import qualified Theta.Name           as Name
+import           Theta.Pretty         (pr)
+import qualified Theta.Pretty         as Theta
 
 type Subcommand = Theta.LoadPath -> ExceptT Error IO ()
 
@@ -56,7 +56,7 @@ targetDirectory target = strOption
   <> long "out"
   <> value "."
   <> metavar "TARGET_DIRECTORY"
-  <> help [i|"Where to create #{target} (default ‘.’)."|]
+  <> help [pr|"Where to create {target} (default ‘.’)."|]
   )
 
 modules :: Parser [ModuleName]

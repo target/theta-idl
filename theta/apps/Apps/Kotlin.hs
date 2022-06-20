@@ -2,30 +2,29 @@
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE ViewPatterns      #-}
 module Apps.Kotlin where
 
-import           Control.Monad           (forM_)
-import           Control.Monad.Trans     (liftIO)
+import           Control.Monad       (forM_)
+import           Control.Monad.Trans (liftIO)
 
-import qualified Data.List               as List
-import           Data.Maybe              (fromMaybe)
-import           Data.String.Interpolate (__i)
-import qualified Data.Text               as Text
-import qualified Data.Text.IO            as Text
+import qualified Data.List           as List
+import           Data.Maybe          (fromMaybe)
+import qualified Data.Text           as Text
+import qualified Data.Text.IO        as Text
 
 import           Options.Applicative
 
-import           System.Directory        (createDirectoryIfMissing)
-import           System.FilePath         ((<.>), (</>), joinPath)
+import           System.Directory    (createDirectoryIfMissing)
+import           System.FilePath     (joinPath, (<.>), (</>))
 
-import qualified Theta.Import            as Theta
-import           Theta.Name              (ModuleName)
-import qualified Theta.Name              as Name
-import qualified Theta.Types             as Theta
+import qualified Theta.Import        as Theta
+import           Theta.Name          (ModuleName)
+import qualified Theta.Name          as Name
+import           Theta.Pretty        (pr)
+import qualified Theta.Types         as Theta
 
-import           Theta.Target.Kotlin     (Kotlin (..))
-import qualified Theta.Target.Kotlin     as Kotlin
+import           Theta.Target.Kotlin (Kotlin (..))
+import qualified Theta.Target.Kotlin as Kotlin
 
 import           Apps.Subcommand
 
@@ -36,7 +35,7 @@ kotlinCommand = command "kotlin" $ runKotlin <$> opts
           (fullDesc <> progDesc kotlinDescription)
 
 kotlinDescription :: String
-kotlinDescription = [__i|
+kotlinDescription = [pr|
   Compile a Theta module and its transitive imports to Kotlin modules.
 |]
 

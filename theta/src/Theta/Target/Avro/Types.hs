@@ -49,7 +49,6 @@ import           Data.List.NonEmpty         (NonEmpty (..))
 import qualified Data.List.NonEmpty         as NonEmpty
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
-import           Data.String.Interpolate    (__i)
 import qualified Data.Vector                as Vector
 
 import qualified Theta.Error                as Theta
@@ -57,11 +56,12 @@ import           Theta.Metadata             (Version)
 import qualified Theta.Metadata             as Metadata
 import           Theta.Name                 (Name)
 import qualified Theta.Name                 as Name
+import           Theta.Pretty               (pr, pretty)
 import qualified Theta.Primitive            as Theta
 import           Theta.Target.Avro.Error
 import           Theta.Types
+import qualified Theta.Types                as Theta
 import qualified Theta.Versions             as Versions
-import qualified Theta.Types as Theta
 
 -- | Transform a Theta type into a full Avro schema.
 --
@@ -140,10 +140,9 @@ toSchema Definition { definitionType } =
     annotation Nothing    = Just message
     annotation (Just doc) = Just $ message <> "\\n" <> doc
 
-    message = [__i|
-      Generated with Theta #{Versions.packageVersion'}
-      Type hash: #{hash definitionType}
-    |]
+    message = [pr|
+      Generated with Theta {pretty Versions.packageVersion'}
+      Type hash: {show $ hash definitionType}|]
 
     toSchema' t = evalStateT (typeToAvro avroVersion t) Set.empty
 
