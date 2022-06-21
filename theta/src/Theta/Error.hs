@@ -53,7 +53,8 @@ import           Theta.Metadata            (Metadata, Version)
 import qualified Theta.Metadata            as Metadata
 import           Theta.Name                (ModuleName, Name)
 import qualified Theta.Name                as Name
-import           Theta.Pretty              (Pretty (..), p, prettyList)
+import           Theta.Pretty              (Pretty (..), indentBy, pr,
+                                            prettyList)
 import           Theta.Primitive           (primitives)
 import qualified Theta.Primitive           as Primitive
 import           Theta.Types               (FieldName, Module)
@@ -149,44 +150,44 @@ instance Pretty Error where
     IOError err    -> Text.pack $ displayException err
 
     UnsupportedVersion metadata range version ->
-      [p|
-        The ‘#{pretty $ Metadata.moduleName metadata}’ module requires
+      [pr|
+        The ‘{pretty $ Metadata.moduleName metadata}’ module requires
 
-          #{name range} = #{pretty version}
+          {name range} = {pretty version}
 
         but this release of Theta only supports
 
-          #{name range} ≥ #{pretty $ lower range} and < #{pretty $ upper range}
+          {name range} ≥ {pretty $ lower range} and < {pretty $ upper range}
         |]
     InvalidModule errs ->
-      [p|
+      [pr|
         Errors in module definitions:
 
-        #{Text.intercalate "\n" $ prettyModuleError <$> errs}
+        {Text.intercalate "\n" $ prettyModuleError <$> errs}
         |]
     InvalidName name ->
-      [p|
-        Syntax error: ‘#{name}’ is not a valid Theta name.
+      [pr|
+        Syntax error: ‘{name}’ is not a valid Theta name.
         |]
     UnqualifiedName name ->
-      [p|
-        ‘#{name}’ does not have a namespace. Please provide
+      [pr|
+        ‘{name}’ does not have a namespace. Please provide
         a fully-qualified name like ‘com.example.Foo’.
         |]
     MissingModule loadPath moduleName ->
-      [p|
-        The module ‘#{moduleName}’ was not found in load path ‘#{pretty loadPath}’.
+      [pr|
+        The module ‘{pretty moduleName}’ was not found in load path ‘{pretty loadPath}’.
         |]
     MissingName Name.Name { Name.name, Name.moduleName } ->
-      [p|
-        Could not find ‘#{name}’ in module ‘#{moduleName}’.
+      [pr|
+        Could not find ‘{pretty name}’ in module ‘{pretty moduleName}’.
         |]
 
     Target target (TargetError err) ->
-        [p|
-          Error converting to/from #{target}:
+        [pr|
+          Error converting to/from {target}:
 
-          #{pretty err}
+          {pretty err}
           |]
 
 -- * Module Validation
@@ -242,39 +243,34 @@ data ModuleError =
 -- the problem and the module it originates from.
 prettyModuleError :: (Module, ModuleError) -> Text
 prettyModuleError (containingModule, err) =
-  [p|
-    Error in module ‘#{pretty containingName}’:
-    #{message}
-    |]
+  [pr|Error in module ‘{pretty containingName}’:|] <> "\n" <> message
     where
       containingName = Theta.moduleName containingModule
 
       message :: Text
       message = case err of
         DuplicateRecordField record field ->
-          [p|The record ‘#{pretty record}’ has multiple fields called ‘#{pretty field}’.|]
+          [pr|The record ‘{pretty record}’ has multiple fields called ‘{pretty field}’.|]
 
         DuplicateCaseName variant case_ ->
-          [p|The variant ‘#{pretty variant}’ has multiple cases called ‘#{pretty case_}’|]
+          [pr|The variant ‘{pretty variant}’ has multiple cases called ‘{pretty case_}’|]
 
         DuplicateCaseField variant case_ field ->
-          [p|The case ‘#{pretty case_}’ of the variant ‘#{pretty variant}’ has multiple fields called ‘#{pretty field}’.|]
+          [pr|The case ‘{pretty case_}’ of the variant ‘{pretty variant}’ has multiple fields called ‘{pretty field}’.|]
 
         UndefinedType name ->
           let suggestions = renderedSuggestions containingModule name
-              base = [p|The type ‘#{pretty name}’ is not defined.|]
+              base = [pr|The type ‘{pretty name}’ is not defined.|]
           in case suggestions of
              [] -> base
-             _  -> [p|
-               #{base}
-
-               Suggestions:
-               #{prettyList suggestions}
-             |]
+             _  -> base
+                <> "\n\n"
+                <> "Suggestions:\n"
+                <> indentBy 2 (prettyList suggestions)
 
         DuplicateTypeName name ->
-          [p|
-            The type ‘#{pretty name}’ has been defined multiple times.
+          [pr|
+            The type ‘{pretty name}’ has been defined multiple times.
 
             Fully qualified names have to be globally unique in Theta schemas.
             |]
@@ -327,17 +323,17 @@ renderedSuggestions module_ = renderSuggestions module_ . nameSuggestions module
 renderSuggestions :: Module -> [Suggestion] -> [Text]
 renderSuggestions module_ = map render
   where render (SuggestPrimitive primitive) =
-          let minVersion = Primitive.definedIn primitive in [p|
-            #{pretty primitive} (primitive type): requires language-version ≥ #{pretty minVersion}
+          let minVersion = Primitive.definedIn primitive in [pr|
+            {pretty primitive} (primitive type): requires language-version ≥ {pretty minVersion}
           |]
 
         render (SuggestName fullName@Name.Name {..})
           | moduleName == containingName =
-             [p|#{name} (#{pretty fullName})|]
+             [pr|{name} ({pretty fullName})|]
           | Set.member moduleName directImports =
              pretty fullName
           | otherwise =
-             [p|#{pretty fullName} (import #{pretty moduleName})|]
+             [pr|{pretty fullName} (import {pretty moduleName})|]
         directImports = Set.fromList $ Theta.moduleName <$> Theta.imports module_
 
         containingName = Theta.moduleName module_

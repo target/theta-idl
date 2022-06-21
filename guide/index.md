@@ -36,10 +36,24 @@ avro-version: 1.0.0
 ---
 ```
 
-Explicitly specifying versions lets different clients consistently communicate if they are using different versions—or even different *implementations*—of the Theta compiler. Theta modules at a specific language and Avro version should always compile to compatible Avro encodings. The concrete guarantee is that a Theta compiler will either:
+Changes and additions to Theta require a minimum `language-version` *in the module where they are used*. For example, if you use `enum` in a module called `com.example` with `language-version` < 1.1.0, you'll get an error:
 
-  * compile a schema at a given version to the same Avro and encode/decode it correctly
-  * fail to process the schema if it does not support the specified language/encoding versions
+> Support for enum requires language-version ≥ 1.1.0
+> Current module being parsed has language-version = 1.0.0
+
+The `language-version` constraint is only checked in the module where a language feature is *used*, so if you set `language-version: 1.1.0` in `com.example`, importing `com.example` in a module with
+`language-version: 1.0.0` will *not* raise an error.
+
+### Version Guarantee
+
+Explicitly specifying versions means that changes to the Theta language are always opt-in on a per module basis. Two clients can use different versions of `theta`—or, in principle, different *implementations* of Theta—and still work together as long as both versions support the `language-version` and `avro-version` for each Theta module they share.
+
+Every version of Theta will either:
+
+  * compile a schema at a given `language-version` and `avro-version` to an Avro schema that is structurally identical[^compatible] with the output of any other Theta release
+  * fail to process the schema if it does not support the specified language or avro versions
+
+[^compatible]: Two structurally identical Avro schemas will have the same types/field names/etc, but the exact JSON encoding may not be identical (for example, key order could be different) and `"doc"` fields in the schema may contain different strings or be absent altogether.
 
 ## Namespaces
 
@@ -167,7 +181,9 @@ Theta does not currently support defining polymorphic types. That capability mig
 
 ### Primitive Types
 
-Theta supports a small set of primitive types that match up to the primitive types exposed by Avro:
+Theta supports a small set of primitive types that match up to [primitive][avro-primitive] and [logical][avro-logical] types in Avro.
+
+`language-version` ≥ 1.0.0:
 
   * `Bool`: booleans, `true` or `false`
   * `Bytes`: raw binary data
@@ -178,6 +194,19 @@ Theta supports a small set of primitive types that match up to the primitive typ
   * `String`: Unicode strings
   * `Date`: Absolute dates (in days)
   * `Datetime`: Absolute timestamps (in microseconds)
+
+`language-version` ≥ 1.1.0:
+
+  * `UUID`: Universally unique identifiers (UUIDs) (see [RFC 4122][rfc-4122])
+  * `Time`: A time of day, starting at midnight (in microseconds)
+  * `LocalDatetime`: An absolute timestamp in whatever timezone is considered local (in microseconds)
+  * `Fixed(n)`: Fixed-size binary values with `n` bytes (`Fixed(1)`, `Fixed(10)`... etc)
+
+[avro-primitive]: https://avro.apache.org/docs/current/spec.html#schema_primitive
+
+[avro-logical]: https://avro.apache.org/docs/current/spec.html#Logical+Types
+
+[rfc-4122]: https://www.ietf.org/rfc/rfc4122.txt
 
 ### Containers
 
@@ -255,6 +284,8 @@ Enums are value that can be one of several explicitly listed symbols.
 enum Suit = Spades | Hearts | Diamonds | Clubs
 ```
 
+Requires `language-version` ≥ 1.1.0.
+
 From one perspective, an enum is just a restricted form of variant: it's a variant where each case only has a constructor and no fields. Enums can also differ from variants in how they are compiled to different targets—for example, a variant compiles to a union of records in Avro, while an enum compiles to an [Avro enum][avro-enum-spec]. Enums also generate different code from variants in languages like Python and Kotlin.
 
 ### Newtypes and Aliases
@@ -289,7 +320,9 @@ Theta names have the same lexical and namespacing rules as Avro, so the fully qu
 
 #### Primitive Types
 
-Theta's primitive types directly match up with Avro's primitive types:
+Theta's primitive types match up with Avro's [primitive][avro-primitive]  and [logical][avro-logical] types:
+
+`language-version` ≥ 1.0.0
 
   * `Bool`: `"boolean"`
   * `Bytes`: `"bytes"`
@@ -298,8 +331,33 @@ Theta's primitive types directly match up with Avro's primitive types:
   * `Float`: `"float"`
   * `Double`: `"double"`
   * `String`: `"string"`
-  * `Date`: logical type `"date"`, physical type `"int"`
-  * `Datetime`: logical type `"timestamp-micros"`, physical type `"long"`
+  * `Date`: `"int"`
+  * `Datetime`: `"long"`
+
+`language-version` ≥ 1.1.0
+
+  * `UUID`: `"uuid"` logical type (physical type: `"string"`)
+  * `Time`: `"time"` logical type (physical type: `"long"`)
+  * `LocalDateTime`: `"local-timestamp-micros"` (physical type: `"long"`)
+  * `Fixed(n)`: a `"fixed"` type with size `n` and a standardized name
+
+With `avro-version` ≥ 1.1.0, `Date` is encoded as the logical `"date"` type and `Datetime` is encoded as the logical `"timestamp-micros"` type.
+
+Fixed types are named types in Avro, but do not have to have a name in Theta. Theta compiles `Fixed(n)` to a `"fixed"` type named `"theta.fixed.Fixed_n"`.
+
+For example, the first use of `Fixed(10)` compiles to:
+
+``` json
+{
+  "type": "fixed",
+  "size": 10,
+  "name": "theta.fixed.Fixed_10"
+}
+```
+
+Every subsequent use refers to `theta.fixed.Fixed_10` by name.
+
+With `avro-version` ≥ 1.1.0, `Date` is encoded as the logical `"date"` type and `Datetime` is encoded as the logical `"timestamp-micros"` type.
 
 #### Containers
 
@@ -483,15 +541,31 @@ data Bar = Bar { baz :: Int32 }
 
 Theta's primitive types map to the following Haskell types:
 
+`language-version` ≥ 1.0.0
+
   * `Bool`: `Bool`
-  * `Bytes`: lazy `ByteString` (from `Data.ByteString.Lazy`)
-  * `Int`: `Int32` (from `Data.Int`)
-  * `Long`: `Int64` (from `Data.Int`)
+  * `Bytes`: lazy `ByteString` ([`bytestring`][haskell-bytestring])
+  * `Int`: `Int32`
+  * `Long`: `Int64`
   * `Float`: `Float`
   * `Double`: `Double`
-  * `String`: `Text`
-  * `Date`: `Day` (from `Data.Time.Calendar`)
-  * `Datetime`: `UTCTime` (from `Data.Time.Clock`)
+  * `String`: `Text` (from [`text`][haskell-text])
+  * `Date`: `Day` (from [`time`][haskell-time])
+  * `Datetime`: `UTCTime` (from [`time`][haskell-time])
+
+`language-version` ≥ 1.1.0
+
+  * `UUID`: `UUID` (from [`uuid`][haskell-uuid])
+  * `Time`: `TimeOfDay` (from [`time`][haskell-time])
+  * `LocalDatetime`: `LocalTime` (from [`time`][haskell-time])
+  * `Fixed(n)`: `FixedBytes n` (from `Theta.Fixed`)
+
+Note: `FixedBytes` uses `DataKinds` to get type-level natural literals so that a type like `Fixed(10)` would compile to `FixedBytes 10`.
+
+[haskell-text]: https://hackage.haskell.org/package/text
+[haskell-bytestring]: https://hackage.haskell.org/package/bytestring
+[haskell-time]: https://hackage.haskell.org/package/time
+[haskell-uuid]: https://hackage.haskell.org/package/uuid
 
 #### Containers
 
@@ -585,7 +659,7 @@ data Weird = Foo { a'Foo :: Int,  b :: Int }
 
 #### Enums
 
-Enums are compiled to Haskell sum types, just like variants. 
+Enums are compiled to Haskell sum types, just like variants.
 
 ```
 enum Status = Active | Inactive
