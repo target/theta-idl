@@ -79,7 +79,7 @@ avro = Range { name = "avro-version", lower = "1.0.0", upper = "1.2.0" }
 
 -- | Which version of the Theta package this is.
 packageVersion :: Cabal.Version
-packageVersion = Cabal.makeVersion [1, 0, 0, 2]
+packageVersion = Cabal.makeVersion [1, 0, 1, 1]
 
 -- | Which version of the Theta package this is as 'Text'.
 packageVersion' :: Text
