@@ -294,8 +294,11 @@ record recordName avroVersion doc Fields { fields } = do
         , Avro.fldDoc     = getText <$> fieldDoc
         , Avro.fldOrder   = Nothing
         , Avro.fldType    = type_
-        , Avro.fldDefault = Nothing
+        , Avro.fldDefault = defaultValue fieldType type_
         }
+
+    defaultValue Type{baseType = Optional' _} Avro.Union{options} = Just (Avro.DUnion options Avro.Null Avro.DNull)
+    defaultValue _ _ = Nothing
 
     force xs = liftRnf (`seq` ()) xs `seq` xs
 {-# SPECIALIZE record :: Name -> Version -> Maybe Doc -> Fields Type -> StateT (Set Name) (Either Theta.Error) Schema #-}
