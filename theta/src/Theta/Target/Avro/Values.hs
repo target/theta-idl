@@ -257,11 +257,14 @@ fromAvro type_@Theta.Type { baseType, module_ } avro = do
           (Theta.Map' t, Avro.Map map)      -> Map <$> mapM (fromAvro t) map
 
           -- optional types
-          (Theta.Optional' t,
-           Avro.Union (ReadSchema.Union [(0, ReadSchema.Null), _]) _ v) ->
-            case v of
-              Avro.Null -> pure $ Optional Nothing
-              _         -> Optional . Just <$> fromAvro t v
+          (Theta.Optional' t, some) ->
+            case some of
+              Avro.Union ReadSchema.Null 0 Avro.Null -> pure $ Optional Nothing
+              Avro.Union (ReadSchema.Union [(0, ReadSchema.Null), _]) _ v ->
+                case v of
+                  Avro.Null -> pure $ Optional Nothing
+                  _ -> Optional . Just <$> fromAvro t v
+              _ -> throw $ TypeMismatch type_ some
 
           -- constructed types
           (Theta.Enum' name symbols,
