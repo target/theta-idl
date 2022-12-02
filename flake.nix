@@ -6,20 +6,27 @@
     flake-utils.url = "github:numtide/flake-utils";
     naersk-flake.url = "github:nix-community/naersk";
     rust-overlay.url = "github:mozilla/nixpkgs-mozilla";
-  };
 
-  outputs = { self, nixpkgs, flake-utils, naersk-flake, rust-overlay }:
+    # HACK: nix automatically unpacks this, but we will need to tar.gz
+    # it again to override all-cabal-hashes :/
+    all-cabal-hashes-unpacked = {
+      flake = false;
+      url = "github:commercialhaskell/all-cabal-hashes/current-hackage";
+    };
+  };
+  outputs = { self, nixpkgs, flake-utils, naersk-flake, rust-overlay, all-cabal-hashes-unpacked }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         source-overrides = {
           aeson = "2.0.3.0";
           aeson-pretty = "0.8.9";
           attoparsec = "0.14.4";
-          avro = "0.6.0.1";
+          avro = "0.6.1.2";
+          HasBigDecimal = "0.2.0.0";
           hashable = "1.4.0.2";
           OneTuple = "0.3.1";
-          PyF = "0.10.2.0";
-          quickcheck-instances = "0.3.27";
+          PyF = "0.11.1.0";
+          quickcheck-instances = "0.3.28";
           semialign = "1.2.0.1";
           stache = "2.3.1";
           streamly = "0.8.1.1";
@@ -27,13 +34,19 @@
           streamly-process = "0.2.0";
           text-short = "0.1.5";
           time-compat = "1.9.6.1";
-          unordered-containers = "0.2.16.0";
+          unordered-containers = "0.2.19.1";
           versions = "5.0.2";
         };
 
         overrides = new: old: {
           foldl = pkgs.haskell.lib.doJailbreak old.foldl;
           streamly-process = pkgs.haskell.lib.dontCheck old.streamly-process;
+
+          # really slow test suite:
+          ListLike = pkgs.haskell.lib.dontCheck old.ListLike;
+
+          # test failing for what seems to be a Nix-specific reason
+          streamly-bytestring = pkgs.haskell.lib.dontCheck old.streamly-bytestring;
         };
 
         theta_8107 = import ./theta {
@@ -43,6 +56,10 @@
         theta_902 = import ./theta {
           inherit pkgs source-overrides overrides;
           compiler-version = "ghc902";
+        };
+        theta_925 = import ./theta {
+          inherit pkgs source-overrides overrides;
+          compiler-version = "ghc925";
         };
 
         # default is 8.10.7 (for now?)
@@ -59,10 +76,13 @@
         };
 
         haskell-overlay = final: current: {
-          all-cabal-hashes = current.fetchurl {
-            url = "https://github.com/commercialhaskell/all-cabal-hashes/archive/eb3b21c9f04e3a913efd61346bad427d92df3d1b.tar.gz";
-            sha256 = "0mm6y1zq1h7j17489fkyb18rfc2z0aglp5ly9f12jzhg5c6z85b7";
-          };
+          # HACK: explicitly repacking all-cabal-hashes so that it
+          # works with callHackage
+          all-cabal-hashes = current.runCommand "all-cabal-hashes.tar.gz" {} ''
+            cd ${all-cabal-hashes-unpacked}
+            cd ..
+            tar czf $out $(basename ${all-cabal-hashes-unpacked})
+          '';
         };
 
         overlays = [
@@ -83,13 +103,14 @@
         inherit overlays lib;
 
         packages = {
-          inherit theta theta_8107 theta_902 rust python test;
+          inherit theta theta_8107 theta_902 theta_925 rust python test;
         };
 
         devShells = {
           theta = packages.theta.env;
           theta_8107 = packages.theta_8107.env;
           theta_902 = packages.theta_902.env;
+          theta_925 = packages.theta_925.env;
           rust = pkgs.mkShell {
             nativeBuildInputs = pkgs.rust-dev-tools;
           };
