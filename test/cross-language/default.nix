@@ -22,12 +22,14 @@ let
   python-executable = import ./python { inherit pkgs lib; };
 
   build-tools =
-    [ haskell.stylish-haskell
-      haskell.cabal-install
-      haskell.haskell-language-server
-      haskell.hlint
+    [ pkgs.haskellPackages.stylish-haskell
+      pkgs.haskellPackages.cabal-install
+      pkgs.haskellPackages.hlint
+
       pkgs.stack
       pkgs.time-ghc-modules
+
+      haskell.haskell-language-server
 
       rust-executable
       python-executable
