@@ -31,7 +31,7 @@ common shared
 
                -- turn off warning from C preprocess on macOS
                -optP-Wno-nonportable-include-path
-  build-depends: base >=4.13 && <4.16
+  build-depends: base >=4.13 && <4.17
 
                , aeson
                , aeson-pretty >=0.8.9 && <0.9
@@ -52,7 +52,7 @@ common shared
                , prettyprinter
                , prettyprinter-ansi-terminal
                , pureMD5
-               , PyF == 0.10.*
+               , PyF ==0.11.*
                , QuickCheck
                , streamly ==0.8.1.*
                , streamly-bytestring ==0.1.4
