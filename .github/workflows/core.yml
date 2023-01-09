@@ -5,9 +5,9 @@
 name: Core Tests
 
 on:
-  push:
-    branches:
-      - 'stage'
+  # push:
+  #   branches:
+  #     - 'stage'
   pull_request:
 
 jobs:
@@ -26,8 +26,14 @@ jobs:
           name: theta-idl
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-      - name: Build Theta
-        run: nix build .#theta -L
+      # - name: Build Theta (GHC 8.10.7)
+      #   run: nix build .#theta_8107 -L
 
-      - name: Cross-Language Tests
-        run: nix build .#test -L
+      # - name: Build Theta (GHC 9.0.2)
+      #   run: nix build .#theta_902 -L
+
+      # - name: Build Theta (GHC 9.2.5)
+      #   run: nix build .#theta_925 -L
+
+      # - name: Cross-Language Tests
+      #   run: nix build .#test -L

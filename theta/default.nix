@@ -9,13 +9,16 @@
 , source-overrides
 
 , build-tools ? [               # extra tools available for nix develop
-  # hack to work around stylish-haskell not building with
-  # compiler = "ghc902"
   pkgs.haskellPackages.stylish-haskell
 
   compiler.cabal-install
-  compiler.haskell-language-server
   compiler.hlint
+
+  # TODO: disable tests for ListLike for haskell-language-server
+  #
+  # depends on ListLike, which was taking forever to compile due to
+  # test suite
+  # compiler.haskell-language-server
 
   # for ci/stack-test
   pkgs.stack
